@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 
 import '../integrations/catalog.dart';
 import '../integrations/integration.dart';
+import '../integrations/lan/lan_driver.dart';
 import '../models/device.dart';
 import '../models/home.dart';
 import 'repository.dart';
@@ -392,7 +393,8 @@ class HomeStore extends ChangeNotifier {
           added++;
         } else {
           existing.capabilities = f.capabilities;
-          existing.props = f.props;
+          // Keep what was learned later (pairing tokens, MAC addresses, keys).
+          existing.props = {...existing.props, ...f.props};
           existing.state = existing.state.merge(f.state);
         }
       }
@@ -407,6 +409,129 @@ class HomeStore extends ChangeNotifier {
       toast('${cfg.name}: $e');
       return 0;
     }
+  }
+
+  // ---- Network devices ------------------------------------------------------------------
+
+  /// The Network devices connection, created the first time it is needed.
+  IntegrationConfig get lanIntegration =>
+      data.integrations.where((i) => i.type == lanType).firstOrNull ?? addIntegration(lanType);
+
+  /// Adds whatever answers at [address]: a TV, a plug, a speaker, or any other
+  /// device. Devices with their own connection (Shelly, WLED...) go there.
+  Future<List<Device>> addNetworkDevice(String address, {Map<String, String> hints = const {}}) async {
+    final host = LanDriver.cleanHost(address);
+    if (host.isEmpty) {
+      toast('Type an address such as 192.168.1.50.');
+      return const [];
+    }
+    final cfg = lanIntegration;
+    final driver = _drivers[cfg.id];
+    if (driver is! LanDriver) return const [];
+    final match = await driver.identify(host, hints: hints);
+    if (match.family != null) {
+      await addToFamily(match.family!, host);
+      return const [];
+    }
+    final added = <Device>[];
+    for (final f in match.devices) {
+      final existing = device(f.id);
+      if (existing == null) {
+        data.devices.add(f);
+        added.add(f);
+      } else {
+        existing.capabilities = f.capabilities;
+        existing.props = {...existing.props, ...f.props};
+        existing.state = existing.state.merge(f.state);
+      }
+    }
+    final hosts = parseHosts(cfg.setting('hosts'));
+    if (!hosts.contains(host)) cfg.settings['hosts'] = [...hosts, host].join('\n');
+    driver.attach(data.devices.where((d) => d.integrationId == cfg.id));
+    status[cfg.id] = IntegrationStatus(ok: true, lastSync: DateTime.now());
+    _changed();
+    if (match.devices.isEmpty) {
+      toast('Nothing answered at $host.');
+      return const [];
+    }
+    final pairs = added.where((d) => const {'samsung', 'webos'}.contains(d.props['protocol'])).toList();
+    if (added.isEmpty) {
+      toast('${match.devices.first.name} is already added.');
+    } else if (pairs.isNotEmpty) {
+      toast('Added ${pairs.first.name}. Look at the TV and allow SmartMenuKJ.');
+    } else {
+      toast('Added ${added.map((d) => d.name).join(', ')}.');
+    }
+    for (final d in pairs) {
+      driver.setUp(d).then((problem) {
+        if (problem != null) toast(problem);
+        _changed(); // saves the key the TV handed out
+      });
+    }
+    return added;
+  }
+
+  /// Adds [address] to the connection for its device family, creating it if needed.
+  Future<void> addToFamily(String type, String address) async {
+    final spec = specFor(type);
+    if (spec == null) return;
+    final existing = data.integrations.where((i) => i.type == type).firstOrNull;
+    if (spec.fields.any((f) => f.key == 'hosts')) {
+      if (existing != null) {
+        final hosts = parseHosts(existing.setting('hosts'));
+        if (!hosts.contains(address)) {
+          await updateIntegration(existing, settings: {'hosts': [...hosts, address].join('\n')});
+        }
+        await sync(existing);
+      } else {
+        await sync(addIntegration(type, settings: {'hosts': address}));
+      }
+      return;
+    }
+    if (type == 'hue') {
+      if (existing == null) {
+        addIntegration('hue', settings: {'host': address});
+      } else {
+        await updateIntegration(existing, settings: {'host': address});
+      }
+      toast('Found a Hue bridge. Press its round button, then tap Pair under Connect > Philips Hue.');
+    }
+  }
+
+  /// Sends a Wake-on-LAN packet to a network device.
+  Future<void> wake(Device d) async {
+    final driver = _drivers[d.integrationId];
+    if (driver is! LanDriver) return;
+    try {
+      await driver.wake(d);
+      toast('Wake-up sent to ${d.name}.');
+    } catch (e) {
+      toast('$e');
+    }
+  }
+
+  /// Forgets a TV's pairing and asks it again (the TV shows a prompt).
+  Future<void> pairNetworkDevice(Device d) async {
+    final driver = _drivers[d.integrationId];
+    if (driver is! LanDriver) return;
+    d.props
+      ..remove('token')
+      ..remove('clientKey');
+    await driver.protocolOf(d).close();
+    toast('Look at ${d.name} and allow SmartMenuKJ.');
+    final problem = await driver.setUp(d);
+    toast(problem ?? 'Paired with ${d.name}.');
+    _changed();
+  }
+
+  /// Sets one of a device's own settings (MAC address, TV key...).
+  void setDeviceProp(Device d, String key, String? value) {
+    if (value == null || value.trim().isEmpty) {
+      d.props.remove(key);
+    } else {
+      d.props[key] = value.trim();
+    }
+    _changed();
   }
 
   /// Reads the state of every device from its integration.

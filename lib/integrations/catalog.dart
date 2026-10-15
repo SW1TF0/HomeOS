@@ -7,6 +7,7 @@ import 'esphome.dart';
 import 'home_assistant.dart';
 import 'hue.dart';
 import 'integration.dart';
+import 'lan/lan_driver.dart';
 import 'mqtt.dart';
 import 'shelly.dart';
 import 'tasmota.dart';
@@ -46,7 +47,24 @@ class IntegrationSpec {
 const _hosts = SettingField('hosts', 'Device addresses',
     hint: 'One IP or hostname per line, e.g. 192.168.1.40', multiline: true, required: true);
 
+/// The type of the "Network devices" connection (TVs and anything else on the LAN).
+const lanType = 'lan';
+
 final List<IntegrationSpec> integrationCatalog = [
+  IntegrationSpec(
+    type: lanType,
+    name: 'Network devices',
+    tagline: 'TVs, speakers, plugs, anything on Wi-Fi',
+    description: 'Adds anything on your home network, found by Scan network or typed in by address. '
+        'Samsung, LG, Sony and Roku TVs, Chromecast and Google TV, UPnP / DLNA players and speakers, '
+        'TP-Link Kasa, Yeelight and Belkin WeMo get real controls. Everything else shows whether it is online '
+        'and can be woken with Wake-on-LAN.',
+    icon: Icons.tv,
+    fields: const [
+      SettingField('hosts', 'Device addresses', hint: 'One IP per line, e.g. 192.168.1.50', multiline: true),
+    ],
+    create: LanDriver.new,
+  ),
   IntegrationSpec(
     type: 'homeassistant',
     name: 'Home Assistant',

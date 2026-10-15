@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../integrations/catalog.dart';
+import '../../integrations/lan/lan_driver.dart';
+import '../../integrations/lan/wol.dart';
+import '../../integrations/network_scan.dart';
 import '../../models/device.dart';
 import '../../state/home_store.dart';
 import '../../theme/nothing_theme.dart';
 import '../../util/color_math.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
+import '../widgets/remote_pad.dart';
 
 Future<void> showDeviceSheet(BuildContext context, Device device) => showModalBottomSheet(
       context: context,
@@ -131,6 +135,30 @@ class DeviceSheet extends StatelessWidget {
                       onPressed: () => store.command(d, const DeviceCommand(position: 1)), child: const Text('Open'))),
             ]),
           ],
+          if (d.has(Capability.volume)) ...[
+            const SectionLabel('Volume'),
+            Row(children: [
+              IconButton(
+                key: const Key('mute-toggle'),
+                tooltip: s.muted == true ? 'Unmute' : 'Mute',
+                onPressed: () => store.command(d, DeviceCommand(muted: !(s.muted ?? false))),
+                icon: Icon(s.muted == true ? Icons.volume_off : Icons.volume_up_outlined,
+                    color: s.muted == true ? NothingPalette.red : p.text),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DotSlider(
+                  semanticLabel: 'Volume',
+                  value: s.volume ?? 0,
+                  onChangeEnd: (v) => store.command(d, DeviceCommand(volume: v)),
+                ),
+              ),
+            ]),
+          ],
+          if (d.has(Capability.remote)) ...[
+            const SectionLabel('Remote'),
+            RemotePad(keys: remoteKeysOf(d), onKey: (k) => store.command(d, DeviceCommand(key: k))),
+          ],
           if (d.has(Capability.targetTemp)) ...[
             const SectionLabel('Target temperature'),
             Row(
@@ -205,6 +233,7 @@ class DeviceSheet extends StatelessWidget {
                     if (k != null) store.updateDevice(d, kind: k);
                   },
                 ),
+                if (integration?.type == lanType) ..._networkTiles(context, store, d),
                 if (d.mapPos != null)
                   ListTile(
                     leading: const Icon(Icons.location_off_outlined),
@@ -230,6 +259,63 @@ class DeviceSheet extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Address, Wake-on-LAN and per-device settings of a network device.
+List<Widget> _networkTiles(BuildContext context, HomeStore store, Device d) {
+  final driver = store.driverFor(d.integrationId);
+  final mac = normalizeMac(d.props['mac'] as String?);
+  final protocol = '${d.props['protocol'] ?? 'generic'}';
+  final model = '${d.props['model'] ?? ''}';
+  return [
+    ListTile(
+      leading: const Icon(Icons.lan_outlined),
+      title: const Text('Address'),
+      subtitle: Text([
+        '${d.props['host']}',
+        FoundService.protocolLabels[protocol] ?? protocol,
+        if (model.isNotEmpty) model,
+      ].join(' · ')),
+    ),
+    ListTile(
+      key: const Key('device-mac'),
+      leading: const Icon(Icons.power_settings_new),
+      title: const Text('Wake-on-LAN'),
+      subtitle: Text(mac ?? 'Add the MAC address so the app can switch it on'),
+      onTap: () async {
+        final raw = await promptText(context,
+            title: 'MAC address', initial: mac ?? '', hint: 'AA:BB:CC:DD:EE:FF (in the device\'s network settings)');
+        if (raw == null) return;
+        if (raw.isEmpty) return store.setDeviceProp(d, 'mac', null);
+        final m = normalizeMac(raw);
+        m == null ? store.toast('That is not a MAC address.') : store.setDeviceProp(d, 'mac', m);
+      },
+    ),
+    if (mac != null)
+      ListTile(
+        leading: const Icon(Icons.bolt_outlined),
+        title: const Text('Wake up now'),
+        onTap: () => store.wake(d),
+      ),
+    if (driver is LanDriver)
+      for (final f in driver.fields(d))
+        ListTile(
+          leading: const Icon(Icons.key_outlined),
+          title: Text(f.label),
+          subtitle: Text(d.props[f.key] == null ? (f.defaultValue ?? 'Not set') : (f.secret ? '••••' : '${d.props[f.key]}')),
+          onTap: () async {
+            final v = await promptText(context, title: f.label, initial: '${d.props[f.key] ?? ''}', hint: f.hint);
+            if (v != null) store.setDeviceProp(d, f.key, v);
+          },
+        ),
+    if (protocol == 'samsung' || protocol == 'webos')
+      ListTile(
+        leading: const Icon(Icons.link),
+        title: const Text('Pair again'),
+        subtitle: const Text('Shows the allow prompt on the TV'),
+        onTap: () => store.pairNetworkDevice(d),
+      ),
+  ];
 }
 
 class _Hero extends StatelessWidget {

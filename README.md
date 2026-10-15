@@ -15,7 +15,8 @@ Everything is free and local-first. There is no account, no cloud, no subscripti
 - **Floor plan.** Draw rooms on a dotted grid, drag them around, resize them from the red corner, and add floors. Drag devices onto the plan and they join the room you drop them in. Tap a device on the plan to switch it, hold it for full controls.
 - **Controls.** On/off, brightness, white temperature, colour, blinds position, thermostat target, locks and sensor readings, shown only when the device supports them.
 - **Home screen.** A dot-matrix clock, favourites, rooms with all on / all off, and one button to switch everything off.
-- **Scan network.** Finds Hue bridges, Shelly, WLED, ESPHome, Home Assistant, MQTT brokers and Matter devices with mDNS, and adds them in one tap.
+- **Scan network.** Finds everything on your Wi-Fi that answers (mDNS, UPnP / SSDP, Kasa and Yeelight discovery, and a quick check of TV ports): TVs, speakers, plugs, lights, hubs, printers and more. Add anything in one tap, or type a device's IP address.
+- **TV remote.** Power, volume, mute, channels, arrows, OK, back, home and play / pause for Samsung, LG, Sony and Roku TVs, plus volume and play / pause for Chromecast, Google TV and UPnP speakers. TVs that are fully off are woken with Wake-on-LAN.
 - **Backups.** Copy your whole home (rooms, devices, connections) as text and paste it back on another phone or computer.
 - **Light and dark themes**, phone layout with a bottom bar, desktop layout with a side rail.
 
@@ -27,6 +28,7 @@ No app can speak every protocol on its own, so SmartMenuKJ combines direct local
 | --- | --- | --- |
 | **Home Assistant** | Anything Home Assistant supports: Matter and Thread, Zigbee (ZHA), Z-Wave, Google Nest, Sonos, IKEA, Xiaomi, Tuya, TP-Link, thermostats, locks, media players and more | Its REST API with a long-lived access token |
 | **MQTT & Zigbee2MQTT** | Over 4,000 Zigbee devices through Zigbee2MQTT, plus anything that uses Home Assistant MQTT discovery (Tasmota, ESPHome, Shelly, OpenMQTTGateway...), plus any device you describe by topic | Any MQTT broker, live updates |
+| **Network devices** | Samsung (Tizen), LG (webOS), Sony Bravia and Roku TVs; Chromecast, Google TV and Nest speakers; UPnP / DLNA TVs, speakers and receivers (Sonos and others); TP-Link Kasa plugs, strips and bulbs; Yeelight; Belkin WeMo. Anything else shows as online / offline and can be woken with Wake-on-LAN | Each device's own local protocol. Samsung and LG TVs ask once on screen to allow the app; Sony TVs need a pre-shared key set under IP control |
 | **Philips Hue** | Hue lights and plugs | The bridge's local API. Press the link button, tap Pair |
 | **Shelly** | Gen1, Plus, Pro, Gen3 and Gen4 relays, plugs, dimmers, shutters and H&T sensors | Local HTTP / RPC |
 | **Tasmota** | Plugs, bulbs, switches and sensors with Tasmota firmware | Local HTTP commands |

@@ -34,20 +34,14 @@ class ConnectScreen extends StatelessWidget {
             NCard(
               key: const Key('scan-network'),
               inverted: true,
-              onTap: () => showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                useSafeArea: true,
-                constraints: const BoxConstraints(maxWidth: 640),
-                builder: (_) => const ScanSheet(),
-              ),
+              onTap: () => openScanSheet(context),
               child: Row(children: [
                 Icon(Icons.wifi_tethering, color: p.background, size: 28),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text('Scan network', style: NType.body(17, color: p.background, weight: 600)),
-                    Text('Find Hue bridges, Shelly, WLED, ESPHome, Home Assistant, MQTT and Matter devices',
+                    Text('Find TVs, speakers, plugs, lights, hubs and anything else on your Wi-Fi',
                         style: NType.body(13, color: p.background.withValues(alpha: 0.65))),
                   ]),
                 ),
@@ -326,6 +320,24 @@ class _IntegrationSheetState extends State<IntegrationSheet> {
   }
 }
 
+Future<void> openScanSheet(BuildContext context) => showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      constraints: const BoxConstraints(maxWidth: 640),
+      builder: (_) => const ScanSheet(),
+    );
+
+/// Asks for an address and adds whatever answers there.
+Future<void> addByAddress(BuildContext context) async {
+  final store = context.read<HomeStore>();
+  final address = await promptText(context,
+      title: 'Device address', hint: 'e.g. 192.168.1.50 (see your router or the device\'s network settings)', action: 'Add');
+  if (address == null || address.isEmpty) return;
+  store.toast('Looking at $address...');
+  await store.addNetworkDevice(address);
+}
+
 /// Live list of what the network scan finds.
 class ScanSheet extends StatefulWidget {
   const ScanSheet({super.key, this.scanner});
@@ -336,7 +348,8 @@ class ScanSheet extends StatefulWidget {
 }
 
 class _ScanSheetState extends State<ScanSheet> {
-  final List<FoundService> _found = [];
+  final Map<String, FoundService> _found = {};
+  final Set<String> _adding = {};
   StreamSubscription<FoundService>? _sub;
   bool _scanning = false;
 
@@ -352,8 +365,8 @@ class _ScanSheetState extends State<ScanSheet> {
       _found.clear();
       _scanning = true;
     });
-    _sub = (widget.scanner ?? NetworkScanner()).scan().listen(
-          (s) => setState(() => _found.add(s)),
+    _sub = (widget.scanner ?? NetworkScanner()).scan(timeout: const Duration(seconds: 5)).listen(
+          (s) => setState(() => _found[s.key] = s),
           onDone: () => mounted ? setState(() => _scanning = false) : null,
         );
   }
@@ -364,6 +377,24 @@ class _ScanSheetState extends State<ScanSheet> {
     super.dispose();
   }
 
+  /// What to show: a device that has its own connection is not listed twice.
+  List<FoundService> get _visible {
+    final family = _found.values.where((s) => !s.isLan && s.integrationType != null).map((s) => s.host).toSet();
+    final list = _found.values.where((s) => !s.isLan || !family.contains(s.host)).toList();
+    // Hubs first, then the best-known network devices.
+    list.sort((a, b) {
+      if (a.isLan != b.isLan) return a.isLan ? 1 : -1;
+      final r = b.rank.compareTo(a.rank);
+      return r != 0 ? r : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    return list;
+  }
+
+  bool _isAdded(HomeStore store, FoundService s) => s.isLan
+      ? store.devices.any((d) => d.props['host'] == s.host && store.integration(d.integrationId)?.type == lanType)
+      : store.integrations.any((i) => i.type == s.integrationType &&
+          (parseHosts(i.setting('hosts')).contains(s.address) || i.setting('host') == s.address || i.setting('url') == s.address));
+
   Future<void> _add(FoundService s) async {
     final store = context.read<HomeStore>();
     final type = s.integrationType;
@@ -371,23 +402,22 @@ class _ScanSheetState extends State<ScanSheet> {
       store.toast('Matter devices join through Home Assistant for now: add it there, then sync Home Assistant here.');
       return;
     }
-    final spec = specFor(type)!;
-    final existing = store.integrations.where((i) => i.type == type).firstOrNull;
-    final usesHosts = spec.fields.any((f) => f.key == 'hosts');
-    if (usesHosts) {
-      if (existing != null) {
-        final hosts = parseHosts(existing.setting('hosts'));
-        if (!hosts.contains(s.address)) {
-          await store.updateIntegration(existing, settings: {'hosts': [...hosts, s.address].join('\n')});
-        }
-        await store.sync(existing);
-      } else {
-        final cfg = store.addIntegration(type, settings: {'hosts': s.address});
-        await store.sync(cfg);
+    if (s.isLan) {
+      setState(() => _adding.add(s.key));
+      try {
+        await store.addNetworkDevice(s.host, hints: {...s.hints, if (s.name != s.host) 'name': s.name});
+      } finally {
+        if (mounted) setState(() => _adding.remove(s.key));
       }
       return;
     }
+    final spec = specFor(type)!;
+    if (spec.fields.any((f) => f.key == 'hosts')) {
+      await store.addToFamily(type, s.address);
+      return;
+    }
     if (!mounted) return;
+    final existing = store.integrations.where((i) => i.type == type).firstOrNull;
     final prefill = switch (type) {
       'homeassistant' => {'url': s.address},
       'mqtt' => {'host': s.address, 'port': '${s.port}'},
@@ -397,49 +427,100 @@ class _ScanSheetState extends State<ScanSheet> {
     await openIntegrationSheet(context, spec: spec, config: existing, prefill: prefill);
   }
 
+  String _subtitle(FoundService s) {
+    final what = s.integrationType == null
+        ? 'Matter'
+        : s.isLan
+            ? (FoundService.protocolLabels[s.protocol] ?? 'Network device')
+            : specFor(s.integrationType!)?.name;
+    return '$what · ${s.host}';
+  }
+
+  IconData _icon(FoundService s) {
+    if (s.integrationType == null) return Icons.hub;
+    if (!s.isLan) return specFor(s.integrationType!)?.icon ?? Icons.devices;
+    return switch (s.protocol) {
+      'roku' || 'samsung' || 'webos' || 'sony' || 'cast' => Icons.tv,
+      'upnp' => Icons.speaker_outlined,
+      'kasa' || 'wemo' => Icons.power_outlined,
+      'yeelight' => Icons.lightbulb_outline,
+      _ => Icons.devices_other,
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
+    final store = context.watch<HomeStore>();
     final p = context.palette;
+    final visible = _visible;
     return DraggableScrollableSheet(
       expand: false,
-      initialChildSize: 0.7,
+      initialChildSize: 0.75,
       maxChildSize: 0.95,
       builder: (context, scroll) => ListView(
         controller: scroll,
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
         children: [
           Row(children: [
-            const Expanded(child: DotText('SCANNING', size: 28)),
+            Expanded(child: DotText(_scanning ? 'SCANNING' : 'FOUND ${visible.length}', size: 28)),
             if (_scanning)
               const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
             else
               TextButton(onPressed: _scan, child: const Text('Scan again')),
           ]),
           const SizedBox(height: 6),
-          Text('Looking for devices on this Wi-Fi network. Devices that do not announce themselves can still be added by address.',
+          Text('Everything on this Wi-Fi that answers: TVs, speakers, plugs, lights, hubs, printers and more. '
+              'Tap Add on anything you want in SmartMenuKJ.',
               style: NType.body(13, color: p.textDim)),
-          const SizedBox(height: 16),
-          if (!_scanning && _found.isEmpty)
+          const SizedBox(height: 14),
+          NCard(
+            key: const Key('add-by-address'),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            onTap: () => addByAddress(context),
+            child: Row(children: [
+              const Icon(Icons.lan_outlined, size: 24),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Add by IP address', style: NType.body(15, color: p.text, weight: 600)),
+                  Text('For a device that does not show up here', style: NType.body(12.5, color: p.textDim)),
+                ]),
+              ),
+              const Icon(Icons.add),
+            ]),
+          ),
+          const SizedBox(height: 14),
+          if (!_scanning && visible.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Text('Nothing found. Check that this device is on the same network, or add devices by address.',
+              child: Text('Nothing found. Check that this phone is on the same Wi-Fi, or add the device by its address.',
                   textAlign: TextAlign.center, style: NType.body(14, color: p.textDim)),
             ),
-          for (final s in _found) ...[
+          for (final s in visible) ...[
             NCard(
+              key: Key('found-${s.key}'),
               padding: const EdgeInsets.fromLTRB(16, 12, 10, 12),
               child: Row(children: [
-                Icon(s.integrationType == null ? Icons.hub : (specFor(s.integrationType!)?.icon ?? Icons.devices), size: 24),
+                Icon(_icon(s), size: 24),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text(s.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.body(15, color: p.text, weight: 600)),
-                    Text(
-                        '${s.integrationType == null ? 'Matter' : specFor(s.integrationType!)?.name} · ${s.host}${s.port == 80 ? '' : ':${s.port}'}',
-                        style: NType.body(12.5, color: p.textDim)),
+                    Text(_subtitle(s), maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.body(12.5, color: p.textDim)),
                   ]),
                 ),
-                TextButton(onPressed: () => _add(s), child: Text(s.integrationType == null ? 'How?' : 'Add')),
+                if (_adding.contains(s.key))
+                  const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                  )
+                else if (_isAdded(store, s))
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('ADDED', style: NType.label(color: p.textDim)),
+                  )
+                else
+                  TextButton(onPressed: () => _add(s), child: Text(s.integrationType == null ? 'How?' : 'Add')),
               ]),
             ),
             const SizedBox(height: 8),
@@ -502,7 +583,7 @@ class _SettingsCard extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-          child: Text('SMARTMENUKJ 1.0 · FREE · LOCAL-FIRST · NO ACCOUNT', style: NType.label(color: p.textDim)),
+          child: Text('SMARTMENUKJ 1.1 · FREE · LOCAL-FIRST · NO ACCOUNT', style: NType.label(color: p.textDim)),
         ),
       ]),
     );

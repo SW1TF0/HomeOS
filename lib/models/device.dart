@@ -33,11 +33,35 @@ enum DeviceKind {
 }
 
 /// A thing a device can do. Controls are shown only for capabilities it has.
-enum Capability { onOff, brightness, colorTemp, color, position, targetTemp, lock, readings }
+enum Capability { onOff, brightness, colorTemp, color, position, targetTemp, lock, readings, volume, remote }
+
+/// Buttons of a TV / media remote. Drivers map them to their own key codes.
+enum RemoteKey {
+  power,
+  volumeUp,
+  volumeDown,
+  mute,
+  channelUp,
+  channelDown,
+  up,
+  down,
+  left,
+  right,
+  ok,
+  back,
+  home,
+  menu,
+  playPause,
+  stop,
+  rewind,
+  forward,
+  source,
+}
 
 Set<Capability> defaultCapabilities(DeviceKind kind) => switch (kind) {
       DeviceKind.light => {Capability.onOff, Capability.brightness, Capability.colorTemp, Capability.color},
-      DeviceKind.outlet || DeviceKind.toggle || DeviceKind.fan || DeviceKind.media => {Capability.onOff},
+      DeviceKind.outlet || DeviceKind.toggle || DeviceKind.fan => {Capability.onOff},
+      DeviceKind.media => {Capability.onOff, Capability.volume, Capability.remote},
       DeviceKind.sensor => {Capability.readings},
       DeviceKind.climate => {Capability.onOff, Capability.targetTemp},
       DeviceKind.cover => {Capability.position},
@@ -55,6 +79,9 @@ class DeviceCommand {
     this.position,
     this.targetTemp,
     this.locked,
+    this.volume,
+    this.muted,
+    this.key,
   });
 
   final bool? on;
@@ -71,9 +98,16 @@ class DeviceCommand {
   final double? targetTemp;
   final bool? locked;
 
+  /// 0..1
+  final double? volume;
+  final bool? muted;
+
+  /// A remote button press. Does not change the stored state by itself.
+  final RemoteKey? key;
+
   @override
   String toString() =>
-      'DeviceCommand(on: $on, brightness: $brightness, ct: $colorTempK, color: $color, position: $position, target: $targetTemp, locked: $locked)';
+      'DeviceCommand(on: $on, brightness: $brightness, ct: $colorTempK, color: $color, position: $position, target: $targetTemp, locked: $locked, volume: $volume, muted: $muted, key: $key)';
 }
 
 /// The last known state of a device.
@@ -87,6 +121,8 @@ class DeviceState {
     this.targetTemp,
     this.currentTemp,
     this.locked,
+    this.volume,
+    this.muted,
     this.readings = const {},
     this.reachable = true,
   });
@@ -101,6 +137,8 @@ class DeviceState {
   final double? targetTemp;
   final double? currentTemp;
   final bool? locked;
+  final double? volume;
+  final bool? muted;
   final Map<String, String> readings;
   final bool reachable;
 
@@ -109,7 +147,10 @@ class DeviceState {
       on == true || (position != null && position! > 0.01 && on == null) || locked == false;
 
   DeviceState applyCommand(DeviceCommand c) => DeviceState(
-        on: c.on ?? (c.brightness != null && c.brightness! > 0 ? true : on),
+        on: c.on ??
+            (c.brightness != null && c.brightness! > 0
+                ? true
+                : (c.key == RemoteKey.power && on != null ? !on! : on)),
         brightness: c.brightness ?? brightness,
         colorTempK: c.colorTempK ?? (c.color != null ? null : colorTempK),
         color: c.color ?? (c.colorTempK != null ? null : color),
@@ -117,6 +158,8 @@ class DeviceState {
         targetTemp: c.targetTemp ?? targetTemp,
         currentTemp: currentTemp,
         locked: c.locked ?? locked,
+        volume: c.volume ?? volume,
+        muted: c.muted ?? (c.key == RemoteKey.mute && muted != null ? !muted! : muted),
         readings: readings,
         reachable: reachable,
       );
@@ -131,6 +174,8 @@ class DeviceState {
         targetTemp: other.targetTemp ?? targetTemp,
         currentTemp: other.currentTemp ?? currentTemp,
         locked: other.locked ?? locked,
+        volume: other.volume ?? volume,
+        muted: other.muted ?? muted,
         readings: other.readings.isEmpty ? readings : {...readings, ...other.readings},
         reachable: other.reachable,
       );
@@ -144,6 +189,8 @@ class DeviceState {
         if (targetTemp != null) 'targetTemp': targetTemp,
         if (currentTemp != null) 'currentTemp': currentTemp,
         if (locked != null) 'locked': locked,
+        if (volume != null) 'volume': volume,
+        if (muted != null) 'muted': muted,
         if (readings.isNotEmpty) 'readings': readings,
         'reachable': reachable,
       };
@@ -157,6 +204,8 @@ class DeviceState {
         targetTemp: (j['targetTemp'] as num?)?.toDouble(),
         currentTemp: (j['currentTemp'] as num?)?.toDouble(),
         locked: j['locked'] as bool?,
+        volume: (j['volume'] as num?)?.toDouble(),
+        muted: j['muted'] as bool?,
         readings: (j['readings'] as Map?)?.map((k, v) => MapEntry('$k', '$v')) ?? const {},
         reachable: j['reachable'] as bool? ?? true,
       );

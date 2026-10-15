@@ -148,6 +148,13 @@ String describeState(Device d) {
       return parts.isEmpty ? 'Climate' : parts.join(' · ');
     case DeviceKind.sensor:
       return s.readings.isEmpty ? 'No readings yet' : s.readings.values.take(2).join(' · ');
+    case DeviceKind.media:
+      final parts = [
+        if (s.on != null) s.on! ? 'On' : 'Off',
+        if (s.on != false && s.muted == true) 'Muted' else if (s.on != false && s.volume != null) 'Vol ${(s.volume! * 100).round()}',
+        if (s.on != false && s.readings['Playing'] != null && s.readings['Playing'] != 'Nothing') s.readings['Playing']!,
+      ];
+      return parts.isEmpty ? (s.readings.isEmpty ? 'Unknown' : s.readings.values.first) : parts.join(' · ');
     default:
       if (s.on == null) return s.readings.isEmpty ? 'Unknown' : s.readings.values.first;
       if (!s.on!) return 'Off';
