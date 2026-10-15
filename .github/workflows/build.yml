@@ -1,0 +1,93 @@
+name: Build apps
+
+# Builds installable apps for free on GitHub's runners.
+# Every push to main uploads them as workflow artifacts; pushing a tag
+# like v1.0.0 also publishes them on the Releases page.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter build apk --release
+      - run: mv build/app/outputs/flutter-apk/app-release.apk SmartMenuKJ-android.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SmartMenuKJ-android
+          path: SmartMenuKJ-android.apk
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter build windows --release
+      - run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath SmartMenuKJ-windows.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SmartMenuKJ-windows
+          path: SmartMenuKJ-windows.zip
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build libgtk-3-dev
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter build linux --release
+      - run: tar -czf SmartMenuKJ-linux.tar.gz -C build/linux/x64/release/bundle .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SmartMenuKJ-linux
+          path: SmartMenuKJ-linux.tar.gz
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter build macos --release
+      - run: cd build/macos/Build/Products/Release && ditto -c -k --keepParent SmartMenuKJ.app ../../../../../SmartMenuKJ-macos.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SmartMenuKJ-macos
+          path: SmartMenuKJ-macos.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [android, windows, linux, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
