@@ -15,6 +15,7 @@ Everything is free and local-first. There is no account, no cloud, no subscripti
 - **Floor plan.** Draw rooms on a dotted grid, drag them around, resize them from the red corner, and add floors. Drag devices onto the plan and they join the room you drop them in. Tap a device on the plan to switch it, hold it for full controls.
 - **Controls.** On/off, brightness, white temperature, colour, blinds position, thermostat target, locks and sensor readings, shown only when the device supports them.
 - **Home screen.** A dot-matrix clock, favourites, rooms with all on / all off, and one button to switch everything off.
+- **Scenes.** Set your devices the way you like, save it as a scene ("Movie night", "Good night"...), and bring it back with one tap. Scenes can run by themselves at a time of day on chosen weekdays while the app is open.
 - **Scan network.** Finds everything on your Wi-Fi that answers (mDNS, UPnP / SSDP, Kasa and Yeelight discovery, and a quick check of TV ports): TVs, speakers, plugs, lights, hubs, printers and more. Add anything in one tap, or type a device's IP address.
 - **TV remote.** Power, volume, mute, channels, arrows, OK, back, home and play / pause for Samsung, LG, Sony and Roku TVs, plus volume and play / pause for Chromecast, Google TV and UPnP speakers. TVs that are fully off are woken with Wake-on-LAN.
 - **Backups.** Copy your whole home (rooms, devices, connections) as text and paste it back on another phone or computer.

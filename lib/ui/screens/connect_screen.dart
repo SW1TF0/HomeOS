@@ -432,6 +432,23 @@ class _ScanSheetState extends State<ScanSheet> {
     await openIntegrationSheet(context, spec: spec, config: existing, prefill: prefill);
   }
 
+  /// Found entries that can be added without asking anything (no pairing, no token).
+  List<FoundService> _addable(HomeStore store) => _visible
+      .where((s) =>
+          !_isAdded(store, s) &&
+          (s.isLan || (specFor(s.integrationType ?? '')?.fields.any((f) => f.key == 'hosts') ?? false)))
+      .toList();
+
+  Future<void> _addAll() async {
+    final store = context.read<HomeStore>();
+    final todo = _addable(store);
+    for (final s in todo) {
+      if (!mounted) return;
+      await _add(s);
+    }
+    store.toast('Added ${todo.length} devices. Find them on the Devices tab.');
+  }
+
   String _subtitle(FoundService s) {
     final what = s.integrationType == null
         ? 'Matter'
@@ -477,6 +494,15 @@ class _ScanSheetState extends State<ScanSheet> {
           Text('Everything on this Wi-Fi that answers: TVs, speakers, plugs, lights, hubs, printers and more. '
               'Tap Add on anything you want in SmartMenuKJ.',
               style: NType.body(13, color: p.textDim)),
+          if (_addable(store).length > 1 && _adding.isEmpty) ...[
+            const SizedBox(height: 14),
+            FilledButton.icon(
+              key: const Key('add-all'),
+              onPressed: _addAll,
+              icon: const Icon(Icons.playlist_add),
+              label: Text('Add all ${_addable(store).length}'),
+            ),
+          ],
           const SizedBox(height: 14),
           NCard(
             key: const Key('add-by-address'),
@@ -594,6 +620,21 @@ class _SettingsCard extends StatelessWidget {
             }
           },
         ),
+        if (store.sampleDevices.isNotEmpty)
+          ListTile(
+            leading: const Icon(Icons.blur_off),
+            title: const Text('Remove sample home'),
+            subtitle: const Text('Deletes the example devices and their empty rooms'),
+            onTap: () async {
+              if (await confirm(context,
+                  title: 'Remove the sample home?',
+                  body: 'The example devices go away. Your own devices, rooms and connections stay.',
+                  action: 'Remove')) {
+                store.removeSampleHome();
+                store.toast('Sample devices removed.');
+              }
+            },
+          ),
         ListTile(
           leading: const Icon(Icons.refresh),
           title: const Text('Refresh all devices'),
@@ -601,7 +642,7 @@ class _SettingsCard extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-          child: Text('SMARTMENUKJ 1.1 · FREE · LOCAL-FIRST · NO ACCOUNT', style: NType.label(color: p.textDim)),
+          child: Text('SMARTMENUKJ 1.2 · FREE · LOCAL-FIRST · NO ACCOUNT', style: NType.label(color: p.textDim)),
         ),
       ]),
     );

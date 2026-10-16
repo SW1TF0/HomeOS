@@ -11,6 +11,7 @@ import '../integrations/integration.dart';
 import '../integrations/lan/lan_driver.dart';
 import '../models/device.dart';
 import '../models/home.dart';
+import '../models/scene.dart';
 import 'repository.dart';
 import 'seed.dart';
 
@@ -41,6 +42,8 @@ class HomeStore extends ChangeNotifier {
 
   Timer? _saveTimer;
   Timer? _pollTimer;
+  Timer? _sceneTimer;
+  String? _lastScheduledMinute;
   bool _refreshing = false;
   bool _disposed = false;
   final _rand = Random();
@@ -217,7 +220,97 @@ class HomeStore extends ChangeNotifier {
 
   void removeDevice(Device d) {
     data.devices.remove(d);
+    for (final s in data.scenes) {
+      s.actions.removeWhere((a) => a.deviceId == d.id);
+    }
     _changed();
+  }
+
+  // ---- Sample home ---------------------------------------------------------------------
+
+  /// Devices from the sample home shown on first launch.
+  List<Device> get sampleDevices =>
+      data.devices.where((d) => d.integrationId == demoIntegrationId && d.externalId.startsWith('manual:') && _seedIds.contains(d.id)).toList();
+
+  static final Set<String> _seedIds = seedHome().devices.map((d) => d.id).toSet();
+
+  /// Whether real devices have joined while the sample ones are still around.
+  bool get showSampleCleanup => sampleDevices.isNotEmpty && data.devices.any((d) => d.integrationId != demoIntegrationId);
+
+  /// Removes the sample devices, and the sample rooms if nothing real is in them.
+  void removeSampleHome({bool rooms = true}) {
+    final ids = sampleDevices.map((d) => d.id).toSet();
+    data.devices.removeWhere((d) => ids.contains(d.id));
+    for (final s in data.scenes) {
+      s.actions.removeWhere((a) => ids.contains(a.deviceId));
+    }
+    if (rooms) {
+      final seedRooms = seedHome().rooms.map((r) => r.id).toSet();
+      data.rooms.removeWhere((r) => seedRooms.contains(r.id) && !data.devices.any((d) => d.roomId == r.id));
+    }
+    _changed();
+  }
+
+  // ---- Scenes --------------------------------------------------------------------------
+
+  List<Scene> get scenes => data.scenes;
+  Scene? scene(String id) => data.scenes.where((s) => s.id == id).firstOrNull;
+
+  /// Creates a scene that remembers what [devices] are doing right now.
+  Scene addScene(String name, Iterable<Device> devices, {String icon = 'auto'}) {
+    final s = Scene(id: newId('scene'), name: name, icon: icon, actions: devices.map(SceneAction.capture).toList());
+    data.scenes.add(s);
+    _changed();
+    return s;
+  }
+
+  void updateScene(Scene s, {String? name, String? icon, Iterable<Device>? capture, SceneSchedule? schedule, bool clearSchedule = false}) {
+    if (name != null && name.trim().isNotEmpty) s.name = name.trim();
+    if (icon != null) s.icon = icon;
+    if (capture != null) s.actions = capture.map(SceneAction.capture).toList();
+    if (clearSchedule) {
+      s.schedule = null;
+    } else if (schedule != null) {
+      s.schedule = schedule;
+    }
+    _changed();
+  }
+
+  void removeScene(Scene s) {
+    data.scenes.remove(s);
+    _changed();
+  }
+
+  void moveScene(int from, int to) {
+    final s = data.scenes.removeAt(from);
+    data.scenes.insert(to.clamp(0, data.scenes.length), s);
+    _changed();
+  }
+
+  /// Puts every device of [s] in its saved state. Returns how many answered.
+  Future<int> runScene(Scene s, {bool quiet = false}) async {
+    final jobs = <Future<bool>>[];
+    for (final a in s.actions) {
+      final d = device(a.deviceId);
+      if (d == null) continue;
+      jobs.add(command(d, a.command));
+    }
+    final ok = (await Future.wait(jobs)).where((r) => r).length;
+    if (!quiet || ok < jobs.length) {
+      toast(ok == jobs.length ? '${s.name}: done.' : '${s.name}: ${jobs.length - ok} of ${jobs.length} devices did not answer.');
+    }
+    return ok;
+  }
+
+  /// Runs scheduled scenes whose time has come. Called every few seconds.
+  void runDueScenes([DateTime? now]) {
+    final t = now ?? DateTime.now();
+    final key = '${t.year}-${t.month}-${t.day} ${t.hour}:${t.minute}';
+    if (key == _lastScheduledMinute) return;
+    _lastScheduledMinute = key;
+    for (final s in data.scenes) {
+      if (s.schedule?.matches(t) ?? false) runScene(s);
+    }
   }
 
   Device addVirtualDevice(String integrationId, String name, DeviceKind kind, {Map<String, dynamic>? props}) {
@@ -566,6 +659,7 @@ class HomeStore extends ChangeNotifier {
   }
 
   void startPolling() {
+    _sceneTimer ??= Timer.periodic(const Duration(seconds: 15), (_) => runDueScenes());
     _pollTimer?.cancel();
     refreshAll();
     _pollTimer = Timer.periodic(pollInterval, (_) => refreshAll());
@@ -599,6 +693,7 @@ class HomeStore extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _pollTimer?.cancel();
+    _sceneTimer?.cancel();
     _saveTimer?.cancel();
     for (final d in _drivers.values) {
       d.stop();

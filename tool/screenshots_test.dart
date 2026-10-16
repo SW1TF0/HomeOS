@@ -68,6 +68,8 @@ void main() {
 
   testWidgets('phone device controls', (tester) async {
     await _app(tester, phone);
+    await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -420));
+    await tester.pumpAndSettle();
     await tester.longPress(find.text('Desk lamp').first);
     await _shot(tester, 'phone-device');
   });

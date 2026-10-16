@@ -9,6 +9,7 @@ import '../../state/home_store.dart';
 import '../../theme/nothing_theme.dart';
 import '../widgets/nothing_widgets.dart';
 import 'device_sheet.dart';
+import 'scenes.dart';
 
 /// Overview: clock, what's on, favourites and rooms.
 class HomeScreen extends StatelessWidget {
@@ -56,6 +57,36 @@ class HomeScreen extends StatelessWidget {
               ]),
             ]),
           ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            sliver: SliverList.list(children: [
+              if (store.showSampleCleanup) ...[
+                const SizedBox(height: 18),
+                NCard(
+                  key: const Key('sample-cleanup'),
+                  padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+                  child: Row(children: [
+                    const Icon(Icons.blur_on),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text('Your real devices are here. Remove the sample home?',
+                          style: NType.body(14, color: p.text, weight: 500)),
+                    ),
+                    TextButton(
+                      key: const Key('sample-remove'),
+                      onPressed: () {
+                        store.removeSampleHome();
+                        store.toast('Sample devices removed.');
+                      },
+                      child: const Text('Remove'),
+                    ),
+                  ]),
+                ),
+              ],
+              const SectionLabel('Scenes'),
+              const ScenesRow(),
+            ]),
+          ),
           if (favorites.isNotEmpty) ...[
             const SliverPadding(
                 padding: EdgeInsets.symmetric(horizontal: 20), sliver: SliverToBoxAdapter(child: SectionLabel('Favourites', accent: true))),
@@ -86,7 +117,7 @@ class HomeScreen extends StatelessWidget {
               crossAxisCount: (columns / 1.5).ceil().clamp(1, 4),
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
-              childAspectRatio: 1.9,
+              childAspectRatio: 1.6,
               children: [for (final r in store.rooms) _RoomCard(room: r)],
             ),
           ),

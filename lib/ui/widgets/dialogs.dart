@@ -109,3 +109,98 @@ Future<T?> pickOne<T>(BuildContext context,
     ),
   );
 }
+
+/// Picks several options from a list in a bottom sheet. Returns null when cancelled.
+Future<Set<T>?> pickMany<T>(BuildContext context,
+    {required String title,
+    required List<T> options,
+    required String Function(T) label,
+    String Function(T)? subtitle,
+    IconData Function(T)? icon,
+    Set<T> initial = const {},
+    String action = 'Done'}) {
+  return showModalBottomSheet<Set<T>>(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) => _PickMany<T>(
+        title: title, options: options, label: label, subtitle: subtitle, icon: icon, initial: initial, action: action),
+  );
+}
+
+class _PickMany<T> extends StatefulWidget {
+  const _PickMany(
+      {required this.title,
+      required this.options,
+      required this.label,
+      required this.subtitle,
+      required this.icon,
+      required this.initial,
+      required this.action});
+  final String title;
+  final List<T> options;
+  final String Function(T) label;
+  final String Function(T)? subtitle;
+  final IconData Function(T)? icon;
+  final Set<T> initial;
+  final String action;
+
+  @override
+  State<_PickMany<T>> createState() => _PickManyState<T>();
+}
+
+class _PickManyState<T> extends State<_PickMany<T>> {
+  late final Set<T> _picked = {...widget.initial};
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 12, 8),
+              child: Row(children: [
+                Expanded(child: Text(widget.title, style: NType.dot(24, color: p.text))),
+                TextButton(
+                  onPressed: () => setState(() =>
+                      _picked.length == widget.options.length ? _picked.clear() : _picked.addAll(widget.options)),
+                  child: Text(_picked.length == widget.options.length ? 'None' : 'All'),
+                ),
+              ]),
+            ),
+            Flexible(
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final o in widget.options)
+                    CheckboxListTile(
+                      key: Key('pick-${widget.label(o)}'),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+                      secondary: widget.icon == null ? null : Icon(widget.icon!(o)),
+                      title: Text(widget.label(o)),
+                      subtitle: widget.subtitle == null ? null : Text(widget.subtitle!(o)),
+                      value: _picked.contains(o),
+                      activeColor: NothingPalette.red,
+                      onChanged: (v) => setState(() => v == true ? _picked.add(o) : _picked.remove(o)),
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+              child: FilledButton(
+                key: const Key('pick-done'),
+                onPressed: _picked.isEmpty ? null : () => Navigator.pop(context, _picked),
+                child: Text('${widget.action} (${_picked.length})'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

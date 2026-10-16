@@ -57,6 +57,8 @@ void main() {
 
   testWidgets('holding a tile opens its controls', (tester) async {
     await pumpApp(tester);
+    await tester.ensureVisible(find.text('Desk lamp').first);
+    await tester.pumpAndSettle();
     await tester.longPress(find.text('Desk lamp').first);
     await tester.pumpAndSettle();
     expect(find.text('BRIGHTNESS'), findsOneWidget);
@@ -167,6 +169,24 @@ void main() {
     expect(find.text('Samsung TV · 10.0.0.5'), findsOneWidget);
     expect(find.text('shelly1-abc'), findsOneWidget);
     expect(find.byKey(const Key('add-by-address')), findsOneWidget);
+  });
+
+  testWidgets('make a scene on the home screen and run it', (tester) async {
+    final store = await pumpApp(tester);
+    await tester.tap(find.byKey(const Key('scene-new')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Movie night'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('pick-done')));
+    await tester.pumpAndSettle();
+    final scene = store.scenes.single;
+    expect(scene.name, 'Movie night');
+    expect(scene.actions, isNotEmpty, reason: 'devices that are on are picked by default');
+    await store.allOff();
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key('scene-${scene.id}')));
+    await tester.pumpAndSettle();
+    expect(store.devices.firstWhere((d) => d.name == 'Desk lamp').state.on, isTrue);
   });
 
   testWidgets('desktop width uses a side rail', (tester) async {
