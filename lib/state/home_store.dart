@@ -25,16 +25,25 @@ class IntegrationStatus {
 
 /// Holds the whole home and is the only place that changes it.
 class HomeStore extends ChangeNotifier {
-  HomeStore({required this.repository, http.Client? client, this.pollInterval = const Duration(seconds: 10)})
-      : client = client ?? http.Client();
+  HomeStore({
+    required this.repository,
+    http.Client? client,
+    this.pollInterval = const Duration(seconds: 10),
+    this.claimRun,
+  }) : client = client ?? http.Client();
 
   final HomeRepository repository;
   final http.Client client;
   final Duration pollInterval;
 
+  /// Asked before a timed scene runs, with the scene and its time slot. When
+  /// something else (an Android alarm) already ran that slot, it answers false.
+  final Future<bool> Function(String sceneId, String slot)? claimRun;
+
   HomeData data = HomeData();
   bool loaded = false;
   final Map<String, IntegrationDriver> _drivers = {};
+  final Map<String, Future<void>> _starting = {};
   final Map<String, IntegrationStatus> status = {};
 
   /// Short messages for the user (errors, confirmations), shown as toasts.
@@ -426,12 +435,17 @@ class HomeStore extends ChangeNotifier {
   /// Runs scheduled scenes whose time has come. Called every few seconds.
   void runDueScenes([DateTime? now]) {
     final t = now ?? DateTime.now();
-    final key = '${t.year}-${t.month}-${t.day} ${t.hour}:${t.minute}';
+    final key = SceneSchedule.slot(t);
     if (key == _lastScheduledMinute) return;
     _lastScheduledMinute = key;
     for (final s in data.scenes) {
-      if (s.schedule?.matches(t) ?? false) runScene(s);
+      if (s.schedule?.matches(t) ?? false) _runTimed(s, key);
     }
+  }
+
+  Future<void> _runTimed(Scene s, String slot) async {
+    if (claimRun != null && !await claimRun!(s.id, slot)) return;
+    await runScene(s);
   }
 
   Device addVirtualDevice(String integrationId, String name, DeviceKind kind, {Map<String, dynamic>? props}) {
@@ -546,7 +560,7 @@ class HomeStore extends ChangeNotifier {
     };
     _drivers[cfg.id] = driver;
     driver.attach(data.devices.where((d) => d.integrationId == cfg.id));
-    driver.start().then((_) {
+    _starting[cfg.id] = driver.start().then((_) {
       status[cfg.id] = IntegrationStatus(ok: true, lastSync: status[cfg.id]?.lastSync);
       _changed(save: false);
     }, onError: (Object e) {
@@ -555,7 +569,12 @@ class HomeStore extends ChangeNotifier {
     });
   }
 
+  /// Waits until every connection has started (or failed to), at most [timeout].
+  Future<void> whenStarted({Duration timeout = const Duration(seconds: 4)}) =>
+      Future.wait(_starting.values).timeout(timeout, onTimeout: () => const []);
+
   Future<void> _stopDriver(String id) async {
+    _starting.remove(id);
     await _drivers.remove(id)?.stop();
   }
 

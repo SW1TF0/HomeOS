@@ -68,6 +68,29 @@ class SceneSchedule {
 
   bool matches(DateTime t) => t.hour == hour && t.minute == minute && days.contains(t.weekday);
 
+  /// The next time after [now] this is due, or null when no day is picked.
+  DateTime? nextAfter(DateTime now) {
+    for (var i = 0; i <= 7; i++) {
+      final t = DateTime(now.year, now.month, now.day + i, hour, minute);
+      if (t.isAfter(now) && days.contains(t.weekday)) return t;
+    }
+    return null;
+  }
+
+  /// The run this belongs to when it fires at [now], allowing for a late or
+  /// slightly early alarm. Null when [now] is not close to a run.
+  DateTime? runNear(DateTime now, {Duration late = const Duration(minutes: 15)}) {
+    for (final back in [0, 1]) {
+      final t = DateTime(now.year, now.month, now.day - back, hour, minute);
+      final after = now.difference(t);
+      if (days.contains(t.weekday) && after >= const Duration(minutes: -1) && after <= late) return t;
+    }
+    return null;
+  }
+
+  /// Names one run, e.g. "2026-10-17 7:30", so it is not run twice.
+  static String slot(DateTime t) => '${t.year}-${t.month}-${t.day} ${t.hour}:${t.minute}';
+
   String get time => '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
 
   String get daysLabel {

@@ -32,6 +32,16 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+        // Timed scenes are booked with Android's alarm manager, so they run with the app closed.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SceneAlarms.CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "sync" -> {
+                    SceneAlarms.sync(applicationContext, SceneAlarms.parse(call.arguments))
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
     }
 
     override fun onDestroy() {

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/device.dart';
 import '../../models/scene.dart';
 import '../../state/home_store.dart';
+import '../../state/scene_alarms.dart';
 import '../../theme/nothing_theme.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
@@ -360,7 +361,10 @@ class _ScheduleCard extends StatelessWidget {
           Text(sch.daysLabel, style: NType.body(13, color: p.textDim)),
         ],
         const SizedBox(height: 8),
-        Text('Runs while SmartMenuKJ is open. Android may pause it when the app is closed.',
+        Text(
+            SceneAlarms.supported
+                ? 'Runs at this time even when SmartMenuKJ is closed.'
+                : 'Runs at this time while SmartMenuKJ is open.',
             style: NType.body(12.5, color: p.textDim)),
       ]),
     );
