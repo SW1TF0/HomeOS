@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'net.dart';
+
 /// Normalises a MAC address to `aa:bb:cc:dd:ee:ff`, or returns null if it is not one.
 String? normalizeMac(String? raw) {
   if (raw == null) return null;
@@ -20,20 +22,20 @@ Uint8List magicPacket(String mac) {
 /// Wakes a device that supports Wake-on-LAN (most TVs, PCs, consoles).
 Future<void> wakeOnLan(String mac, {String? host}) async {
   final packet = magicPacket(mac);
-  final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+  final socket = await lanUdpSocket();
   try {
-    socket.broadcastEnabled = true;
-    final targets = <InternetAddress>[InternetAddress('255.255.255.255')];
+    final targets = await broadcastTargets();
     // Also the subnet broadcast (x.y.z.255), which some routers need.
     final ip = InternetAddress.tryParse(host ?? '');
     if (ip != null && ip.type == InternetAddressType.IPv4) {
       final parts = ip.address.split('.');
-      targets.add(InternetAddress('${parts[0]}.${parts[1]}.${parts[2]}.255'));
+      final b = InternetAddress('${parts[0]}.${parts[1]}.${parts[2]}.255');
+      if (!targets.contains(b)) targets.add(b);
     }
     for (var i = 0; i < 3; i++) {
       for (final t in targets) {
-        socket.send(packet, t, 9);
-        socket.send(packet, t, 7);
+        trySend(socket, packet, t, 9);
+        trySend(socket, packet, t, 7);
       }
       await Future<void>.delayed(const Duration(milliseconds: 100));
     }

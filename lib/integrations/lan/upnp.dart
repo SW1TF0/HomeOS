@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../../models/device.dart';
 import '../integration.dart';
 import 'lan_protocol.dart';
+import 'net.dart';
 
 /// One answer to an SSDP search.
 class SsdpReply {
@@ -37,7 +38,7 @@ Stream<SsdpReply> ssdpSearch({Duration timeout = const Duration(seconds: 3), Str
   Future<void> run() async {
     RawDatagramSocket socket;
     try {
-      socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+      socket = await lanUdpSocket();
     } catch (_) {
       await out.close();
       return;
@@ -52,15 +53,13 @@ Stream<SsdpReply> ssdpSearch({Duration timeout = const Duration(seconds: 3), Str
     });
     final msg = utf8.encode('M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: "ssdp:discover"\r\n'
         'MX: 2\r\nST: $target\r\nUSER-AGENT: SmartMenuKJ/1.1 UPnP/1.1\r\n\r\n');
-    try {
-      for (var i = 0; i < 2; i++) {
-        socket.send(msg, InternetAddress('239.255.255.250'), 1900);
-        // Roku only answers its own search target.
-        socket.send(utf8.encode(utf8.decode(msg).replaceFirst('ST: $target', 'ST: roku:ecp')),
-            InternetAddress('239.255.255.250'), 1900);
-        await Future<void>.delayed(const Duration(milliseconds: 300));
-      }
-    } catch (_) {}
+    final roku = utf8.encode(utf8.decode(msg).replaceFirst('ST: $target', 'ST: roku:ecp'));
+    for (var i = 0; i < 2; i++) {
+      trySend(socket, msg, InternetAddress('239.255.255.250'), 1900);
+      // Roku only answers its own search target.
+      trySend(socket, roku, InternetAddress('239.255.255.250'), 1900);
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+    }
     await Future<void>.delayed(timeout);
     await sub.cancel();
     socket.close();

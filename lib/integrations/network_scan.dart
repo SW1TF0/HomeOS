@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:multicast_dns/multicast_dns.dart';
 
+import 'lan/mdns.dart';
+import 'lan/net.dart';
 import 'lan/plugs.dart';
+import 'lan/sweep.dart';
 import 'lan/upnp.dart';
 
 /// Something found on the local network.
@@ -76,7 +77,8 @@ class NetworkScanner {
 
   final http.Client _client;
 
-  /// Whether to also knock on TV ports of every address in the local /24.
+  /// Whether to also knock on every address in the local /24, so devices that
+  /// announce nothing still show up.
   final bool sweep;
 
   static const services = {
@@ -104,9 +106,6 @@ class NetworkScanner {
     '_smb._tcp': 'generic',
     '_companion-link._tcp': 'generic',
   };
-
-  /// Ports that only TVs listen on, for networks that block multicast.
-  static const tvPorts = {8060: 'roku', 8001: 'samsung', 3000: 'webos', 8008: 'cast'};
 
   static const _lock = MethodChannel('smartmenukj/multicast');
 
@@ -213,112 +212,63 @@ class NetworkScanner {
   }
 
   Future<void> _sweep(void Function(FoundService) emit) async {
-    final List<NetworkInterface> ifaces;
-    try {
-      ifaces = await NetworkInterface.list(type: InternetAddressType.IPv4);
-    } catch (_) {
-      return;
-    }
-    final prefixes = <String>{};
-    for (final i in ifaces) {
-      for (final a in i.addresses) {
-        final p = a.address.split('.');
-        final private = p[0] == '10' || (p[0] == '192' && p[1] == '168') ||
-            (p[0] == '172' && (int.tryParse(p[1]) ?? 0) >= 16 && (int.tryParse(p[1]) ?? 0) < 32);
-        if (private) prefixes.add('${p[0]}.${p[1]}.${p[2]}');
-      }
-    }
-    final jobs = <(String, int)>[
-      for (final pre in prefixes.take(2))
+    final nets = await localNetworks();
+    final own = nets.map((n) => n.address.address).toSet();
+    final hosts = <String>[
+      for (final pre in nets.map((n) => n.prefix24).toSet().take(2))
         for (var i = 1; i < 255; i++)
-          for (final port in tvPorts.keys) ('$pre.$i', port),
+          if (!own.contains('$pre.$i')) '$pre.$i',
     ];
-    var next = 0;
-    Future<void> worker() async {
-      while (next < jobs.length) {
-        final (host, port) = jobs[next++];
-        try {
-          final s = await Socket.connect(host, port, timeout: const Duration(milliseconds: 350));
-          s.destroy();
-          final protocol = tvPorts[port]!;
-          emit(FoundService(
-            name: host,
-            host: host,
-            port: port,
-            service: 'port $port',
-            integrationType: 'lan',
-            // Below SSDP / mDNS answers, which carry the real name.
-            hints: {'protocol': protocol},
-          ));
-        } catch (_) {}
-      }
-    }
-
-    await Future.wait(List.generate(64, (_) => worker()));
+    final named = <Future<void>>[];
+    await sweepHosts(hosts, (hit) {
+      named.add(() async {
+        final protocol = guessFromPorts(hit.openPorts);
+        final label = labelFromPorts(hit.openPorts);
+        final name = await reverseName(hit.host) ?? (label == 'Device' ? null : label);
+        emit(FoundService(
+          name: name ?? hit.host,
+          host: hit.host,
+          port: hit.openPorts.isEmpty ? 0 : hit.openPorts.first,
+          service: 'Network',
+          integrationType: 'lan',
+          hints: {
+            'protocol': protocol ?? 'generic',
+            if (hit.openPorts.isNotEmpty) 'port': '${hit.openPorts.first}',
+            'name': ?name,
+          },
+        ));
+      }());
+    });
+    await Future.wait(named);
   }
 
   Future<void> _mdns(void Function(FoundService) emit, Duration timeout) async {
-    final client = MDnsClient();
-    try {
-      await client.start();
-    } catch (_) {
-      return;
-    }
-    try {
-      // Every service type anyone announces, so unknown devices show up too.
-      final types = <String, String?>{...services, ...lanServices};
-      try {
-        await for (final ptr in client.lookup<PtrResourceRecord>(
-            ResourceRecordQuery.serverPointer('_services._dns-sd._udp.local'),
-            timeout: const Duration(seconds: 2))) {
-          final t = ptr.domainName.replaceFirst(RegExp(r'\.local\.?$'), '');
-          if (types.length < 40) types.putIfAbsent(t, () => 'generic');
-        }
-      } catch (_) {}
-
-      await Future.wait(types.entries.map((svc) async {
-        await for (final ptr in client
-            .lookup<PtrResourceRecord>(ResourceRecordQuery.serverPointer('${svc.key}.local'), timeout: timeout)) {
-          var instance = ptr.domainName.split('.').first;
-          final isLan = svc.value == 'generic' || lanServices.containsKey(svc.key);
-          var type = isLan ? 'lan' : svc.value;
-          if (type == 'http') {
-            type = guessFromName(instance);
-            if (type == 'skip') continue;
-          }
-          final hints = <String, String>{if (isLan) 'protocol': svc.value!, 'service': svc.key};
-          if (svc.key == '_googlecast._tcp') {
-            await for (final txt in client.lookup<TxtResourceRecord>(ResourceRecordQuery.text(ptr.domainName),
-                timeout: const Duration(seconds: 1))) {
-              for (final line in txt.text.split('\n')) {
-                if (line.startsWith('fn=')) instance = line.substring(3);
-                if (line.startsWith('md=')) hints['model'] = line.substring(3);
-              }
-              break;
-            }
-          }
-          if (isLan) hints['name'] = instance;
-          await for (final srv in client
-              .lookup<SrvResourceRecord>(ResourceRecordQuery.service(ptr.domainName), timeout: timeout)) {
-            await for (final ip in client.lookup<IPAddressResourceRecord>(
-                ResourceRecordQuery.addressIPv4(srv.target), timeout: timeout)) {
-              emit(FoundService(
-                name: instance,
-                host: ip.address.address,
-                port: srv.port,
-                service: svc.key,
-                integrationType: type,
-                hints: {...hints, 'port': '${srv.port}'},
-              ));
-              break;
-            }
-          }
-        }
-      }));
-    } catch (_) {
-      // Some networks block multicast; the other searches still run.
-    } finally {
-      client.stop();
-    }
+    final types = <String, String?>{...services, ...lanServices};
+    await mdnsBrowse(types.keys, (svc) {
+      // Types learned only by asking "what is out there" are network devices.
+      final known = types.containsKey(svc.type);
+      final value = known ? types[svc.type] : 'generic';
+      final isLan = value == 'generic' || lanServices.containsKey(svc.type);
+      var type = isLan ? 'lan' : value;
+      if (type == 'http') {
+        type = guessFromName(svc.instance);
+        if (type == 'skip') return;
+      }
+      var name = svc.instance;
+      final hints = <String, String>{if (isLan) 'protocol': value!, 'service': svc.type};
+      if (svc.type == '_googlecast._tcp') {
+        name = svc.txt['fn'] ?? name;
+        if (svc.txt['md'] != null) hints['model'] = svc.txt['md']!;
+      }
+      if (isLan) hints['name'] = name;
+      emit(FoundService(
+        name: name,
+        host: svc.host,
+        port: svc.port ?? 0,
+        service: svc.type,
+        integrationType: type,
+        hints: {...hints, if (svc.port != null) 'port': '${svc.port}'},
+      ));
+    }, timeout: timeout);
   }
 }

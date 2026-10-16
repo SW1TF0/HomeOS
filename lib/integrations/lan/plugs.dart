@@ -8,6 +8,7 @@ import '../../models/device.dart';
 import '../../util/color_math.dart';
 import '../integration.dart';
 import 'lan_protocol.dart';
+import 'net.dart';
 
 // ---- TP-Link Kasa -------------------------------------------------------------
 
@@ -226,11 +227,10 @@ Future<void> kasaBroadcast(void Function(String host, Map info) found,
     {Duration timeout = const Duration(seconds: 3)}) async {
   RawDatagramSocket socket;
   try {
-    socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+    socket = await lanUdpSocket();
   } catch (_) {
     return;
   }
-  socket.broadcastEnabled = true;
   final done = Completer<void>();
   final sub = socket.listen((e) {
     if (e != RawSocketEvent.read) return;
@@ -244,12 +244,13 @@ Future<void> kasaBroadcast(void Function(String host, Map info) found,
   final msg = kasaEncrypt(jsonEncode({
     'system': {'get_sysinfo': {}}
   }));
-  try {
-    for (var i = 0; i < 2; i++) {
-      socket.send(msg, InternetAddress('255.255.255.255'), 9999);
-      await Future<void>.delayed(const Duration(milliseconds: 300));
+  final targets = await broadcastTargets();
+  for (var i = 0; i < 2; i++) {
+    for (final t in targets) {
+      trySend(socket, msg, t, 9999);
     }
-  } catch (_) {}
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+  }
   Timer(timeout, () => done.complete());
   await done.future;
   await sub.cancel();
@@ -361,7 +362,7 @@ Future<void> yeelightSearch(void Function(String host, Map<String, String> heade
     {Duration timeout = const Duration(seconds: 3)}) async {
   RawDatagramSocket socket;
   try {
-    socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+    socket = await lanUdpSocket();
   } catch (_) {
     return;
   }
@@ -374,11 +375,9 @@ Future<void> yeelightSearch(void Function(String host, Map<String, String> heade
     found(loc?.host.isNotEmpty == true ? loc!.host : d.address.address, h);
   });
   final msg = utf8.encode('M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1982\r\nMAN: "ssdp:discover"\r\nST: wifi_bulb\r\n\r\n');
-  try {
-    socket.send(msg, InternetAddress('239.255.255.250'), 1982);
-    await Future<void>.delayed(const Duration(milliseconds: 400));
-    socket.send(msg, InternetAddress('239.255.255.250'), 1982);
-  } catch (_) {}
+  trySend(socket, msg, InternetAddress('239.255.255.250'), 1982);
+  await Future<void>.delayed(const Duration(milliseconds: 400));
+  trySend(socket, msg, InternetAddress('239.255.255.250'), 1982);
   await Future<void>.delayed(timeout);
   await sub.cancel();
   socket.close();

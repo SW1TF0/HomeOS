@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../integrations/catalog.dart';
 import '../../integrations/integration.dart';
+import '../../integrations/lan/net.dart';
 import '../../integrations/network_scan.dart';
 import '../../models/home.dart';
 import '../../state/home_store.dart';
@@ -352,11 +353,15 @@ class _ScanSheetState extends State<ScanSheet> {
   final Set<String> _adding = {};
   StreamSubscription<FoundService>? _sub;
   bool _scanning = false;
+  bool _noWifi = false;
 
   @override
   void initState() {
     super.initState();
     _scan();
+    localNetworks().then((nets) {
+      if (mounted) setState(() => _noWifi = nets.isEmpty);
+    }, onError: (_) {});
   }
 
   void _scan() {
@@ -490,10 +495,23 @@ class _ScanSheetState extends State<ScanSheet> {
             ]),
           ),
           const SizedBox(height: 14),
-          if (!_scanning && visible.isEmpty)
+          if (_noWifi)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 14),
+              child: Text('This phone is not on a Wi-Fi network. Connect it to the same Wi-Fi as your devices and scan again.',
+                  style: NType.body(14, color: NothingPalette.red)),
+            ),
+          if (_scanning && visible.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Text('Nothing found. Check that this phone is on the same Wi-Fi, or add the device by its address.',
+              child: Text('Checking every address on your Wi-Fi. This takes about 15 seconds.',
+                  textAlign: TextAlign.center, style: NType.body(14, color: p.textDim)),
+            ),
+          if (!_scanning && visible.isEmpty && !_noWifi)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Text('Nothing answered. Check that this phone is on the same Wi-Fi as your devices (not a guest network), '
+                  'or add a device by its address.',
                   textAlign: TextAlign.center, style: NType.body(14, color: p.textDim)),
             ),
           for (final s in visible) ...[
