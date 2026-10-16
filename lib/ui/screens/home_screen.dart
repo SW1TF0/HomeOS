@@ -7,6 +7,7 @@ import '../../models/device.dart';
 import '../../models/home.dart';
 import '../../state/home_store.dart';
 import '../../theme/nothing_theme.dart';
+import '../../util/text.dart';
 import '../nav.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
@@ -436,7 +437,7 @@ class _RoomCard extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           [
-            devices.isEmpty ? 'No devices' : '$on on · ${devices.length} devices',
+            devices.isEmpty ? 'No devices' : '$on on · ${counted(devices.length, 'device')}',
             if (temp != null) '${temp.toStringAsFixed(1)}°',
           ].join(' · '),
           maxLines: 1,
@@ -578,7 +579,7 @@ class HomeEditor extends StatelessWidget {
                     leading: const Icon(Icons.meeting_room_outlined),
                     title: Text(rooms[i].name),
                     subtitle: Text([
-                      '${store.devicesIn(rooms[i].id).length} devices',
+                      counted(store.devicesIn(rooms[i].id).length, 'device'),
                       if (store.floors.length > 1)
                         store.floors.where((f) => f.id == rooms[i].floorId).firstOrNull?.name ?? '',
                     ].join(' · ')),

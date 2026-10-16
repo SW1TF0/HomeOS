@@ -6,6 +6,7 @@ import '../../models/home.dart';
 import '../../state/home_store.dart';
 import '../../state/seed.dart';
 import '../../theme/nothing_theme.dart';
+import '../../util/text.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
 import 'connect_screen.dart';
@@ -58,9 +59,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
               ),
             ]),
             const SizedBox(height: 4),
-            Text(
-                '${store.devices.length} device${store.devices.length == 1 ? '' : 's'} · '
-                '${store.integrations.length} connection${store.integrations.length == 1 ? '' : 's'}',
+            Text('${counted(store.devices.length, 'device')} · ${counted(store.integrations.length, 'connection')}',
                 style: NType.body(14, color: p.textDim)),
             const SizedBox(height: 16),
             TextField(

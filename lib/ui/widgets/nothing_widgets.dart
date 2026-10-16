@@ -448,6 +448,7 @@ class _DotSliderState extends State<DotSlider> {
                 on: p.text,
                 off: p.border,
                 knob: NothingPalette.red,
+                background: p.background,
                 colorAt: widget.colorAt,
               ),
             ),
@@ -459,12 +460,20 @@ class _DotSliderState extends State<DotSlider> {
 }
 
 class _DotSliderPainter extends CustomPainter {
-  _DotSliderPainter({required this.value, required this.on, required this.off, required this.knob, this.colorAt});
+  _DotSliderPainter({
+    required this.value,
+    required this.on,
+    required this.off,
+    required this.knob,
+    required this.background,
+    this.colorAt,
+  });
 
   final double value;
   final Color on;
   final Color off;
   final Color knob;
+  final Color background;
   final Color Function(double t)? colorAt;
 
   @override
@@ -474,11 +483,21 @@ class _DotSliderPainter extends CustomPainter {
     final step = size.width / (count - 1);
     final cy = size.height / 2;
     final paint = Paint();
+    // Colours close to the background (cool white on the light theme) get a thin ring so they still show.
+    final ring = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = off;
+    final backLum = background.computeLuminance();
     for (var i = 0; i < count; i++) {
       final t = i / (count - 1);
       final filled = t <= value + 1e-6;
-      paint.color = colorAt != null ? colorAt!(t).withValues(alpha: filled ? 1 : 0.5) : (filled ? on : off);
-      canvas.drawCircle(Offset(i * step, cy), filled ? 3.2 : 2.4, paint);
+      final c = colorAt?.call(t);
+      final at = Offset(i * step, cy);
+      final r = filled ? 3.2 : 2.4;
+      paint.color = c != null ? c.withValues(alpha: filled ? 1 : 0.5) : (filled ? on : off);
+      canvas.drawCircle(at, r, paint);
+      if (c != null && (c.computeLuminance() - backLum).abs() < 0.3) canvas.drawCircle(at, r, ring);
     }
     final kx = value * size.width;
     canvas.drawCircle(Offset(kx, cy), 9, Paint()..color = knob);
@@ -486,7 +505,7 @@ class _DotSliderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DotSliderPainter old) =>
-      old.value != value || old.on != on || old.off != off || old.colorAt != colorAt;
+      old.value != value || old.on != on || old.off != off || old.background != background || old.colorAt != colorAt;
 }
 
 /// Big round power button.

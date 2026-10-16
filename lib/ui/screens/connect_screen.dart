@@ -11,6 +11,7 @@ import '../../integrations/network_scan.dart';
 import '../../models/home.dart';
 import '../../state/home_store.dart';
 import '../../theme/nothing_theme.dart';
+import '../../util/text.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
 
@@ -119,7 +120,7 @@ class _IntegrationCard extends StatelessWidget {
             Text(config.name, style: NType.body(16, color: p.text, weight: 600)),
             const SizedBox(height: 2),
             Text(
-              ok ? '$count devices${st?.message != null && !st!.message!.endsWith('devices') ? ' · ${st.message}' : ''}' : st!.message ?? 'Error',
+              ok ? '${counted(count, 'device')}${st?.message != null && !st!.message!.endsWith('devices') ? ' · ${st.message}' : ''}' : st!.message ?? 'Error',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: NType.body(13, color: ok ? p.textDim : NothingPalette.red),
