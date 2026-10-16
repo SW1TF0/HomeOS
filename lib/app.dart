@@ -6,6 +6,7 @@ import 'theme/nothing_theme.dart';
 import 'ui/screens/connect_screen.dart';
 import 'ui/screens/devices_screen.dart';
 import 'ui/screens/home_screen.dart';
+import 'ui/nav.dart';
 import 'ui/screens/map_screen.dart';
 import 'ui/widgets/nothing_widgets.dart';
 
@@ -16,8 +17,11 @@ class SmartMenuApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value(
-      value: store,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: store),
+        ChangeNotifierProvider(create: (_) => AppNav()),
+      ],
       child: Consumer<HomeStore>(
         builder: (context, store, _) => MaterialApp(
           title: 'SmartMenuKJ',
@@ -60,7 +64,7 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
-  late int _tab = widget.initialTab;
+  final _mapKey = GlobalKey<MapScreenState>();
 
   HomeStore get _store => context.read<HomeStore>();
 
@@ -68,6 +72,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (widget.initialTab != 0) context.read<AppNav>().tab = widget.initialTab;
     if (widget.poll) WidgetsBinding.instance.addPostFrameCallback((_) => _store.startPolling());
   }
 
@@ -88,20 +93,25 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     }
   }
 
-  void _go(int i) => setState(() => _tab = i);
-
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
+    final nav = context.watch<AppNav>();
+    if (nav.hasMapRequest) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final r = nav.takeMapRequest();
+        if (r != null) _mapKey.currentState?.show(edit: r.edit, roomId: r.roomId);
+      });
+    }
     final pages = [
-      HomeScreen(onOpenMap: () => _go(1)),
-      const MapScreen(),
-      DevicesScreen(onOpenConnect: () => _go(3)),
+      const HomeScreen(),
+      MapScreen(key: _mapKey),
+      DevicesScreen(onOpenConnect: () => nav.go(AppNav.connect)),
       const ConnectScreen(),
     ];
     final body = ToastListener(
       message: context.read<HomeStore>().message,
-      child: IndexedStack(index: _tab, children: pages),
+      child: IndexedStack(index: nav.tab, children: pages),
     );
 
     return LayoutBuilder(builder: (context, c) {
@@ -123,7 +133,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                     decoration: const BoxDecoration(color: NothingPalette.red, shape: BoxShape.circle),
                   ),
                   const SizedBox(height: 28),
-                  for (var i = 0; i < _tabs.length; i++) _RailItem(tab: _tabs[i], selected: i == _tab, onTap: () => _go(i)),
+                  for (var i = 0; i < _tabs.length; i++)
+                    _RailItem(tab: _tabs[i], selected: i == nav.tab, onTap: () => nav.go(i)),
                 ]),
               ),
               Expanded(child: body),
@@ -133,7 +144,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       }
       return Scaffold(
         body: SafeArea(bottom: false, child: body),
-        bottomNavigationBar: _BottomBar(selected: _tab, onTap: _go),
+        bottomNavigationBar: _BottomBar(selected: nav.tab, onTap: nav.go),
       );
     });
   }

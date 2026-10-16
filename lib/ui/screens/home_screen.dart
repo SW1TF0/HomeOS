@@ -7,18 +7,21 @@ import '../../models/device.dart';
 import '../../models/home.dart';
 import '../../state/home_store.dart';
 import '../../theme/nothing_theme.dart';
+import '../nav.dart';
+import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
 import 'device_sheet.dart';
+import 'room_sheet.dart';
 import 'scenes.dart';
 
-/// Overview: clock, what's on, favourites and rooms.
+/// Overview: clock, what's going on, scenes, favourites and rooms.
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key, required this.onOpenMap});
-  final VoidCallback onOpenMap;
+  const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final store = context.watch<HomeStore>();
+    final nav = context.read<AppNav>();
     final p = context.palette;
     final favorites = store.favorites;
     final active = store.activeCount;
@@ -28,33 +31,30 @@ class HomeScreen extends StatelessWidget {
       return CustomScrollView(
         slivers: [
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
             sliver: SliverList.list(children: [
               Row(children: [
                 Text('SMARTMENUKJ', style: NType.label(color: p.textDim)),
+                const SizedBox(width: 8),
+                Container(width: 6, height: 6, decoration: const BoxDecoration(color: NothingPalette.red, shape: BoxShape.circle)),
                 const Spacer(),
-                Container(width: 8, height: 8, decoration: const BoxDecoration(color: NothingPalette.red, shape: BoxShape.circle)),
+                TextButton.icon(
+                  key: const Key('home-edit'),
+                  onPressed: () => showHomeEditor(context),
+                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12)),
+                  icon: const Icon(Icons.tune, size: 18),
+                  label: const Text('Edit home'),
+                ),
               ]),
-              const SizedBox(height: 18),
+              const SizedBox(height: 8),
               const _Clock(),
               const SizedBox(height: 8),
               Text(
                 active == 0 ? 'Everything is off.' : '$active of ${store.devices.length} devices active.',
                 style: NType.body(16, color: p.textDim),
               ),
-              const SizedBox(height: 18),
-              Wrap(spacing: 10, runSpacing: 10, children: [
-                OutlinedButton.icon(
-                  onPressed: active == 0 ? null : store.allOff,
-                  icon: const Icon(Icons.power_settings_new, size: 18),
-                  label: const Text('All off'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: onOpenMap,
-                  icon: const Icon(Icons.grid_view, size: 18),
-                  label: const Text('Open map'),
-                ),
-              ]),
+              const SizedBox(height: 14),
+              const _StatusStrip(),
             ]),
           ),
           SliverPadding(
@@ -85,11 +85,28 @@ class HomeScreen extends StatelessWidget {
               ],
               const SectionLabel('Scenes'),
               const ScenesRow(),
+              SectionLabel('Favourites',
+                  accent: true,
+                  trailing: _HeaderAction(
+                      key: const Key('favourites-edit'), label: 'Edit', onTap: () => showHomeEditor(context))),
+              if (favorites.isEmpty)
+                NCard(
+                  key: const Key('favourites-empty'),
+                  onTap: () => pickFavorites(context),
+                  padding: const EdgeInsets.all(16),
+                  child: Row(children: [
+                    const Icon(Icons.star_border),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text('Pick the devices you use most to keep them here.',
+                          style: NType.body(14, color: p.textDim)),
+                    ),
+                    const Icon(Icons.add),
+                  ]),
+                ),
             ]),
           ),
-          if (favorites.isNotEmpty) ...[
-            const SliverPadding(
-                padding: EdgeInsets.symmetric(horizontal: 20), sliver: SliverToBoxAdapter(child: SectionLabel('Favourites', accent: true))),
+          if (favorites.isNotEmpty)
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               sliver: SliverGrid.count(
@@ -97,20 +114,37 @@ class HomeScreen extends StatelessWidget {
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
                 childAspectRatio: 1.05,
-                children: [
-                  for (final d in favorites)
-                    DeviceTile(
-                      device: d,
-                      subtitle: _withRoom(store, d),
-                      onTap: () => store.toggle(d),
-                      onLongPress: () => showDeviceSheet(context, d),
-                    ),
-                ],
+                children: [for (final d in favorites) DeviceCard(device: d, subtitle: _withRoom(store, d))],
               ),
             ),
-          ],
-          const SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: 20), sliver: SliverToBoxAdapter(child: SectionLabel('Rooms'))),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            sliver: SliverToBoxAdapter(
+              child: SectionLabel('Rooms',
+                  trailing: _HeaderAction(
+                      key: const Key('rooms-edit'),
+                      label: 'Edit',
+                      onTap: () => nav.openMap(edit: true))),
+            ),
+          ),
+          if (store.rooms.isEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              sliver: SliverToBoxAdapter(
+                child: NCard(
+                  onTap: () => nav.openMap(edit: true),
+                  padding: const EdgeInsets.all(16),
+                  child: Row(children: [
+                    const Icon(Icons.add_home_outlined),
+                    const SizedBox(width: 14),
+                    Expanded(
+                        child: Text('Draw your rooms on the map to group your devices.',
+                            style: NType.body(14, color: p.textDim))),
+                    const Icon(Icons.arrow_outward, size: 18),
+                  ]),
+                ),
+              ),
+            ),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
             sliver: SliverGrid.count(
@@ -130,6 +164,22 @@ class HomeScreen extends StatelessWidget {
     final room = store.room(d.roomId);
     return room == null ? describeState(d) : '${room.name} · ${describeState(d)}';
   }
+}
+
+class _HeaderAction extends StatelessWidget {
+  const _HeaderAction({super.key, required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: Text(label.toUpperCase(), style: NType.label(color: context.palette.text)),
+        ),
+      );
 }
 
 class _Clock extends StatefulWidget {
@@ -168,6 +218,155 @@ class _ClockState extends State<_Clock> {
   }
 }
 
+/// Pills that sum up the home: lights on, inside temperature, locks, blinds,
+/// what is playing, what is not answering. Each opens those devices.
+class _StatusStrip extends StatelessWidget {
+  const _StatusStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<HomeStore>();
+    final all = store.devices;
+    List<Device> ofKind(DeviceKind k) => all.where((d) => d.kind == k).toList();
+    final lights = ofKind(DeviceKind.light);
+    final litCount = lights.where((d) => d.state.on == true && d.state.reachable).length;
+    final temp = averageTemperature(all);
+    final locks = ofKind(DeviceKind.lock);
+    final unlocked = locks.where((d) => d.state.locked == false).length;
+    final covers = ofKind(DeviceKind.cover);
+    final open = covers.where((d) => (d.state.position ?? 0) > 0.01).length;
+    final media = ofKind(DeviceKind.media);
+    final playing = media.where((d) => d.state.on == true).toList();
+    final offline = all.where((d) => !d.state.reachable).length;
+
+    final anyOn = store.activeCount > 0;
+    final pills = <Widget>[
+      _Pill(
+        key: const Key('home-all-off'),
+        icon: Icons.power_settings_new,
+        label: 'All off',
+        filled: anyOn,
+        onTap: anyOn ? store.allOff : null,
+      ),
+      if (lights.isNotEmpty)
+        _Pill(
+          key: const Key('status-lights'),
+          icon: litCount > 0 ? Icons.lightbulb : Icons.lightbulb_outline,
+          label: litCount == 0 ? 'Lights off' : '$litCount light${litCount == 1 ? '' : 's'} on',
+          onTap: () => showDeviceListSheet(context,
+              title: 'LIGHTS',
+              select: (s) => s.devices.where((d) => d.kind == DeviceKind.light).toList()
+                ..sort((a, b) => (b.state.on == true ? 1 : 0).compareTo(a.state.on == true ? 1 : 0)),
+              actionLabel: 'All lights off',
+              action: (s, list) => s.setPower(list, false)),
+        ),
+      if (temp != null)
+        _Pill(
+          key: const Key('status-temp'),
+          icon: Icons.device_thermostat,
+          label: '${temp.toStringAsFixed(1)}° inside',
+          onTap: () => showDeviceListSheet(context,
+              title: 'CLIMATE', select: (s) => s.devices.where((d) => temperatureOf(d) != null || d.kind == DeviceKind.climate).toList()),
+        ),
+      if (locks.isNotEmpty)
+        _Pill(
+          key: const Key('status-locks'),
+          icon: unlocked > 0 ? Icons.lock_open : Icons.lock_outline,
+          label: unlocked == 0 ? (locks.length == 1 ? 'Locked' : 'All locked') : '$unlocked unlocked',
+          alert: unlocked > 0,
+          onTap: () => showDeviceListSheet(context,
+              title: 'LOCKS',
+              select: (s) => s.devices.where((d) => d.kind == DeviceKind.lock).toList(),
+              actionLabel: 'Lock all',
+              actionIcon: Icons.lock_outline,
+              action: (s, list) => Future.wait(list.map((d) => s.command(d, const DeviceCommand(locked: true))))),
+        ),
+      if (covers.isNotEmpty)
+        _Pill(
+          key: const Key('status-blinds'),
+          icon: open > 0 ? Icons.blinds : Icons.blinds_closed,
+          label: open == 0 ? 'Blinds closed' : '$open blind${open == 1 ? '' : 's'} open',
+          onTap: () => showDeviceListSheet(context,
+              title: 'BLINDS',
+              select: (s) => s.devices.where((d) => d.kind == DeviceKind.cover).toList(),
+              actionLabel: 'Close all',
+              actionIcon: Icons.blinds_closed,
+              action: (s, list) => Future.wait(list.map((d) => s.command(d, const DeviceCommand(position: 0))))),
+        ),
+      if (playing.isNotEmpty)
+        _Pill(
+          key: const Key('status-media'),
+          icon: Icons.tv,
+          label: playing.length == 1 ? '${playing.first.name} on' : '${playing.length} playing',
+          onTap: () => showDeviceListSheet(context,
+              title: 'MEDIA',
+              select: (s) => s.devices.where((d) => d.kind == DeviceKind.media).toList(),
+              actionLabel: 'All off',
+              action: (s, list) => s.setPower(list, false)),
+        ),
+      if (offline > 0)
+        _Pill(
+          key: const Key('status-offline'),
+          icon: Icons.wifi_off,
+          label: '$offline not responding',
+          alert: true,
+          onTap: () => showDeviceListSheet(context,
+              title: 'NOT RESPONDING',
+              select: (s) => s.devices.where((d) => !d.state.reachable).toList(),
+              empty: 'Everything is answering again.'),
+        ),
+    ];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      clipBehavior: Clip.none,
+      child: Row(children: [
+        for (final pill in pills) ...[pill, const SizedBox(width: 8)],
+      ]),
+    );
+  }
+}
+
+class _Pill extends StatelessWidget {
+  const _Pill(
+      {super.key, required this.icon, required this.label, required this.onTap, this.alert = false, this.filled = false});
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final bool alert;
+
+  /// Drawn inverted, for the one action pill (All off).
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final color = filled
+        ? p.background
+        : (alert ? NothingPalette.red : (onTap == null ? p.textDim : p.text));
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
+          decoration: BoxDecoration(
+            color: filled ? p.text : p.surface,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: filled ? p.text : (alert ? NothingPalette.red : p.border)),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 7),
+            Text(label, style: NType.body(13, color: color, weight: 500)),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
 class _RoomCard extends StatelessWidget {
   const _RoomCard({required this.room});
   final Room room;
@@ -177,18 +376,47 @@ class _RoomCard extends StatelessWidget {
     final store = context.watch<HomeStore>();
     final p = context.palette;
     final devices = store.devicesIn(room.id);
+    final switchable = store.switchablesIn(room.id);
     final on = devices.where((d) => d.state.isActive && d.kind != DeviceKind.lock).length;
-    final temp = devices
-        .map((d) => d.state.currentTemp?.toStringAsFixed(1) ?? d.state.readings['Temperature']?.split(' ').first)
-        .whereType<String>()
-        .firstOrNull;
+    final anyOn = switchable.any((d) => d.state.on == true);
+    final temp = averageTemperature(devices);
     return NCard(
-      onTap: () => _showRoom(context, room),
-      padding: const EdgeInsets.all(16),
+      key: Key('room-card-${room.id}'),
+      onTap: () => showRoomSheet(context, room.id),
+      padding: const EdgeInsets.fromLTRB(16, 12, 10, 14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(child: DotText(room.name, size: 22, maxLines: 1)),
-          if (temp != null) Text('$temp°', style: NType.body(14, color: p.textDim)),
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: DotText(room.name, size: 22, maxLines: 1),
+            ),
+          ),
+          if (switchable.isNotEmpty)
+            Semantics(
+              button: true,
+              toggled: anyOn,
+              label: anyOn ? 'Turn ${room.name} off' : 'Turn ${room.name} lights on',
+              child: GestureDetector(
+                key: Key('room-power-${room.id}'),
+                behavior: HitTestBehavior.opaque,
+                onTap: () => store.toggleRoom(room.id),
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 6),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: anyOn ? p.text : Colors.transparent,
+                      border: Border.all(color: anyOn ? p.text : p.border),
+                    ),
+                    child: Icon(Icons.power_settings_new, size: 17, color: anyOn ? p.background : p.text),
+                  ),
+                ),
+              ),
+            ),
         ]),
         const Spacer(),
         Row(children: [
@@ -199,75 +427,206 @@ class _RoomCard extends StatelessWidget {
               height: 7,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: devices[i].state.isActive ? p.text : p.border,
+                color: !devices[i].state.reachable
+                    ? NothingPalette.red
+                    : (devices[i].state.isActive ? p.text : p.border),
               ),
             ),
         ]),
         const SizedBox(height: 6),
-        Text(devices.isEmpty ? 'No devices' : '$on on · ${devices.length} devices', style: NType.body(12.5, color: p.textDim)),
+        Text(
+          [
+            devices.isEmpty ? 'No devices' : '$on on · ${devices.length} devices',
+            if (temp != null) '${temp.toStringAsFixed(1)}°',
+          ].join(' · '),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: NType.body(12.5, color: p.textDim),
+        ),
       ]),
     );
   }
-
-  static void _showRoom(BuildContext context, Room room) => showModalBottomSheet(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        constraints: const BoxConstraints(maxWidth: 720),
-        builder: (_) => RoomSheet(roomId: room.id),
-      );
 }
 
-/// Devices in one room, with all on / all off.
-class RoomSheet extends StatelessWidget {
-  const RoomSheet({super.key, required this.roomId});
-  final String roomId;
+// ---- Edit home ----------------------------------------------------------------------
+
+/// Lets the user pick which devices are favourites, and saves the choice.
+Future<void> pickFavorites(BuildContext context) async {
+  final store = context.read<HomeStore>();
+  if (store.devices.isEmpty) {
+    store.toast('Add some devices first.');
+    return;
+  }
+  final picked = await pickMany<Device>(
+    context,
+    title: 'Favourites',
+    options: store.devices,
+    label: (d) => d.name,
+    subtitle: (d) => store.room(d.roomId)?.name ?? 'No room',
+    icon: (d) => deviceIcon(d.kind),
+    initial: store.favorites.toSet(),
+    action: 'Save',
+  );
+  if (picked != null) store.setFavorites(picked);
+}
+
+Future<void> showHomeEditor(BuildContext context) => showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      constraints: const BoxConstraints(maxWidth: 640),
+      builder: (_) => const HomeEditor(),
+    );
+
+/// Edit the home screen and the home itself: favourites and their order,
+/// the order of rooms and scenes, and a way into the floor plan editor.
+class HomeEditor extends StatelessWidget {
+  const HomeEditor({super.key});
 
   @override
   Widget build(BuildContext context) {
     final store = context.watch<HomeStore>();
-    final room = store.room(roomId);
-    if (room == null) return const SizedBox(height: 100);
-    final devices = store.devicesIn(roomId);
-    final switchable = devices.where((d) => d.has(Capability.onOff));
+    final p = context.palette;
+    final favorites = store.favorites;
+    final rooms = store.rooms;
+    final scenes = store.scenes;
+    Widget handle(int i) => ReorderableDragStartListener(
+          index: i,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Icon(Icons.drag_indicator, color: p.textDim),
+          ),
+        );
+    Widget proxy(Widget child, int index, Animation<double> a) => Material(
+          color: p.surfaceHigh,
+          borderRadius: BorderRadius.circular(16),
+          child: child,
+        );
+
     return DraggableScrollableSheet(
       expand: false,
-      initialChildSize: 0.7,
+      initialChildSize: 0.85,
       maxChildSize: 0.95,
       builder: (context, scroll) => ListView(
         controller: scroll,
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
         children: [
-          DotText(room.name, size: 32),
-          const SizedBox(height: 14),
-          Row(children: [
-            Expanded(
-                child: OutlinedButton(
-                    onPressed: switchable.isEmpty ? null : () => store.setPower(switchable, false), child: const Text('All off'))),
-            const SizedBox(width: 12),
-            Expanded(
-                child: FilledButton(
-                    onPressed: switchable.isEmpty ? null : () => store.setPower(switchable, true), child: const Text('All on'))),
-          ]),
+          const DotText('EDIT HOME', size: 30),
+          const SizedBox(height: 6),
+          Text('Change what the home screen shows, and in which order. Drag the handles to reorder.',
+              style: NType.body(14, color: p.textDim)),
           const SizedBox(height: 16),
-          if (devices.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text('No devices yet. Drag some into this room on the map.',
-                  textAlign: TextAlign.center, style: NType.body(14, color: context.palette.textDim)),
-            ),
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 1.15,
-            children: [
-              for (final d in devices)
-                DeviceTile(device: d, onTap: () => store.toggle(d), onLongPress: () => showDeviceSheet(context, d)),
-            ],
+          FilledButton.icon(
+            key: const Key('edit-floor-plan'),
+            onPressed: () {
+              Navigator.pop(context);
+              context.read<AppNav>().openMap(edit: true);
+            },
+            icon: const Icon(Icons.grid_view, size: 18),
+            label: const Text('Edit rooms and floor plan'),
           ),
+          SectionLabel('Favourites',
+              accent: true,
+              trailing: _HeaderAction(key: const Key('favourites-pick'), label: 'Choose', onTap: () => pickFavorites(context))),
+          if (favorites.isEmpty)
+            Text('No favourites yet. Tap Choose, or the star on any device.', style: NType.body(13.5, color: p.textDim)),
+          NCard(
+            padding: EdgeInsets.zero,
+            child: ReorderableListView(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              buildDefaultDragHandles: false,
+              proxyDecorator: proxy,
+              onReorderItem: store.moveFavorite,
+              children: [
+                for (var i = 0; i < favorites.length; i++)
+                  ListTile(
+                    key: ValueKey('fav-${favorites[i].id}'),
+                    contentPadding: const EdgeInsets.only(left: 16, right: 4),
+                    leading: Icon(deviceIcon(favorites[i].kind)),
+                    title: Text(favorites[i].name),
+                    subtitle: Text(store.room(favorites[i].roomId)?.name ?? 'No room'),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      IconButton(
+                        tooltip: 'Remove from favourites',
+                        onPressed: () => store.updateDevice(favorites[i], favorite: false),
+                        icon: const Icon(Icons.remove_circle_outline),
+                      ),
+                      handle(i),
+                    ]),
+                  ),
+              ],
+            ),
+          ),
+          SectionLabel('Rooms',
+              trailing: Text('${rooms.length}', style: NType.label(color: p.textDim))),
+          if (rooms.isEmpty)
+            Text('No rooms yet. Draw them on the floor plan.', style: NType.body(13.5, color: p.textDim)),
+          NCard(
+            padding: EdgeInsets.zero,
+            child: ReorderableListView(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              buildDefaultDragHandles: false,
+              proxyDecorator: proxy,
+              onReorderItem: store.moveRoom,
+              children: [
+                for (var i = 0; i < rooms.length; i++)
+                  ListTile(
+                    key: ValueKey('room-row-${rooms[i].id}'),
+                    contentPadding: const EdgeInsets.only(left: 16, right: 4),
+                    leading: const Icon(Icons.meeting_room_outlined),
+                    title: Text(rooms[i].name),
+                    subtitle: Text([
+                      '${store.devicesIn(rooms[i].id).length} devices',
+                      if (store.floors.length > 1)
+                        store.floors.where((f) => f.id == rooms[i].floorId).firstOrNull?.name ?? '',
+                    ].join(' · ')),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      IconButton(
+                        tooltip: 'Rename room',
+                        onPressed: () async {
+                          final name = await promptText(context, title: 'Rename room', initial: rooms[i].name);
+                          if (name != null && name.isNotEmpty) store.renameRoom(rooms[i], name);
+                        },
+                        icon: const Icon(Icons.edit_outlined),
+                      ),
+                      handle(i),
+                    ]),
+                  ),
+              ],
+            ),
+          ),
+          if (scenes.isNotEmpty) ...[
+            SectionLabel('Scenes', trailing: Text('${scenes.length}', style: NType.label(color: p.textDim))),
+            NCard(
+              padding: EdgeInsets.zero,
+              child: ReorderableListView(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                buildDefaultDragHandles: false,
+                proxyDecorator: proxy,
+                onReorderItem: store.moveScene,
+                children: [
+                  for (var i = 0; i < scenes.length; i++)
+                    ListTile(
+                      key: ValueKey('scene-row-${scenes[i].id}'),
+                      contentPadding: const EdgeInsets.only(left: 16, right: 4),
+                      leading: Icon(sceneIcon(scenes[i].icon)),
+                      title: Text(scenes[i].name),
+                      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                        IconButton(
+                          tooltip: 'Edit scene',
+                          onPressed: () => showSceneSheet(context, scenes[i]),
+                          icon: const Icon(Icons.edit_outlined),
+                        ),
+                        handle(i),
+                      ]),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

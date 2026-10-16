@@ -57,21 +57,75 @@ void main() {
   });
 
   testWidgets('phone map', (tester) async {
-    await _app(tester, phone);
+    final store = await _app(tester, phone);
     await tester.tap(find.byKey(const Key('tab-map')));
     await _shot(tester, 'phone-map');
+    store.unplaceDevice(store.devices.firstWhere((d) => d.name == 'Bath fan'));
     await tester.tap(find.byKey(const Key('map-edit')));
     await tester.pumpAndSettle();
     await tester.tapAt(tester.getTopLeft(find.textContaining('KITCHEN')) + const Offset(4, 4));
     await _shot(tester, 'phone-map-edit');
   });
 
+  testWidgets('phone map drawing', (tester) async {
+    await _app(tester, phone);
+    await tester.tap(find.byKey(const Key('tab-map')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('map-edit')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('map-draw')));
+    await tester.pumpAndSettle();
+    final start = tester.getBottomLeft(find.byKey(const Key('room-room-bedroom'))) + const Offset(6, 18);
+    final g = await tester.startGesture(start);
+    for (var i = 0; i < 10; i++) {
+      await g.moveBy(const Offset(14, 7));
+      await tester.pump();
+    }
+    await _shot(tester, 'phone-map-draw');
+    await g.up();
+  });
+
+  Future<void> openControls(WidgetTester tester, String name) async {
+    await tester.scrollUntilVisible(find.text(name), 250, scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
+    await tester.longPress(find.text(name).first);
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('phone device controls', (tester) async {
     await _app(tester, phone);
-    await tester.drag(find.byType(CustomScrollView).first, const Offset(0, -420));
-    await tester.pumpAndSettle();
-    await tester.longPress(find.text('Desk lamp').first);
+    await openControls(tester, 'Desk lamp');
     await _shot(tester, 'phone-device');
+  });
+
+  testWidgets('phone colour light', (tester) async {
+    final store = await _app(tester, phone);
+    store.updateDevice(store.devices.firstWhere((d) => d.name == 'Floor lamp'), favorite: true);
+    await tester.pumpAndSettle();
+    await openControls(tester, 'Floor lamp');
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, -330));
+    await _shot(tester, 'phone-colour');
+  });
+
+  testWidgets('phone thermostat', (tester) async {
+    await _app(tester, phone);
+    await openControls(tester, 'Thermostat');
+    await _shot(tester, 'phone-thermostat');
+  });
+
+  testWidgets('phone room', (tester) async {
+    await _app(tester, phone);
+    final card = find.byKey(const Key('room-card-room-living'));
+    await tester.scrollUntilVisible(card, 250, scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
+    await tester.tap(card);
+    await _shot(tester, 'phone-room');
+  });
+
+  testWidgets('phone home editor', (tester) async {
+    await _app(tester, phone);
+    await tester.tap(find.byKey(const Key('home-edit')));
+    await _shot(tester, 'phone-home-edit');
   });
 
   testWidgets('phone connect', (tester) async {

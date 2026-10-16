@@ -58,7 +58,9 @@ class _DevicesScreenState extends State<DevicesScreen> {
               ),
             ]),
             const SizedBox(height: 4),
-            Text('${store.devices.length} devices · ${store.integrations.length} connections',
+            Text(
+                '${store.devices.length} device${store.devices.length == 1 ? '' : 's'} · '
+                '${store.integrations.length} connection${store.integrations.length == 1 ? '' : 's'}',
                 style: NType.body(14, color: p.textDim)),
             const SizedBox(height: 16),
             TextField(
@@ -111,10 +113,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
               childAspectRatio: 1.05,
-              children: [
-                for (final d in entry.value)
-                  DeviceTile(device: d, onTap: () => store.toggle(d), onLongPress: () => showDeviceSheet(context, d)),
-              ],
+              children: [for (final d in entry.value) DeviceCard(device: d)],
             ),
           ),
         ],

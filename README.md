@@ -4,17 +4,24 @@ A free smart home app for phones and computers. Draw your home as a floor plan, 
 
 Everything is free and local-first. There is no account, no cloud, no subscription and no paywall. The app talks to your devices directly on your home network, and your home layout is saved on your own device.
 
-| Home | Floor plan | Editing the plan | Device controls |
+**[Download for Android](https://github.com/SW1TF0/HomeOS/releases/latest/download/SmartMenuKJ-android.apk)** · [Windows, macOS and Linux](https://github.com/SW1TF0/HomeOS/releases/latest)
+
+| Home | A room | Light controls | Thermostat |
 | --- | --- | --- | --- |
-| ![Home](docs/screenshots/phone-home.png) | ![Map](docs/screenshots/phone-map.png) | ![Map editing](docs/screenshots/phone-map-edit.png) | ![Device](docs/screenshots/phone-device.png) |
+| ![Home](docs/screenshots/phone-home.png) | ![Room](docs/screenshots/phone-room.png) | ![Light](docs/screenshots/phone-device.png) | ![Thermostat](docs/screenshots/phone-thermostat.png) |
+
+| Floor plan | Editing the plan | Drawing a room | Editing the home screen |
+| --- | --- | --- | --- |
+| ![Map](docs/screenshots/phone-map.png) | ![Map editing](docs/screenshots/phone-map-edit.png) | ![Drawing a room](docs/screenshots/phone-map-draw.png) | ![Edit home](docs/screenshots/phone-home-edit.png) |
 
 ![Desktop](docs/screenshots/desktop-map.png)
 
 ## What it does
 
-- **Floor plan.** Draw rooms on a dotted grid, drag them around, resize them from the red corner, and add floors. Drag devices onto the plan and they join the room you drop them in. Tap a device on the plan to switch it, hold it for full controls.
-- **Controls.** On/off, brightness, white temperature, colour, blinds position, thermostat target, locks and sensor readings, shown only when the device supports them.
-- **Home screen.** A dot-matrix clock, favourites, rooms with all on / all off, and one button to switch everything off.
+- **Floor plan.** Add a ready-made room (Kitchen, Bedroom, Garage...) and it drops into a free spot, or draw one by dragging on the dotted grid. Move rooms, resize them from any corner, duplicate or delete them, and undo any change. Devices that are not on the plan wait in a tray at the bottom: drag one into a room and it joins that room. Tap a device on the plan to switch it, hold it for full controls, tap a room to open it.
+- **Controls.** Dot-matrix sliders with one-tap presets for brightness and white (Warm, Neutral, Cool, Daylight), a colour ring, a thermostat dial with Eco / Comfort / Warm, blinds you slide open, volume, locks that only open when you hold them, and sensor readings, each shown only when the device supports it. Drag sideways across a light's tile to dim it without opening anything.
+- **Home screen.** A dot-matrix clock and a status strip (lights on, temperature inside, locks, open blinds, offline devices) where each pill opens the devices behind it, next to one button that switches everything off. Then your favourites and your rooms. **Edit home** picks and orders the favourites and rooms.
+- **Rooms.** Tap a room on the home screen or the plan to see everything in it: one slider for all its lights, all off / lights on, every device, and a shortcut to edit the room on the plan.
 - **Scenes.** Set your devices the way you like, save it as a scene ("Movie night", "Good night"...), and bring it back with one tap. Scenes can run by themselves at a time of day on chosen weekdays while the app is open.
 - **Scan network.** Finds everything on your Wi-Fi that answers (mDNS, UPnP / SSDP, Kasa and Yeelight discovery, and a quick check of TV ports): TVs, speakers, plugs, lights, hubs, printers and more. Add anything in one tap, or type a device's IP address.
 - **TV remote.** Power, volume, mute, channels, arrows, OK, back, home and play / pause for Samsung, LG, Sony and Roku TVs, plus volume and play / pause for Chromecast, Google TV and UPnP speakers. TVs that are fully off are woken with Wake-on-LAN.
@@ -60,7 +67,7 @@ The macOS app is not signed, so the first time you open it, right-click it and c
 
 1. The app opens with a sample home of virtual devices so you can try everything right away. Delete or move anything you like.
 2. Go to **Connect** and tap **Scan network**, or pick a connection and type its address.
-3. New devices appear on the **Devices** tab. Open **Map**, tap **Edit**, then **Place device** to put them on the plan.
+3. New devices appear on the **Devices** tab. Open **Map** and tap **Edit**: new devices wait in the tray at the bottom, drag each one into its room.
 
 ## For developers
 

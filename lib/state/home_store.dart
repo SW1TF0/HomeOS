@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
-import 'dart:ui' show Offset;
+import 'dart:ui' show Offset, Rect;
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -110,6 +110,7 @@ class HomeStore extends ChangeNotifier {
   // ---- Floors and rooms ---------------------------------------------------------
 
   Floor addFloor(String name) {
+    _checkpoint();
     final f = Floor(id: newId('floor'), name: name);
     data.floors.add(f);
     _changed();
@@ -117,12 +118,14 @@ class HomeStore extends ChangeNotifier {
   }
 
   void renameFloor(Floor f, String name) {
+    _checkpoint();
     f.name = name;
     _changed();
   }
 
   void removeFloor(Floor f) {
     if (data.floors.length <= 1) return;
+    _checkpoint();
     final roomIds = data.rooms.where((r) => r.floorId == f.id).map((r) => r.id).toSet();
     data.rooms.removeWhere((r) => r.floorId == f.id);
     for (final d in data.devices) {
@@ -137,10 +140,11 @@ class HomeStore extends ChangeNotifier {
   }
 
   Room addRoom(String floorId, {String? name, double x = 2, double y = 2, double width = 8, double height = 6}) {
+    _checkpoint();
     final r = Room(
       id: newId('room'),
       floorId: floorId,
-      name: name ?? 'Room ${data.rooms.where((r) => r.floorId == floorId).length + 1}',
+      name: uniqueRoomName(name ?? 'Room'),
       x: x,
       y: y,
       width: width,
@@ -155,6 +159,7 @@ class HomeStore extends ChangeNotifier {
 
   /// Moves or resizes a room. Devices inside a moved room travel with it.
   void setRoomRect(Room r, {double? x, double? y, double? width, double? height, bool moveDevices = true}) {
+    _checkpoint();
     final dx = (x ?? r.x) - r.x;
     final dy = (y ?? r.y) - r.y;
     r.x = x ?? r.x;
@@ -166,26 +171,118 @@ class HomeStore extends ChangeNotifier {
         if (d.roomId == r.id && d.mapPos != null) d.mapPos = d.mapPos!.translate(dx, dy);
       }
     }
+    _reassignRooms(r.floorId);
     _changed();
   }
 
+  /// After rooms change shape: devices left outside their room join the room
+  /// they now stand in (or none), and devices without a room join the one around them.
+  void _reassignRooms(String floorId) {
+    final rooms = roomsOn(floorId)..sort((a, b) => (a.width * a.height).compareTo(b.width * b.height));
+    for (final d in data.devices) {
+      final pos = d.mapPos;
+      if (pos == null || d.floorId != floorId) continue;
+      final current = room(d.roomId);
+      if (current != null && current.floorId == floorId && current.contains(pos)) continue;
+      d.roomId = rooms.where((r) => r.contains(pos)).firstOrNull?.id;
+    }
+  }
+
   void renameRoom(Room r, String name) {
+    _checkpoint();
     r.name = name;
     _changed();
   }
 
   void removeRoom(Room r) {
+    _checkpoint();
     data.rooms.remove(r);
     for (final d in data.devices) {
       if (d.roomId == r.id) d.roomId = null;
     }
+    _reassignRooms(r.floorId);
     _changed();
+  }
+
+  /// [base], or "[base] 2", "[base] 3"... so no two rooms share a name.
+  String uniqueRoomName(String base) {
+    final taken = data.rooms.map((r) => r.name.toLowerCase()).toSet();
+    if (!taken.contains(base.toLowerCase())) return base;
+    var n = 2;
+    while (taken.contains('${base.toLowerCase()} $n')) {
+      n++;
+    }
+    return '$base $n';
+  }
+
+  /// Top-left corner of an empty [width] × [height] spot on a floor, as close
+  /// to [near] (the spot's wanted centre) as the other rooms allow.
+  Offset freeSpot(String floorId, double width, double height, {Offset? near}) {
+    final taken = roomsOn(floorId).map((r) => r.rect).toList();
+    final want = near ?? Offset(width / 2, height / 2);
+    var right = want.dx + width, bottom = want.dy + height;
+    for (final r in taken) {
+      right = max(right, r.right);
+      bottom = max(bottom, r.bottom);
+    }
+    Offset? best;
+    var bestDist = double.infinity;
+    for (var y = 0.0; y <= bottom + 1; y++) {
+      for (var x = 0.0; x <= right + 1; x++) {
+        final spot = Rect.fromLTWH(x, y, width, height);
+        if (taken.any((r) => r.overlaps(spot))) continue;
+        final dist = (spot.center - want).distanceSquared;
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = Offset(x, y);
+        }
+      }
+    }
+    return best ?? Offset(0, bottom + 1);
+  }
+
+  /// Adds a room of the same size (without its devices) in the nearest free spot.
+  Room duplicateRoom(Room r) {
+    final at = freeSpot(r.floorId, r.width, r.height, near: r.rect.center.translate(r.width, 0));
+    return addRoom(r.floorId, name: r.name, x: at.dx, y: at.dy, width: r.width, height: r.height);
+  }
+
+  /// Changes the order rooms are listed in on the home screen.
+  void moveRoom(int from, int to) {
+    final r = data.rooms.removeAt(from);
+    data.rooms.insert(to.clamp(0, data.rooms.length), r);
+    _changed();
+  }
+
+  // ---- Undo for the floor plan ---------------------------------------------------
+
+  final List<_Layout> _undo = [];
+
+  void _checkpoint() {
+    _undo.add(_Layout.of(data));
+    if (_undo.length > 50) _undo.removeAt(0);
+  }
+
+  bool get canUndoLayout => _undo.isNotEmpty;
+
+  /// Puts floors, rooms and device spots back the way they were before the last change.
+  void undoLayout() {
+    if (_undo.isEmpty) return;
+    _undo.removeLast().restore(data);
+    _changed();
+  }
+
+  void clearLayoutUndo() {
+    if (_undo.isEmpty) return;
+    _undo.clear();
+    notifyListeners();
   }
 
   // ---- Devices -------------------------------------------------------------------
 
   /// Puts a device on the map. It joins whichever room it lands in.
   void placeDevice(Device d, String floorId, Offset pos) {
+    _checkpoint();
     d.floorId = floorId;
     d.mapPos = pos;
     final inside = data.rooms.where((r) => r.floorId == floorId && r.contains(pos)).toList()
@@ -195,6 +292,7 @@ class HomeStore extends ChangeNotifier {
   }
 
   void unplaceDevice(Device d) {
+    _checkpoint();
     d.mapPos = null;
     d.floorId = null;
     _changed();
@@ -203,6 +301,7 @@ class HomeStore extends ChangeNotifier {
   void updateDevice(Device d, {String? name, DeviceKind? kind, String? roomId, bool clearRoom = false, bool? favorite}) {
     if (name != null && name.trim().isNotEmpty) d.name = name.trim();
     if (kind != null) d.kind = kind;
+    if (clearRoom || roomId != null) _checkpoint();
     if (clearRoom) {
       d.roomId = null;
     } else if (roomId != null) {
@@ -215,6 +314,27 @@ class HomeStore extends ChangeNotifier {
       }
     }
     if (favorite != null) d.favorite = favorite;
+    _changed();
+  }
+
+  /// Makes exactly [picked] the favourites.
+  void setFavorites(Iterable<Device> picked) {
+    final ids = picked.map((d) => d.id).toSet();
+    for (final d in data.devices) {
+      d.favorite = ids.contains(d.id);
+    }
+    _changed();
+  }
+
+  /// Changes the order of the favourites on the home screen. Other devices keep their place.
+  void moveFavorite(int from, int to) {
+    final favs = favorites;
+    final slots = [for (var i = 0; i < data.devices.length; i++) if (data.devices[i].favorite) i];
+    final d = favs.removeAt(from);
+    favs.insert(to.clamp(0, favs.length), d);
+    for (var k = 0; k < slots.length; k++) {
+      data.devices[slots[k]] = favs[k];
+    }
     _changed();
   }
 
@@ -240,6 +360,7 @@ class HomeStore extends ChangeNotifier {
   /// Removes the sample devices, and the sample rooms if nothing real is in them.
   void removeSampleHome({bool rooms = true}) {
     final ids = sampleDevices.map((d) => d.id).toSet();
+    _undo.clear();
     data.devices.removeWhere((d) => ids.contains(d.id));
     for (final s in data.scenes) {
       s.actions.removeWhere((a) => ids.contains(a.deviceId));
@@ -389,6 +510,23 @@ class HomeStore extends ChangeNotifier {
 
   Future<void> setPower(Iterable<Device> devices, bool on) => Future.wait(
       devices.where((d) => d.has(Capability.onOff) && d.state.on != on).map((d) => command(d, DeviceCommand(on: on))));
+
+  /// Sets every dimmable light in [devices] to [level] (0 switches them off).
+  Future<void> setBrightness(Iterable<Device> devices, double level) => Future.wait(devices
+      .where((d) => d.has(Capability.brightness))
+      .map((d) => command(d, level <= 0.01 ? const DeviceCommand(on: false) : DeviceCommand(brightness: level))));
+
+  /// What a room's power button switches: everything with on/off except heating.
+  List<Device> switchablesIn(String roomId) =>
+      devicesIn(roomId).where((d) => d.has(Capability.onOff) && d.kind != DeviceKind.climate).toList();
+
+  /// Room power: off when anything is on, otherwise the lights come on.
+  Future<void> toggleRoom(String roomId) {
+    final all = switchablesIn(roomId);
+    if (all.any((d) => d.state.on == true)) return setPower(all, false);
+    final lights = all.where((d) => d.kind == DeviceKind.light);
+    return setPower(lights.isEmpty ? all : lights, true);
+  }
 
   Future<void> allOff() => setPower(data.devices.where((d) => d.kind != DeviceKind.climate), false);
 
@@ -681,6 +819,7 @@ class HomeStore extends ChangeNotifier {
       await _stopDriver(id);
     }
     status.clear();
+    _undo.clear();
     data = next;
     for (final cfg in data.integrations) {
       _startDriver(cfg);
@@ -700,5 +839,50 @@ class HomeStore extends ChangeNotifier {
     }
     message.dispose();
     super.dispose();
+  }
+}
+
+/// A copy of the floor plan: floors, rooms and where each device sits.
+class _Layout {
+  _Layout(this.floors, this.rooms, this.spots);
+
+  factory _Layout.of(HomeData data) => _Layout(
+        [for (final f in data.floors) (f.id, f.name)],
+        [for (final r in data.rooms) r.toJson()],
+        {for (final d in data.devices) d.id: (d.floorId, d.roomId, d.mapPos)},
+      );
+
+  final List<(String, String)> floors;
+  final List<Map<String, dynamic>> rooms;
+  final Map<String, (String?, String?, Offset?)> spots;
+
+  /// Keeps the same Room objects alive, so screens holding one stay valid.
+  static Room _copyRoom(Room from, Room to) => to
+    ..floorId = from.floorId
+    ..name = from.name
+    ..x = from.x
+    ..y = from.y
+    ..width = from.width
+    ..height = from.height;
+
+  void restore(HomeData data) {
+    final floorsById = {for (final f in data.floors) f.id: f};
+    data.floors
+      ..clear()
+      ..addAll([for (final (id, name) in floors) (floorsById[id] ?? Floor(id: id, name: name))..name = name]);
+    final roomsById = {for (final r in data.rooms) r.id: r};
+    data.rooms
+      ..clear()
+      ..addAll([
+        for (final j in rooms)
+          if (roomsById[j['id']] case final r?) _copyRoom(Room.fromJson(j), r) else Room.fromJson(j),
+      ]);
+    for (final d in data.devices) {
+      final spot = spots[d.id];
+      if (spot == null) continue;
+      d.floorId = spot.$1;
+      d.roomId = spot.$2;
+      d.mapPos = spot.$3;
+    }
   }
 }

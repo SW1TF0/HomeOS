@@ -642,7 +642,7 @@ class _SettingsCard extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-          child: Text('SMARTMENUKJ 1.2 · FREE · LOCAL-FIRST · NO ACCOUNT', style: NType.label(color: p.textDim)),
+          child: Text('SMARTMENUKJ 1.3 · FREE · LOCAL-FIRST · NO ACCOUNT', style: NType.label(color: p.textDim)),
         ),
       ]),
     );
