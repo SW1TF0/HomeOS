@@ -4,7 +4,7 @@
 
 A free smart home app for phones and computers. Draw your home as a floor plan, put your devices where they really are, and control them with a tap. It is styled after Nothing OS: black and white, dot-matrix type and a single red accent.
 
-Everything is free and local-first. There is no account, no cloud, no subscription and no paywall. The app talks to your devices directly on your home network, and your home layout is saved on your own device.
+Everything is free and local-first. There is no subscription and no paywall, and no account is needed: the app talks to your devices directly on your home network, and your homes are saved on your own device. A free account is optional; it keeps your homes in step on every phone and computer and lets you switch things from anywhere.
 
 **[Download for Android](https://github.com/SW1TF0/HomeOS/releases/latest/download/SmartMenuKJ-android.apk)** · [Windows, macOS and Linux](https://github.com/SW1TF0/HomeOS/releases/latest)
 
@@ -20,9 +20,9 @@ Everything is free and local-first. There is no account, no cloud, no subscripti
 | --- | --- | --- | --- |
 | ![Colour](docs/screenshots/phone-colour.png) | ![Connect](docs/screenshots/phone-connect.png) | ![Matter](docs/screenshots/phone-matter.png) | ![Light theme](docs/screenshots/phone-devices-light.png) |
 
-| Robot vacuum | Alarm |
-| --- | --- |
-| ![Robot vacuum](docs/screenshots/phone-vacuum.png) | ![Alarm](docs/screenshots/phone-alarm.png) |
+| Robot vacuum | Alarm | More than one home | Account |
+| --- | --- | --- | --- |
+| ![Robot vacuum](docs/screenshots/phone-vacuum.png) | ![Alarm](docs/screenshots/phone-alarm.png) | ![Homes](docs/screenshots/phone-homes.png) | ![Account](docs/screenshots/phone-account.png) |
 
 ![Desktop](docs/screenshots/desktop-map.png)
 
@@ -36,6 +36,8 @@ Everything is free and local-first. There is no account, no cloud, no subscripti
 - **Matter, with no hub.** SmartMenuKJ is its own Matter controller: type a device's pairing code and its lights, plugs, sensors, blinds, locks, thermostat, robot vacuum, washer, dishwasher, air purifier, water valve or smoke alarm appear, controlled directly on your network. Matter bridges (Hue, IKEA, Aqara...) bring all their devices at once.
 - **Scan network.** Finds everything on your Wi-Fi that answers (mDNS, UPnP / SSDP, Kasa and Yeelight discovery, and a quick check of TV ports): TVs, speakers, plugs, lights, hubs, printers and more. Add anything in one tap, or type a device's IP address.
 - **TV remote.** Power, volume, mute, channels, arrows, OK, back, home and play / pause for Samsung, LG, Sony and Roku TVs, plus volume and play / pause for Chromecast, Google TV and UPnP speakers. TVs that are fully off are woken with Wake-on-LAN.
+- **More than one home.** Tap the home's name at the top of the home screen to switch homes, add one, rename, reorder or delete them. Each home has its own floor plan, devices, connections and scenes.
+- **Account and control from anywhere (optional, free).** Sign in under **Connect** and your homes are saved to your account and stay in step on every device you sign in on. Most devices only answer on your home Wi-Fi, so leave one phone, tablet or computer at home with the app, signed in and plugged in, and turn on **Keep … online from this device** there. Your other devices then switch things through it from anywhere; the home screen shows *Away · through …* when they do. On Android it keeps running in the background with a small notification.
 - **Backups.** Copy your whole home (rooms, devices, connections) as text and paste it back on another phone or computer.
 - **Light and dark themes**, phone layout with a bottom bar, desktop layout with a side rail.
 
@@ -82,6 +84,7 @@ The macOS app is not signed, so the first time you open it, right-click it and c
 1. The app opens with a sample home of virtual devices so you can try everything right away. Delete or move anything you like.
 2. Go to **Connect** and tap **Scan network**, or pick a connection and type its address.
 3. New devices appear on the **Devices** tab. Open **Map** and tap **Edit**: new devices wait in the tray at the bottom, drag each one into its room.
+4. To control your home when you are out, tap **Sign in** on **Connect**, create an account, and on a device that stays at home turn on **Keep … online from this device**.
 
 ## For developers
 
@@ -90,15 +93,24 @@ lib/
   models/         Device, room, floor and home data (JSON)
   integrations/   One driver per system + catalog + network scan
   state/          HomeStore (all changes go through it), local storage, sample home
+  cloud/          Accounts, sync and remote control over Firebase (REST, no SDK)
   theme/          Nothing-style colours and type
   ui/             Screens and shared widgets
 test/             Model, driver, store and widget tests
 tool/             Screenshot generator
+firebase/         Database rules and emulator settings
 ```
 
 - `flutter analyze` and `flutter test` run on every pull request.
 - `flutter test tool/screenshots_test.dart --update-goldens` regenerates the screenshots in `docs/screenshots/`.
+- `firebase emulators:exec --only auth,database --config firebase/firebase.json "FIREBASE_EMULATOR=1 flutter test test/firebase_emulator_test.dart"` checks accounts, sync and the database rules against the real Firebase emulators.
 - `python3 tool/make_icons.py` redraws the app icon for every platform (needs Pillow).
+
+### Accounts (Firebase)
+
+Accounts use a free Firebase project (Spark plan) through its REST APIs: Email/Password sign-in and the Realtime Database. To use your own project, turn those two on, paste `firebase/database.rules.json` under **Realtime Database → Rules**, and build with `--dart-define=FIREBASE_API_KEY=... --dart-define=FIREBASE_DATABASE_URL=https://....firebasedatabase.app`. The rules let each account read and write only the homes it belongs to.
+
+What is stored: the layout of each home (floors, rooms, devices, scenes, and connections with their addresses, tokens and passwords, so your other devices can use them too), its name, which device keeps it online, and while one does, what the devices are doing and the commands sent through it. Alarm codes are never stored.
 
 ## Credits and licences
 

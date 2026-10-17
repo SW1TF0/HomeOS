@@ -7,7 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smartmenukj/app.dart';
+import 'package:smartmenukj/cloud/cloud_sync.dart';
+import 'package:smartmenukj/cloud/memory_cloud.dart';
 import 'package:smartmenukj/models/device.dart';
 import 'package:smartmenukj/state/home_store.dart';
 import 'package:smartmenukj/state/repository.dart';
@@ -29,14 +32,15 @@ Future<void> _loadFonts() async {
   }
 }
 
-Future<HomeStore> _app(WidgetTester tester, Size size, {String theme = 'dark'}) async {
+Future<HomeStore> _app(WidgetTester tester, Size size, {String theme = 'dark', CloudSync? cloud}) async {
   tester.view.physicalSize = size * 2;
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
   final store = HomeStore(repository: MemoryHomeRepository(), client: MockClient((_) async => http.Response('[]', 200)));
   await store.load();
   store.data.themeMode = theme;
-  await tester.pumpWidget(SmartMenuApp(store: store, poll: false));
+  // A pretend cloud, signed out, so the account card shows as it does in the app.
+  await tester.pumpWidget(SmartMenuApp(store: store, cloud: cloud ?? CloudSync(store: store, api: MemoryCloud().app()), poll: false));
   await tester.pumpAndSettle();
   return store;
 }
@@ -162,6 +166,39 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('matter-code')), '3497-011-2332');
     await _shot(tester, 'phone-matter');
+  });
+
+  testWidgets('phone homes', (tester) async {
+    final store = await _app(tester, phone);
+    await store.addHome('Beach house');
+    await store.addHome('Office');
+    await store.openHome(store.homes.first.id);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('home-switch')));
+    await _shot(tester, 'phone-homes');
+  });
+
+  testWidgets('phone account', (tester) async {
+    // ignore: invalid_use_of_visible_for_testing_member
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = phone * 2;
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    final store = HomeStore(repository: MemoryHomeRepository(), client: MockClient((_) async => http.Response('[]', 200)));
+    await store.load();
+    store.addVirtualDevice('demo', 'Porch light', DeviceKind.light);
+    final cloud = CloudSync(store: store, api: MemoryCloud().app(), deviceName: 'Kitchen tablet', delay: const Duration(milliseconds: 10));
+    await cloud.start();
+    await cloud.signIn('kj@example.com', 'secret1', create: true);
+    await cloud.setHub(true);
+    await tester.pumpWidget(SmartMenuApp(store: store, cloud: cloud, poll: false));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('tab-connect')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('account-card')));
+    await _shot(tester, 'phone-account');
+    cloud.dispose();
+    await tester.pump(const Duration(seconds: 1));
   });
 
   testWidgets('phone light theme', (tester) async {
