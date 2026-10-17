@@ -1,5 +1,7 @@
 # SmartMenuKJ
 
+<img src="docs/icon.png" alt="SmartMenuKJ icon: a dot-matrix S with a red dot on black" width="96">
+
 A free smart home app for phones and computers. Draw your home as a floor plan, put your devices where they really are, and control them with a tap. It is styled after Nothing OS: black and white, dot-matrix type and a single red accent.
 
 Everything is free and local-first. There is no account, no cloud, no subscription and no paywall. The app talks to your devices directly on your home network, and your home layout is saved on your own device.
@@ -91,6 +93,7 @@ tool/             Screenshot generator
 
 - `flutter analyze` and `flutter test` run on every pull request.
 - `flutter test tool/screenshots_test.dart --update-goldens` regenerates the screenshots in `docs/screenshots/`.
+- `python3 tool/make_icons.py` redraws the app icon for every platform (needs Pillow).
 
 ## Credits and licences
 
