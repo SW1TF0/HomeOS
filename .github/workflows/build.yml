@@ -51,7 +51,8 @@ jobs:
       - name: Check which key signed the APK
         run: |
           tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
-          signer=$("$tools/apksigner" verify --print-certs SmartMenuKJ-android.apk | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          "$tools/apksigner" verify --print-certs SmartMenuKJ-android.apk
+          signer=$(python tool/android_key.py --signer SmartMenuKJ-android.apk)
           echo "Signed by $signer"
           if [ "$signer" != "$APP_KEY_SHA256" ]; then
             echo "::error::The APK is not signed with the key made for it ($APP_KEY_SHA256)."

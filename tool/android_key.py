@@ -7,10 +7,15 @@ with the same key and installs over the version before, while nothing secret is 
 
 writes a PKCS#12 keystore (password and alias "smartmenukj") and prints APP_KEY_SHA256=<certificate SHA-256>.
 Needs the cryptography package, 44 or newer (for deterministic ECDSA).
+
+    python3 tool/android_key.py --signer app.apk
+
+prints the SHA-256 of the certificate that signed an APK (APK Signature Scheme v2 or v3).
 """
 import datetime
 import hashlib
 import os
+import struct
 import sys
 
 from cryptography import x509
@@ -59,7 +64,30 @@ def keystore(key, cert):
     return pkcs12.serialize_key_and_certificates(b'smartmenukj', key, cert, None, encryption)
 
 
+def signer_of(apk):
+    data = open(apk, 'rb').read()
+    u32 = lambda o: struct.unpack_from('<I', data, o)[0]
+    u64 = lambda o: struct.unpack_from('<Q', data, o)[0]
+    central = u32(data.rfind(b'PK\x05\x06') + 16)
+    if data[central - 16:central] != b'APK Sig Block 42':
+        raise SystemExit(f'{apk} has no v2 or v3 signature.')
+    o, end = central - u64(central - 24), central - 24
+    while o < end:
+        size, kind = u64(o), u32(o + 8)
+        if kind in (0x7109871a, 0xf05368c0):  # v2, v3
+            signer = o + 12 + 4 + 4  # the first signer, inside the signers sequence
+            signed = signer + 4  # its signed data: digests, then certificates
+            certs = signed + 4 + u32(signed)  # length of the certificates
+            first = certs + 4  # length of the first certificate
+            return hashlib.sha256(data[first + 4:first + 4 + u32(first)]).hexdigest()
+        o += 8 + size
+    raise SystemExit(f'{apk} has no v2 or v3 signature.')
+
+
 if __name__ == '__main__':
+    if sys.argv[1:2] == ['--signer']:
+        print(signer_of(sys.argv[2]))
+        sys.exit()
     if make(_CHECK[0])[1].fingerprint(hashes.SHA256()).hex() != _CHECK[1]:
         raise SystemExit('Keys come out differently than before: keep the cryptography version that made them.')
     key, cert = make(os.environ.get('ANDROID_SIGNING_SECRET', ''))
