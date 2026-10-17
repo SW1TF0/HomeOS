@@ -1,13 +1,19 @@
 name: Build apps
 
 # Builds installable apps for free on GitHub's runners.
-# Every push to main uploads them as workflow artifacts; pushing a tag
-# like v1.0.0 also publishes them on the Releases page.
+# Every push to main uploads them as workflow artifacts. Pushing a tag like
+# v1.0.0, or running this workflow by hand with a version, also publishes
+# them on the Releases page.
 on:
   push:
     branches: [main]
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Publish a release with this version tag (e.g. v1.0.1). Leave empty to only build.'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -25,8 +31,33 @@ jobs:
         with:
           channel: stable
           cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # The app's signing key is made from a secret, the same key every time, so each version installs over the
+      # last one. Without the secret the APK gets a one-off key instead.
+      - name: Make the signing key
+        env:
+          ANDROID_SIGNING_SECRET: ${{ secrets.ANDROID_SIGNING_SECRET }}
+        run: |
+          if [ -z "$ANDROID_SIGNING_SECRET" ]; then
+            echo "::warning::No ANDROID_SIGNING_SECRET, so this APK gets a one-off key and does not install over other versions."
+            ANDROID_SIGNING_SECRET=$(openssl rand -hex 32)
+          fi
+          pip install --quiet cryptography==50.0.1
+          ANDROID_SIGNING_SECRET="$ANDROID_SIGNING_SECRET" python tool/android_key.py android/app/release-key.p12 >> "$GITHUB_ENV"
       - run: flutter build apk --release
       - run: mv build/app/outputs/flutter-apk/app-release.apk SmartMenuKJ-android.apk
+      - name: Check which key signed the APK
+        run: |
+          tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$tools/apksigner" verify --print-certs SmartMenuKJ-android.apk
+          signer=$(python tool/android_key.py --signer SmartMenuKJ-android.apk)
+          echo "Signed by $signer"
+          if [ "$signer" != "$APP_KEY_SHA256" ]; then
+            echo "::error::The APK is not signed with the key made for it ($APP_KEY_SHA256)."
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: SmartMenuKJ-android
@@ -79,7 +110,7 @@ jobs:
           path: SmartMenuKJ-macos.zip
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.version != ''
     needs: [android, windows, linux, macos]
     runs-on: ubuntu-latest
     steps:
@@ -90,4 +121,7 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
+          tag_name: ${{ inputs.version || github.ref_name }}
+          name: SmartMenuKJ ${{ inputs.version || github.ref_name }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true

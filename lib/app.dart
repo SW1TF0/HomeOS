@@ -1,23 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'cloud/cloud_sync.dart';
+import 'state/app_settings.dart';
 import 'state/home_store.dart';
 import 'theme/nothing_theme.dart';
 import 'ui/screens/connect_screen.dart';
 import 'ui/screens/devices_screen.dart';
 import 'ui/screens/home_screen.dart';
+import 'ui/nav.dart';
 import 'ui/screens/map_screen.dart';
 import 'ui/widgets/nothing_widgets.dart';
 
 class SmartMenuApp extends StatelessWidget {
-  const SmartMenuApp({super.key, required this.store, this.poll = true});
+  SmartMenuApp({super.key, required this.store, CloudSync? cloud, AppSettings? settings, this.poll = true})
+      : cloud = cloud ?? CloudSync.disabled(store),
+        settings = settings ?? AppSettings();
   final HomeStore store;
+  final CloudSync cloud;
+  final AppSettings settings;
   final bool poll;
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider.value(
-      value: store,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider.value(value: store),
+        ChangeNotifierProvider.value(value: cloud),
+        ChangeNotifierProvider.value(value: settings),
+        ChangeNotifierProvider(create: (_) => AppNav()),
+      ],
       child: Consumer<HomeStore>(
         builder: (context, store, _) => MaterialApp(
           title: 'SmartMenuKJ',
@@ -29,7 +41,7 @@ class SmartMenuApp extends StatelessWidget {
             'system' => ThemeMode.system,
             _ => ThemeMode.dark,
           },
-          home: AppShell(poll: poll),
+          home: AppShell(poll: poll, initialTab: settings.startTab),
         ),
       ),
     );
@@ -60,7 +72,8 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
-  late int _tab = widget.initialTab;
+  var _mapKey = GlobalKey<MapScreenState>();
+  String? _homeId;
 
   HomeStore get _store => context.read<HomeStore>();
 
@@ -68,6 +81,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (widget.initialTab != 0) context.read<AppNav>().tab = widget.initialTab;
     if (widget.poll) WidgetsBinding.instance.addPostFrameCallback((_) => _store.startPolling());
   }
 
@@ -80,28 +94,42 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!widget.poll) return;
+    final cloud = context.read<CloudSync>();
     if (state == AppLifecycleState.resumed) {
       _store.startPolling();
+      cloud.resumed();
     } else if (state == AppLifecycleState.paused) {
-      _store.stopPolling();
+      // A device keeping the home online goes on watching its devices in the background.
+      if (!cloud.isHub) _store.stopPolling();
       _store.saveNow();
     }
   }
 
-  void _go(int i) => setState(() => _tab = i);
-
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
+    final nav = context.watch<AppNav>();
+    // Another home opened: every screen starts over, so none holds on to the old home's floors or rooms.
+    final homeId = context.select<HomeStore, String>((s) => s.homeId);
+    if (homeId != _homeId) {
+      if (_homeId != null) _mapKey = GlobalKey<MapScreenState>();
+      _homeId = homeId;
+    }
+    if (nav.hasMapRequest) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final r = nav.takeMapRequest();
+        if (r != null) _mapKey.currentState?.show(edit: r.edit, roomId: r.roomId);
+      });
+    }
     final pages = [
-      HomeScreen(onOpenMap: () => _go(1)),
-      const MapScreen(),
-      DevicesScreen(onOpenConnect: () => _go(3)),
+      const HomeScreen(),
+      MapScreen(key: _mapKey),
+      DevicesScreen(onOpenConnect: () => nav.go(AppNav.connect)),
       const ConnectScreen(),
     ];
     final body = ToastListener(
       message: context.read<HomeStore>().message,
-      child: IndexedStack(index: _tab, children: pages),
+      child: KeyedSubtree(key: ValueKey(homeId), child: IndexedStack(index: nav.tab, children: pages)),
     );
 
     return LayoutBuilder(builder: (context, c) {
@@ -123,7 +151,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                     decoration: const BoxDecoration(color: NothingPalette.red, shape: BoxShape.circle),
                   ),
                   const SizedBox(height: 28),
-                  for (var i = 0; i < _tabs.length; i++) _RailItem(tab: _tabs[i], selected: i == _tab, onTap: () => _go(i)),
+                  for (var i = 0; i < _tabs.length; i++)
+                    _RailItem(tab: _tabs[i], selected: i == nav.tab, onTap: () => nav.go(i)),
                 ]),
               ),
               Expanded(child: body),
@@ -133,7 +162,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       }
       return Scaffold(
         body: SafeArea(bottom: false, child: body),
-        bottomNavigationBar: _BottomBar(selected: _tab, onTap: _go),
+        bottomNavigationBar: _BottomBar(selected: nav.tab, onTap: nav.go),
       );
     });
   }

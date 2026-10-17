@@ -6,9 +6,13 @@ import '../../models/home.dart';
 import '../../state/home_store.dart';
 import '../../state/seed.dart';
 import '../../theme/nothing_theme.dart';
+import '../../util/text.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
+import 'connect_screen.dart';
+import 'matter_sheet.dart';
 import 'device_sheet.dart';
+import 'profile_menu.dart';
 
 /// Every device, grouped by room, with search and add.
 class DevicesScreen extends StatefulWidget {
@@ -55,9 +59,11 @@ class _DevicesScreenState extends State<DevicesScreen> {
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add'),
               ),
+              const SizedBox(width: 6),
+              const ProfileButton(),
             ]),
             const SizedBox(height: 4),
-            Text('${store.devices.length} devices · ${store.integrations.length} connections',
+            Text('${counted(store.devices.length, 'device')} · ${counted(store.integrations.length, 'connection')}',
                 style: NType.body(14, color: p.textDim)),
             const SizedBox(height: 16),
             TextField(
@@ -110,10 +116,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
               mainAxisSpacing: 12,
               crossAxisSpacing: 12,
               childAspectRatio: 1.05,
-              children: [
-                for (final d in entry.value)
-                  DeviceTile(device: d, onTap: () => store.toggle(d), onLongPress: () => showDeviceSheet(context, d)),
-              ],
+              children: [for (final d in entry.value) DeviceCard(device: d)],
             ),
           ),
         ],
@@ -127,20 +130,32 @@ class _DevicesScreenState extends State<DevicesScreen> {
     final choice = await pickOne<String>(
       context,
       title: 'Add a device',
-      options: ['connect', 'virtual', if (mqtt.isNotEmpty) 'mqtt'],
+      options: ['scan', 'matter', 'address', 'connect', 'virtual', if (mqtt.isNotEmpty) 'mqtt'],
       label: (o) => switch (o) {
-        'connect' => 'From a hub or the network (Hue, Home Assistant, Shelly...)',
+        'scan' => 'Scan the network (TVs, speakers, plugs, anything)',
+        'matter' => 'Matter device, with its pairing code',
+        'address' => 'By IP address',
+        'connect' => 'From a hub (Hue, Home Assistant, MQTT...)',
         'virtual' => 'Virtual device (for planning or trying the app)',
         _ => 'MQTT device by topic',
       },
       icon: (o) => switch (o) {
-        'connect' => Icons.wifi_tethering,
+        'scan' => Icons.wifi_tethering,
+        'matter' => Icons.join_inner,
+        'address' => Icons.lan_outlined,
+        'connect' => Icons.hub_outlined,
         'virtual' => Icons.blur_on,
         _ => Icons.podcasts,
       },
     );
     if (!context.mounted || choice == null) return;
-    if (choice == 'connect') {
+    if (choice == 'scan') {
+      await openScanSheet(context);
+    } else if (choice == 'matter') {
+      await openMatterSheet(context);
+    } else if (choice == 'address') {
+      await addByAddress(context);
+    } else if (choice == 'connect') {
       widget.onOpenConnect();
     } else if (choice == 'virtual') {
       await _addVirtual(context, store);

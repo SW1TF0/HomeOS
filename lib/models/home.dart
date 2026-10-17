@@ -1,6 +1,7 @@
 import 'dart:ui' show Offset, Rect;
 
 import 'device.dart';
+import 'scene.dart';
 
 class Floor {
   Floor({required this.id, required this.name});
@@ -99,8 +100,10 @@ class HomeData {
     List<Room>? rooms,
     List<Device>? devices,
     List<IntegrationConfig>? integrations,
+    List<Scene>? scenes,
     this.themeMode = 'dark',
-  })  : floors = floors ?? [],
+  })  : scenes = scenes ?? [],
+        floors = floors ?? [],
         rooms = rooms ?? [],
         devices = devices ?? [],
         integrations = integrations ?? [];
@@ -111,6 +114,7 @@ class HomeData {
   final List<Room> rooms;
   final List<Device> devices;
   final List<IntegrationConfig> integrations;
+  final List<Scene> scenes;
   String themeMode;
 
   Map<String, dynamic> toJson() => {
@@ -121,6 +125,7 @@ class HomeData {
         'rooms': rooms.map((e) => e.toJson()).toList(),
         'devices': devices.map((e) => e.toJson()).toList(),
         'integrations': integrations.map((e) => e.toJson()).toList(),
+        'scenes': scenes.map((e) => e.toJson()).toList(),
       };
 
   factory HomeData.fromJson(Map<String, dynamic> j) {
@@ -132,6 +137,7 @@ class HomeData {
       rooms: list('rooms').map(Room.fromJson).toList(),
       devices: list('devices').map(Device.fromJson).toList(),
       integrations: list('integrations').map(IntegrationConfig.fromJson).toList(),
+      scenes: list('scenes').map(Scene.fromJson).toList(),
     );
   }
 }

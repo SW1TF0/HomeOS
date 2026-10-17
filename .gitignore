@@ -46,3 +46,7 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Matter simulator (tool/matter): installed packages and device storage
+/tool/matter/node_modules
+/tool/matter/store/

@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
 import '../models/device.dart';
 import '../models/home.dart';
+import '../util/digest_auth.dart';
 
 /// A field on an integration's settings form.
 class SettingField {
@@ -33,6 +35,26 @@ class IntegrationException implements Exception {
   String toString() => message;
 }
 
+/// Where a camera's live video is: RTSP (the full and the smaller picture) or MJPEG over HTTP, with headers to send.
+class CameraStream {
+  const CameraStream({this.rtsp, this.rtspLow, this.mjpeg, this.headers = const {}});
+  final Uri? rtsp;
+  final Uri? rtspLow;
+  final Uri? mjpeg;
+  final Map<String, String> headers;
+
+  /// From a device's `streamUrl`, `streamUrlLow` and `mjpegUrl`. Null when it has none.
+  static CameraStream? fromProps(Map<String, dynamic> props) {
+    Uri? at(String key) {
+      final v = props[key];
+      return v is String && v.trim().isNotEmpty ? Uri.tryParse(v.trim()) : null;
+    }
+
+    final s = CameraStream(rtsp: at('streamUrl'), rtspLow: at('streamUrlLow'), mjpeg: at('mjpegUrl'));
+    return s.rtsp == null && s.mjpeg == null ? null : s;
+  }
+}
+
 /// Called by a driver when a device reports a new state on its own (MQTT pushes).
 typedef StatePush = void Function(String externalId, DeviceState state);
 
@@ -43,6 +65,9 @@ abstract class IntegrationDriver {
   final IntegrationConfig config;
   final http.Client client;
   StatePush? onPush;
+
+  /// Called when the driver changed [config]'s settings itself (keys it was given), so they get saved.
+  void Function()? onSettings;
 
   /// Opens long-lived connections, if the integration has any.
   Future<void> start() async {}
@@ -61,7 +86,7 @@ abstract class IntegrationDriver {
     final out = <String, DeviceState>{};
     for (final d in devices) {
       try {
-        out[d.id] = await refresh(d) ?? d.state;
+        out[d.id] = d.state.merge(await refresh(d) ?? const DeviceState());
       } catch (_) {
         out[d.id] = d.state.merge(DeviceState.unreachable);
       }
@@ -73,6 +98,17 @@ abstract class IntegrationDriver {
 
   /// Sends [command]. Returns the confirmed state if the device reports one.
   Future<DeviceState?> send(Device device, DeviceCommand command);
+
+  /// A still picture (JPEG or PNG) from a camera. By default it is fetched
+  /// from the device's `snapshotUrl`, which can be set for any network camera.
+  Future<Uint8List?> snapshot(Device device) async {
+    final url = device.props['snapshotUrl'];
+    if (url is! String || url.trim().isEmpty) return null;
+    return getImage(Uri.parse(url.trim()));
+  }
+
+  /// Where to watch a camera live. By default from the addresses found when its login was entered.
+  CameraStream? liveStream(Device device) => CameraStream.fromProps(device.props);
 
   /// For integrations that pair (Hue): returns settings to store on success.
   Future<Map<String, dynamic>> pair() =>
@@ -94,7 +130,7 @@ abstract class IntegrationDriver {
         externalId: externalId,
         capabilities: capabilities,
         props: props,
-        state: state,
+        state: const DeviceState().merge(state),
       );
 
   // HTTP helpers with sensible timeouts for devices on the local network.
@@ -114,6 +150,34 @@ abstract class IntegrationDriver {
     final res = await http.Response.fromStream(streamed).timeout(timeout);
     return _decode(uri, res);
   }
+
+  /// Downloads a picture. A user and password in the address are sent as HTTP Basic, or Digest when the camera asks.
+  Future<Uint8List> getImage(Uri uri, {Map<String, String>? headers}) async {
+    final (user, pass) = loginOf(uri);
+    final bare = uri.replace(userInfo: '');
+    var res = await client
+        .get(bare, headers: {if (user.isNotEmpty) 'Authorization': authorization(null, user, pass, 'GET', ''), ...?headers})
+        .timeout(timeout);
+    final challenge = res.statusCode == 401 && user.isNotEmpty ? AuthChallenge.pick([res.headers['www-authenticate'] ?? '']) : null;
+    if (challenge?.scheme == 'digest') {
+      final path = bare.hasQuery ? '${bare.path}?${bare.query}' : bare.path;
+      res = await client
+          .get(bare, headers: {'Authorization': authorization(challenge, user, pass, 'GET', path), ...?headers})
+          .timeout(timeout);
+    }
+    if (res.statusCode == 401 || res.statusCode == 403) {
+      throw IntegrationException('${uri.host} refused access (HTTP ${res.statusCode}). Check the user and password.');
+    }
+    if (res.statusCode >= 400) throw IntegrationException('${uri.host} answered HTTP ${res.statusCode}.');
+    final type = res.headers['content-type'] ?? '';
+    if (!type.startsWith('image/') && !_looksLikeImage(res.bodyBytes)) {
+      throw IntegrationException('${uri.host} did not send a picture.');
+    }
+    return res.bodyBytes;
+  }
+
+  static bool _looksLikeImage(Uint8List b) =>
+      (b.length > 3 && b[0] == 0xff && b[1] == 0xd8) || (b.length > 8 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4e);
 
   dynamic _decode(Uri uri, http.Response res) {
     if (res.statusCode == 401 || res.statusCode == 403) {
