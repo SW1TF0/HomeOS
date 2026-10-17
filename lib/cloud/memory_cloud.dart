@@ -126,6 +126,9 @@ class MemoryCloudApi implements CloudApi {
   /// Makes every database call fail, as if the phone were offline.
   bool offline = false;
 
+  /// Refuses every database call, as a Firebase database does before its rules are set.
+  bool locked = false;
+
   @override
   CloudSession? session;
 
@@ -140,6 +143,7 @@ class MemoryCloudApi implements CloudApi {
   void _check() {
     if (offline) throw const CloudException('No internet connection.', code: 'offline');
     if (session == null) throw const CloudException('Sign in first.', code: 'signed-out');
+    if (locked) throw const CloudException('Not allowed.', code: 'permission');
   }
 
   @override

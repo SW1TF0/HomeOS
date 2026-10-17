@@ -44,6 +44,7 @@ class HomeStore extends ChangeNotifier {
     http.Client? client,
     this._pollInterval = const Duration(seconds: 10),
     this.claimRun,
+    this.onHomeNetwork,
   }) : client = client ?? http.Client();
 
   final HomeRepository repository;
@@ -63,6 +64,10 @@ class HomeStore extends ChangeNotifier {
   /// Asked before a timed scene runs, with the scene and its time slot. When
   /// something else (an Android alarm) already ran that slot, it answers false.
   final Future<bool> Function(String sceneId, String slot)? claimRun;
+
+  /// Whether this device is on a Wi-Fi or wired network right now (the app
+  /// passes hasHomeNetwork from lan/net.dart). Without it the device is taken to be at home.
+  final Future<bool> Function()? onHomeNetwork;
 
   HomeData data = HomeData();
   bool loaded = false;
@@ -681,6 +686,30 @@ class HomeStore extends ChangeNotifier {
 
   RemoteControl? get _hub => remote != null && remote!.online ? remote : null;
 
+  /// On mobile data only, with no Wi-Fi: devices at home cannot hear this device, so commands go
+  /// through the device at home straight away. Checked with every refresh and before commands.
+  bool get offHomeNetwork => _offHomeNetwork;
+  bool _offHomeNetwork = false;
+
+  Future<bool> checkHomeNetwork() async {
+    final check = onHomeNetwork;
+    if (check == null) return !_offHomeNetwork;
+    bool on;
+    try {
+      on = await check();
+    } catch (_) {
+      on = true;
+    }
+    if (on == _offHomeNetwork) {
+      _offHomeNetwork = !on;
+      _changed(save: false);
+    }
+    return on;
+  }
+
+  /// Whether [d] is reached over the network, rather than living only in the app.
+  bool networked(Device d) => integration(d.integrationId)?.type != 'demo';
+
   /// New states from the device at home. They show for the devices this device cannot reach itself.
   void applyHubStates(Map<String, DeviceState> states) {
     var changed = false;
@@ -715,6 +744,7 @@ class HomeStore extends ChangeNotifier {
     final driver = _drivers[d.integrationId];
     final hub = _hub;
     if (hub != null && (driver == null || viaHub.contains(d.id))) return _sendViaHub(hub, d, c, before);
+    if (hub != null && networked(d) && !await checkHomeNetwork()) return _sendViaHub(hub, d, c, before);
     if (driver == null) {
       d.state = before;
       _changed(save: false);
@@ -731,7 +761,10 @@ class HomeStore extends ChangeNotifier {
       if (hub != null) return _sendViaHub(hub, d, c, before);
       d.state = before.merge(DeviceState.unreachable);
       _changed(save: false);
-      toast('${d.name}: $e');
+      toast(_offHomeNetwork && networked(d)
+          ? '${d.name} only answers on your home Wi-Fi. To switch it from anywhere, keep a device at home online: '
+              'tap your profile, then Manage account.'
+          : '${d.name}: $e');
       return false;
     }
   }
@@ -1136,6 +1169,7 @@ class HomeStore extends ChangeNotifier {
     if (_refreshing) return;
     _refreshing = true;
     try {
+      await checkHomeNetwork();
       await Future.wait(data.integrations.map((cfg) async {
         final driver = _drivers[cfg.id];
         final spec = specFor(cfg.type);

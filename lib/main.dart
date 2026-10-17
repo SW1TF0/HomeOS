@@ -9,6 +9,7 @@ import 'app.dart';
 import 'cloud/cloud_config.dart';
 import 'cloud/cloud_sync.dart';
 import 'cloud/firebase.dart';
+import 'integrations/lan/net.dart';
 import 'state/app_settings.dart';
 import 'state/home_store.dart';
 import 'state/repository.dart';
@@ -22,6 +23,7 @@ Future<void> main() async {
     repository: LocalHomeRepository(),
     pollInterval: settings.checkEvery,
     claimRun: SceneAlarms.supported ? claimSceneRun : null,
+    onHomeNetwork: hasHomeNetwork,
   );
   await store.load();
   if (SceneAlarms.supported) SceneAlarms().follow(store);

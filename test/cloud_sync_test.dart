@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -12,7 +14,14 @@ import 'package:smartmenukj/state/repository.dart';
 /// One phone or tablet with the app: its own saved homes and its own view of the cloud.
 class Phone {
   Phone(this.name, MemoryCloud cloud) : api = cloud.app() {
-    store = HomeStore(repository: MemoryHomeRepository(), client: MockClient((_) async => http.Response('', 500)));
+    store = HomeStore(
+      repository: MemoryHomeRepository(),
+      client: MockClient((_) async {
+        requests++;
+        return devicesAnswer ? http.Response('{"POWER1":"ON"}', 200) : http.Response('', 500);
+      }),
+      onHomeNetwork: () async => atHome,
+    );
     sync = CloudSync(store: store, api: api, deviceName: name, delay: const Duration(milliseconds: 20), storageKey: 'cloud.$name');
   }
 
@@ -20,6 +29,13 @@ class Phone {
   final MemoryCloudApi api;
   late final HomeStore store;
   late final CloudSync sync;
+
+  /// On the home Wi-Fi, or on mobile data only.
+  bool atHome = true;
+
+  /// Whether devices on the network answer this phone, and how often it asked them.
+  bool devicesAnswer = false;
+  int requests = 0;
 
   Future<void> start() async {
     await store.load();
@@ -176,12 +192,66 @@ void main() {
       c.dispose();
     });
 
+    test('off the home Wi-Fi, a command goes straight through the device at home', () async {
+      final tasmota = a.store.addIntegration('tasmota');
+      final plug = a.store.addVirtualDevice(tasmota.id, 'Porch plug', DeviceKind.outlet, props: {'host': '10.0.0.9'});
+      await settle(300);
+      await b.sync.resumed();
+      expect(b.store.devices.any((d) => d.name == 'Porch plug'), isTrue);
+      b.devicesAnswer = true;
+      a.atHome = false;
+      final asked = a.requests;
+      expect(await a.store.command(plug, const DeviceCommand(on: true)), isTrue);
+      expect(a.requests, asked, reason: 'nothing at home can hear this phone, so it does not try');
+      expect(a.store.offHomeNetwork, isTrue);
+      expect(b.device('Porch plug').state.on, isTrue);
+      expect(b.requests, greaterThan(0));
+    });
+
     test('signing out stops it', () async {
       b.sync.signOut();
       await settle();
       expect(b.sync.isHub, isFalse);
       expect(b.store.homes.single.cloudId, isNotNull, reason: 'the home stays on the tablet');
     });
+  });
+
+  test('away with nothing at home passing commands on, a command says what to do', () async {
+    await shareHome();
+    final tasmota = a.store.addIntegration('tasmota');
+    final plug = a.store.addVirtualDevice(tasmota.id, 'Porch plug', DeviceKind.outlet, props: {'host': '10.0.0.9'});
+    a.atHome = false;
+    await a.store.checkHomeNetwork();
+    expect(await a.store.command(plug, const DeviceCommand(on: true)), isFalse);
+    expect(a.store.message.value, contains('only answers on your home Wi-Fi'));
+    expect(a.store.networked(a.device('Coffee machine')), isFalse, reason: 'virtual devices work anywhere');
+  });
+
+  test('a device at home that is off the Wi-Fi does not check in', () async {
+    await shareHome();
+    b.atHome = false;
+    await b.store.checkHomeNetwork();
+    await b.sync.setHub(true);
+    await settle();
+    expect(b.sync.isHub, isTrue);
+    expect(a.sync.online, isFalse);
+  });
+
+  test('a database without its rules is explained, with the rules to paste', () async {
+    a.store.addVirtualDevice('demo', 'Porch light', DeviceKind.light);
+    a.api.locked = true;
+    await a.sync.signIn('me@example.com', 'secret1', create: true);
+    expect(a.sync.needsRules, isTrue);
+    expect(a.sync.problem, contains('still locked'));
+    a.api.locked = false;
+    await a.sync.syncAll();
+    expect(a.sync.needsRules, isFalse);
+    expect(a.sync.problem, isNull);
+    expect(a.store.homes.single.cloudId, isNotNull);
+  });
+
+  test('the rules in the app are the ones in firebase/database.rules.json', () {
+    expect(CloudSync.databaseRules.trim(), File('firebase/database.rules.json').readAsStringSync().trim());
   });
 
   test('database keys keep any device id', () {

@@ -70,6 +70,36 @@ class CloudSync extends ChangeNotifier implements RemoteControl {
   String? problem;
   DateTime? lastSync;
 
+  /// The database refused this account its own folder: the rules in the Firebase console were never set.
+  bool needsRules = false;
+
+  /// The database rules to paste in the Firebase console (the same as firebase/database.rules.json).
+  static const databaseRules = r'''
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "homes": {
+      "$home": {
+        ".read": "auth != null && data.child('members/' + auth.uid).exists()",
+        ".write": "auth != null && ((data.child('members/' + auth.uid).exists() && (newData.exists() || data.child('members/' + auth.uid).val() === 'owner')) || (!data.exists() && newData.child('members/' + auth.uid).val() === 'owner'))"
+      }
+    }
+  }
+}''';
+
+  CloudException _locked() {
+    needsRules = true;
+    return const CloudException(
+        'Your Firebase database is still locked, so nothing can be saved. Copy the rules below, paste them in '
+        'Firebase under Realtime Database, Rules, and tap Publish.',
+        code: 'rules');
+  }
+
   bool _started = false;
   bool _syncing = false;
   bool _wasOnline = false;
@@ -177,7 +207,15 @@ class CloudSync extends ChangeNotifier implements RemoteControl {
     busy = true;
     notifyListeners();
     try {
-      final ids = await api.get('users/${me.uid}/homes', shallow: true);
+      final Object? ids;
+      try {
+        ids = await api.get('users/${me.uid}/homes', shallow: true);
+      } on CloudException catch (e) {
+        // Every account may read its own folder, unless the rules were never set.
+        if (e.permissionDenied) throw _locked();
+        rethrow;
+      }
+      needsRules = false;
       final there = <String, Map>{};
       for (final id in ids is Map ? ids.keys.map((k) => '$k') : const <String>[]) {
         try {
@@ -243,11 +281,17 @@ class CloudSync extends ChangeNotifier implements RemoteControl {
     final id = FirebaseClient.newId();
     final doc = jsonEncode(docOf(d));
     final stamp = FirebaseClient.newId(10);
-    await api!.put('homes/$id', {
-      'members': {me.uid: 'owner'},
-      'info': {'name': h.name, 'stamp': stamp, 'by': deviceId, 'saved': FirebaseClient.serverTime},
-      'doc': doc,
-    });
+    try {
+      await api!.put('homes/$id', {
+        'members': {me.uid: 'owner'},
+        'info': {'name': h.name, 'stamp': stamp, 'by': deviceId, 'saved': FirebaseClient.serverTime},
+        'doc': doc,
+      });
+    } on CloudException catch (e) {
+      // A brand-new home is always the account's to make, unless the rules were never set.
+      if (e.permissionDenied) throw _locked();
+      rethrow;
+    }
     await api!.put('users/${me.uid}/homes/$id', true);
     h
       ..cloudId = id
@@ -511,6 +555,9 @@ class CloudSync extends ChangeNotifier implements RemoteControl {
   Future<void> _beat() async {
     final id = _cloudId;
     if (id == null) return;
+    // Away from the home Wi-Fi this device cannot reach the devices, so it stops checking in and the others
+    // stop sending it commands until it is back.
+    if (store.offHomeNetwork) return;
     try {
       await api!.patch('homes/$id/live/hub', {
         'device': deviceId,

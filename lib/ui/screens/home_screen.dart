@@ -86,6 +86,7 @@ class HomeScreen extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               const _StatusStrip(),
+              const _AwayCard(),
             ]),
           ),
           SliverPadding(
@@ -194,6 +195,65 @@ class HomeScreen extends StatelessWidget {
   static String _withRoom(HomeStore store, Device d) {
     final room = store.room(d.roomId);
     return room == null ? describeState(d) : '${room.name} · ${describeState(d)}';
+  }
+}
+
+/// Off the home Wi-Fi with nothing at home passing commands on: says why nothing answers and what fixes it.
+class _AwayCard extends StatelessWidget {
+  const _AwayCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<HomeStore>();
+    final cloud = context.watch<CloudSync>();
+    final p = context.palette;
+    if (!store.offHomeNetwork || cloud.online || !store.devices.any(store.networked)) return const SizedBox.shrink();
+    final home = store.homeName;
+    final (text, action) = !cloud.available
+        ? ('Your devices only answer on your home Wi-Fi.', null)
+        : !cloud.signedIn
+            ? (
+                'Your devices only answer on your home Wi-Fi. To switch them from here, sign in and keep a second '
+                    'device at home online.',
+                'Set up'
+              )
+            : cloud.isHub
+                ? (
+                    'This phone is the one keeping $home online, but it has left the home Wi-Fi. Turn that on on a '
+                        'device that stays at home instead.',
+                    'Account'
+                  )
+                : cloud.hubSeen != null
+                    ? (
+                        '${cloud.hubName ?? 'The device at home'} is not answering, so $home cannot be reached from '
+                            'here. Check that it is on, plugged in and on the Wi-Fi, with SmartMenuKJ open.',
+                        'Details'
+                      )
+                    : (
+                        'Your devices only answer on your home Wi-Fi. To switch them from here, keep a second phone, '
+                            'tablet or computer at home online with this account.',
+                        'How'
+                      );
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: NCard(
+        key: const Key('away-card'),
+        padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+        child: Row(children: [
+          const Icon(Icons.wifi_off, color: NothingPalette.red),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('AWAY FROM HOME', style: NType.label(color: p.text)),
+              const SizedBox(height: 4),
+              Text(text, style: NType.body(14, color: p.textDim)),
+            ]),
+          ),
+          if (action != null)
+            TextButton(key: const Key('away-set-up'), onPressed: () => showAccountSheet(context), child: Text(action)),
+        ]),
+      ),
+    );
   }
 }
 

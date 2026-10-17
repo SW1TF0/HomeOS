@@ -37,8 +37,11 @@ Future<List<LocalNet>> localNetworks() async {
     if (n.startsWith('wlan') || n.startsWith('wl') || n.startsWith('en') || n.startsWith('eth') || n.contains('wi-fi')) {
       return 0;
     }
+    // Mobile data (rmnet, ccmni, pdp, seth, wwan, clat...), VPNs and containers.
     if (n.startsWith('rmnet') || n.startsWith('ccmni') || n.startsWith('tun') || n.startsWith('ppp') ||
-        n.startsWith('utun') || n.startsWith('docker') || n.startsWith('veth') || n.startsWith('br-')) {
+        n.startsWith('utun') || n.startsWith('docker') || n.startsWith('veth') || n.startsWith('br-') ||
+        n.startsWith('pdp') || n.startsWith('seth') || n.startsWith('wwan') || n.startsWith('v4-') ||
+        n.startsWith('clat') || n.startsWith('ccinet') || n.contains('rmnet')) {
       return 9;
     }
     return 5;
@@ -51,6 +54,9 @@ Future<List<LocalNet>> localNetworks() async {
   ]..sort((a, b) => score(a.interface).compareTo(score(b.interface)));
   return out;
 }
+
+/// Whether this device is on a Wi-Fi or wired network. Mobile data and VPNs do not count.
+Future<bool> hasHomeNetwork() async => (await localNetworks()).isNotEmpty;
 
 /// A UDP socket whose multicast and broadcast packets leave through the home
 /// network. Without this, Android can send them out over mobile data.

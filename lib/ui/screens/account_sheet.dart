@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../cloud/cloud_sync.dart';
 import '../../cloud/firebase.dart';
 import '../../state/home_store.dart';
 import '../../theme/nothing_theme.dart';
+import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
 
 Future<void> showAccountSheet(BuildContext context) => showModalBottomSheet(
@@ -52,6 +54,9 @@ class AccountCard extends StatelessWidget {
 
 /// One line on how the open home is reached from anywhere.
 String remoteSummary(CloudSync cloud, String home) {
+  if (cloud.isHub && cloud.store.offHomeNetwork) {
+    return 'This device is off the home Wi-Fi, so $home cannot be reached through it until it is back.';
+  }
   if (cloud.isHub) return 'This device keeps $home online, so you can control it from anywhere.';
   if (cloud.online) return '${cloud.hubName ?? 'A device at home'} keeps $home online. Control it from anywhere.';
   if (cloud.hubSeen != null) return '${cloud.hubName ?? 'The device at home'} is offline, so $home works only on its Wi-Fi.';
@@ -203,12 +208,30 @@ class _AccountSheetState extends State<AccountSheet> {
         cloud.busy
             ? 'Syncing your homes...'
             : cloud.problem ?? 'Your homes are saved to your account and stay in step on every device you sign in on.',
+        key: const Key('account-status'),
         style: NType.body(14, color: cloud.problem == null ? p.textDim : NothingPalette.red),
       ),
+      if (cloud.needsRules) ...[
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            key: const Key('account-copy-rules'),
+            onPressed: () async {
+              await Clipboard.setData(const ClipboardData(text: CloudSync.databaseRules));
+              store.toast('Rules copied. Paste them in Firebase, Realtime Database, Rules, then tap Publish.');
+            },
+            icon: const Icon(Icons.copy, size: 18),
+            label: const Text('Copy database rules'),
+          ),
+        ),
+      ],
       const SectionLabel('Control from anywhere', accent: true),
       Text(
-          'Most devices only answer on your home Wi-Fi. Leave one phone, tablet or computer at home with this app, '
-          'signed in and plugged in, and turn this on there. Your other devices then reach $home through it, from anywhere.',
+          'Your devices only answer on your home Wi-Fi, so on mobile data your phone cannot reach them by itself. '
+          'A second phone, tablet or computer that stays at home passes your commands on: install SmartMenuKJ on it, '
+          'sign in with this account, keep it plugged in, and turn this on there. Not on the phone you carry: it '
+          'leaves home with you.',
           style: NType.body(14, color: p.textDim)),
       const SizedBox(height: 12),
       NCard(
@@ -217,12 +240,37 @@ class _AccountSheetState extends State<AccountSheet> {
           SwitchListTile(
             key: const Key('account-hub'),
             value: cloud.isHub,
-            onChanged: linked && !cloud.busy ? (on) => cloud.setHub(on) : null,
+            onChanged: linked && !cloud.busy
+                ? (on) async {
+                    if (on &&
+                        !await confirm(context,
+                            title: 'Does this device stay at home?',
+                            body: 'It passes on commands for $home while it is at home, on the Wi-Fi, with the app '
+                                'running. If you carry it with you, control from anywhere stops when you leave.',
+                            action: 'It stays at home')) {
+                      return;
+                    }
+                    await cloud.setHub(on);
+                  }
+                : null,
             title: Text('Keep $home online from this device'),
             subtitle: Text(linked ? remoteSummary(cloud, home) : 'Saving $home to your account first...'),
           ),
         ]),
       ),
+      if (!cloud.isHub && linked) ...[
+        const SizedBox(height: 10),
+        Text(
+          cloud.online
+              ? 'Right now ${cloud.hubName ?? 'a device at home'} passes commands on for $home.'
+              : cloud.hubSeen != null
+                  ? '${cloud.hubName ?? 'The device at home'} has not checked in for a while. Check that it is on, '
+                      'plugged in and on the Wi-Fi, with SmartMenuKJ open.'
+                  : 'No device at home is doing this yet, so away from home nothing can be switched.',
+          key: const Key('account-hub-status'),
+          style: NType.body(13, color: cloud.online ? p.textDim : NothingPalette.red),
+        ),
+      ],
       const SizedBox(height: 24),
       Row(children: [
         Expanded(

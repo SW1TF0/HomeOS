@@ -698,13 +698,48 @@ void main() {
     expect(cloud.signedIn, isTrue);
     expect(find.text('me@example.com'), findsWidgets);
     expect(store.homes.single.cloudId, isNotNull);
+    expect(find.byKey(const Key('account-hub-status')), findsOneWidget, reason: 'nothing at home yet');
     await tester.tap(find.byKey(const Key('account-hub')));
+    await tester.pumpAndSettle();
+    expect(find.text('Does this device stay at home?'), findsOneWidget);
+    await tester.tap(find.text('It stays at home'));
     await tester.pumpAndSettle();
     expect(cloud.isHub, isTrue);
     expect(find.textContaining('This device keeps My home online'), findsWidgets);
     await tester.tap(find.byKey(const Key('account-sign-out')));
     await tester.pumpAndSettle();
     expect(cloud.signedIn, isFalse);
+    cloud.dispose();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('away from the home Wi-Fi, the home screen says why nothing answers and how to fix it', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(420, 900) * 2;
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    var atHome = true;
+    final store = HomeStore(
+      repository: MemoryHomeRepository(),
+      client: MockClient((_) async => http.Response('', 500)),
+      onHomeNetwork: () async => atHome,
+    );
+    await store.load();
+    final tasmota = store.addIntegration('tasmota');
+    store.addVirtualDevice(tasmota.id, 'Porch plug', DeviceKind.outlet, props: {'host': '10.0.0.9'});
+    final cloud = CloudSync(store: store, api: MemoryCloud().app(), delay: const Duration(milliseconds: 10), storageKey: 'w');
+    await cloud.start();
+    await tester.pumpWidget(SmartMenuApp(store: store, cloud: cloud, poll: false));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('away-card')), findsNothing);
+    atHome = false;
+    await store.checkHomeNetwork();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('away-card')), findsOneWidget);
+    expect(find.textContaining('sign in and keep a second device at home online'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('away-set-up')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('account-email')), findsOneWidget);
     cloud.dispose();
     await tester.pump(const Duration(seconds: 1));
   });

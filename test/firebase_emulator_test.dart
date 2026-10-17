@@ -140,4 +140,26 @@ void main() {
     phone.dispose();
     tablet.dispose();
   }, skip: skip, timeout: const Timeout(Duration(minutes: 1)));
+
+  test('a database whose rules were never set is explained', () async {
+    final rules = Uri.parse('${emulator.databaseUrl}/.settings/rules.json?ns=${emulator.namespace}');
+    Future<void> setRules(String body) async {
+      final r = await http.put(rules, headers: {'Authorization': 'Bearer owner'}, body: body);
+      expect(r.statusCode, 200, reason: r.body);
+    }
+
+    await setRules('{"rules": {".read": false, ".write": false}}');
+    addTearDown(() => setRules(File('firebase/database.rules.json').readAsStringSync()));
+    final phone = Phone('Locked');
+    await phone.start();
+    phone.store.addVirtualDevice('demo', 'Porch light', DeviceKind.light);
+    await phone.sync.signIn(email('locked'), 'secret1', create: true);
+    expect(phone.sync.needsRules, isTrue);
+    expect(phone.sync.problem, contains('still locked'));
+    await setRules(CloudSync.databaseRules);
+    await phone.sync.syncAll();
+    expect(phone.sync.needsRules, isFalse);
+    expect(phone.store.homes.single.cloudId, isNotNull);
+    phone.dispose();
+  }, skip: skip);
 }
