@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:smartmenukj/integrations/camera/camera_setup.dart';
 import 'package:smartmenukj/integrations/camera/onvif.dart';
+import 'package:smartmenukj/integrations/camera/playback.dart';
 import 'package:smartmenukj/integrations/camera/rtsp.dart';
 import 'package:smartmenukj/integrations/home_assistant.dart';
 import 'package:smartmenukj/integrations/integration.dart';
@@ -353,5 +354,103 @@ void main() {
     });
 
     test('rtsp only plays on Android', () => expect(rtspPlays, Platform.isAndroid));
+  });
+
+  group('playback', () {
+    test('knows which cameras play their recordings, and where', () {
+      final dahua = CameraPlayback.of({'streamUrl': 'rtsp://admin:L2AB34CD@10.0.0.7:554/cam/realmonitor?channel=2&subtype=1'})!;
+      expect((dahua.kind, dahua.channel, dahua.httpPort), (PlaybackKind.dahua, 2, 80));
+      final start = DateTime(2026, 10, 17, 8, 5, 9);
+      expect(dahua.at(start).toString(),
+          'rtsp://admin:L2AB34CD@10.0.0.7:554/cam/playback?channel=2&subtype=0&starttime=2026_10_17_08_05_09&endtime=2026_10_17_20_05_09');
+      expect(dahua.at(start, now: DateTime(2026, 10, 17, 9)).query, contains('endtime=2026_10_17_09_00_00'));
+
+      final hik = CameraPlayback.of({
+        'streamUrl': 'rtsp://admin:pw@10.0.0.8/Streaming/Channels/201',
+        'onvif': 'http://10.0.0.8:8080/onvif/device_service',
+      })!;
+      expect((hik.kind, hik.channel, hik.httpPort), (PlaybackKind.hikvision, 2, 8080));
+      expect(hik.at(start).toString(),
+          'rtsp://admin:pw@10.0.0.8/Streaming/tracks/201?starttime=20261017T080509Z&endtime=20261017T200509Z');
+
+      // An Imou set up by its brand, with an ONVIF address that does not say so.
+      expect(CameraPlayback.of({'streamUrl': 'rtsp://a:b@10.0.0.9/live', 'cameraBrand': 'dahua'})!.kind, PlaybackKind.dahua);
+      expect(CameraPlayback.of({'streamUrl': 'rtsp://a:b@10.0.0.9/stream1', 'cameraBrand': 'tapo'}), isNull);
+      expect(CameraPlayback.of({'mjpegUrl': 'http://10.0.0.9/video.mjpg'}), isNull);
+    });
+
+    test('lists what a Dahua or Imou camera recorded, logging in with Digest', () async {
+      final asked = <String>[];
+      final client = MockClient((req) async {
+        final auth = req.headers['Authorization'];
+        if (auth == null || !auth.startsWith('Digest username="admin"')) {
+          return http.Response('', 401, headers: {'www-authenticate': 'Digest realm="Login to 7C0A", qop="auth", nonce="99"'});
+        }
+        expect(auth, contains('uri="${req.url.path}?${req.url.query}"'));
+        final q = req.url.queryParameters;
+        asked.add(q['action']!);
+        return switch (q['action']) {
+          'factory.create' => http.Response('result=3158\r\n', 200),
+          'findFile' => () {
+              expect(req.url.query, contains('condition.StartTime=2026-10-17%2000:00:00'));
+              expect((q['object'], q['condition.Channel'], q['condition.EndTime']), ('3158', '1', '2026-10-17 23:59:59'));
+              return http.Response('OK\r\n', 200);
+            }(),
+          'findNextFile' => http.Response(
+              'found=3\r\n'
+              'items[0].Channel=0\r\nitems[0].StartTime=2026-10-17 14:02:10\r\nitems[0].EndTime=2026-10-17 14:03:40\r\n'
+              'items[0].Events[0]=VideoMotion\r\nitems[0].Flags[0]=Event\r\nitems[0].Type=dav\r\n'
+              'items[1].StartTime=2026-10-17 09:00:00\r\nitems[1].EndTime=2026-10-17 10:00:00\r\n'
+              'items[1].Flags[0]=Timing\r\nitems[1].Type=dav\r\n'
+              'items[2].StartTime=2026-10-17 14:02:11\r\nitems[2].EndTime=2026-10-17 14:02:11\r\nitems[2].Type=jpg\r\n',
+              200),
+          _ => http.Response('OK', 200),
+        };
+      });
+      final cam = CameraPlayback.of({'streamUrl': 'rtsp://admin:L2AB34CD@10.0.0.7/cam/realmonitor?channel=1&subtype=0'})!;
+      final found = await cam.find(DateTime(2026, 10, 17, 18), client);
+      expect(found.map((r) => (r.start, r.end, r.motion)), [
+        (DateTime(2026, 10, 17, 9), DateTime(2026, 10, 17, 10), false),
+        (DateTime(2026, 10, 17, 14, 2, 10), DateTime(2026, 10, 17, 14, 3, 40), true),
+      ]);
+      await Future<void>.delayed(Duration.zero);
+      expect(asked, ['factory.create', 'findFile', 'findNextFile', 'close', 'destroy']);
+    });
+
+    test('a Dahua camera with nothing that day, or a wrong login, says so', () async {
+      final cam = CameraPlayback.of({'streamUrl': 'rtsp://admin:x@10.0.0.7/cam/realmonitor?channel=1'})!;
+      final empty = MockClient((req) async =>
+          http.Response(req.url.queryParameters['action'] == 'factory.create' ? 'result=1' : 'Error\r\n', 200));
+      expect(await cam.find(DateTime(2026, 10, 17), empty), isEmpty);
+      final refused = MockClient((_) async => http.Response('', 401, headers: {'www-authenticate': 'Digest realm="x", nonce="1"'}));
+      await expectLater(cam.find(DateTime(2026, 10, 17), refused),
+          throwsA(isA<PlaybackException>().having((e) => e.message, 'message', contains('refused the login'))));
+      final down = MockClient((_) async => throw const SocketException('no route'));
+      await expectLater(cam.find(DateTime(2026, 10, 17), down), throwsA(isA<PlaybackException>()));
+    });
+
+    test('lists what a Hikvision camera recorded, a page at a time', () async {
+      final bodies = <String>[];
+      final client = MockClient((req) async {
+        expect((req.method, req.url.toString()), ('POST', 'http://10.0.0.8/ISAPI/ContentMgmt/search'));
+        bodies.add(req.body);
+        String item(String from, String to, String meta) => '<searchMatchItem><trackID>101</trackID><timeSpan>'
+            '<startTime>$from</startTime><endTime>$to</endTime></timeSpan><metadataMatches>'
+            '<metadataDescriptor>recordType.meta.hikvision.com/$meta</metadataDescriptor></metadataMatches></searchMatchItem>';
+        return http.Response(
+            bodies.length == 1
+                ? '<CMSearchResult><responseStatusStrg>MORE</responseStatusStrg><numOfMatches>1</numOfMatches><matchList>'
+                    '${item('2026-10-17T06:00:00Z', '2026-10-17T07:00:00Z', 'timing')}</matchList></CMSearchResult>'
+                : '<CMSearchResult><responseStatusStrg>OK</responseStatusStrg><numOfMatches>1</numOfMatches><matchList>'
+                    '${item('2026-10-17T12:30:00Z', '2026-10-17T12:31:00Z', 'MOTION')}</matchList></CMSearchResult>',
+            200);
+      });
+      final cam = CameraPlayback.of({'streamUrl': 'rtsp://admin:pw@10.0.0.8/Streaming/Channels/101'})!;
+      final found = await cam.find(DateTime(2026, 10, 17), client);
+      expect(found.map((r) => (r.start.hour, r.motion)), [(6, false), (12, true)]);
+      expect(bodies.first, contains('<trackID>101</trackID>'));
+      expect(bodies.first, contains('<startTime>2026-10-17T00:00:00Z</startTime>'));
+      expect(bodies.last, contains('<searchResultPostion>1</searchResultPostion>'));
+    });
   });
 }

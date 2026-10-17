@@ -28,9 +28,9 @@ Everything is free and local-first. There is no subscription and no paywall, and
 | --- | --- | --- | --- |
 | ![Profile menu](docs/screenshots/phone-profile.png) | ![Settings](docs/screenshots/phone-settings.png) | ![Scene](docs/screenshots/phone-scene.png) | ![A device in a scene](docs/screenshots/phone-scene-step.png) |
 
-| Camera | Camera login |
-| --- | --- |
-| ![Camera](docs/screenshots/phone-camera.png) | ![Camera login](docs/screenshots/phone-camera-setup.png) |
+| Camera | Camera login | Recordings |
+| --- | --- | --- |
+| ![Camera](docs/screenshots/phone-camera.png) | ![Camera login](docs/screenshots/phone-camera-setup.png) | ![Recordings](docs/screenshots/phone-camera-playback.png) |
 
 ![Desktop](docs/screenshots/desktop-map.png)
 
@@ -43,6 +43,7 @@ Everything is free and local-first. There is no subscription and no paywall, and
 - **Scenes.** Make a scene that turns devices off ("All off", "Good night"), turns them on, or brings back how they are now ("Movie night"), and run it with one tap. Hold a scene to change it: each device has an on / off switch, and tapping a device sets exactly what it does (brightness, white, colour, temperature, blind position, lock, robot, alarm) without touching the device until the scene runs, with **Try it on the device** to check. Scenes can run by themselves at a time of day on chosen weekdays. On Android they run even when the app is closed (an exact alarm wakes it); on computers they run while the app is open.
 - **Matter, with no hub.** SmartMenuKJ is its own Matter controller: type a device's pairing code and its lights, plugs, sensors, blinds, locks, thermostat, robot vacuum, washer, dishwasher, air purifier, water valve or smoke alarm appear, controlled directly on your network. Matter bridges (Hue, IKEA, Aqara...) bring all their devices at once.
 - **Cameras, live.** **Connect → Add a camera** finds cameras on your Wi-Fi (ONVIF), asks for the camera's own login and works out where its video is: from ONVIF, or the usual addresses of Tapo, Reolink, Hikvision / Ezviz and Dahua / Imou / Amcrest, or a link you type. The video plays straight from the camera over your Wi-Fi, never through a cloud: RTSP in the Android app (HD or the quicker SD picture, sound, full screen with zoom), MJPEG on every device, and Home Assistant cameras on every device too. Elsewhere a camera shows a new picture every few seconds. Ring, Arlo, Nest, Blink and Wyze only stream to their own cloud; add them through Home Assistant.
+- **Camera recordings.** Dahua, Imou, Amcrest, Hikvision and Ezviz cameras play back what they recorded on their memory card: **Recordings** under the live video shows a week of days, a line through the day with what was recorded and, in red, when something moved, and the list of clips. Tap a clip or anywhere on the line to watch from then, skip 30 seconds either way, or zoom the line to 4 hours or 1 hour. Recordings play in the Android app on your home Wi-Fi; ones saved to a camera maker's cloud stay in its own app.
 - **Scan network.** Finds everything on your Wi-Fi that answers (mDNS, UPnP / SSDP, ONVIF cameras, Kasa and Yeelight discovery, and a quick check of TV ports): TVs, speakers, plugs, lights, hubs, printers and more. Add anything in one tap, or type a device's IP address.
 - **TV remote.** Power, volume, mute, channels, arrows, OK, back, home and play / pause for Samsung, LG, Sony and Roku TVs, plus volume and play / pause for Chromecast, Google TV and UPnP speakers. TVs that are fully off are woken with Wake-on-LAN.
 - **More than one home.** Tap the home's name at the top of the home screen to switch homes, add one, rename, reorder or delete them. Each home has its own floor plan, devices, connections and scenes.

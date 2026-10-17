@@ -13,7 +13,11 @@ import '../../util/digest_auth.dart';
 
 /// Whether RTSP video plays here. Android plays it; Apple's player and the desktop apps have no RTSP, so there a
 /// camera shows pictures (or MJPEG) instead.
-bool get rtspPlays => !kIsWeb && Platform.isAndroid;
+bool get rtspPlays => debugRtspPlays ?? (!kIsWeb && Platform.isAndroid);
+
+/// Tests have no video player: they set these to play RTSP with a stand-in. Always null in the app.
+bool? debugRtspPlays;
+Widget Function(Uri url)? debugRtspPlayer;
 
 /// Live video from a camera: RTSP on Android, MJPEG everywhere, with sound, picture size and full screen.
 class LiveCameraView extends StatefulWidget {
@@ -39,7 +43,8 @@ class _LiveCameraViewState extends State<LiveCameraView> {
   Uri get _rtspUrl => _hd || widget.stream.rtspLow == null ? widget.stream.rtsp! : widget.stream.rtspLow!;
 
   Widget _player(BoxFit fit, {bool muted = true}) => _rtsp
-      ? RtspPlayer(key: ValueKey('$_rtspUrl#$_attempt'), url: _rtspUrl, muted: muted, fit: fit)
+      ? debugRtspPlayer?.call(_rtspUrl) ??
+          RtspPlayer(key: ValueKey('$_rtspUrl#$_attempt'), url: _rtspUrl, muted: muted, fit: fit)
       : MjpegPlayer(
           key: ValueKey('${widget.stream.mjpeg}#$_attempt'),
           url: widget.stream.mjpeg!,
@@ -103,7 +108,7 @@ class _LiveCameraViewState extends State<LiveCameraView> {
           for (final (label, hd) in const [('SD', false), ('HD', true)])
             Padding(
               padding: const EdgeInsets.only(left: 6),
-              child: _SmallChip(key: Key('camera-$label'), label: label, selected: _hd == hd, onTap: () => setState(() => _hd = hd)),
+              child: SmallChip(key: Key('camera-$label'), label: label, selected: _hd == hd, onTap: () => setState(() => _hd = hd)),
             ),
         IconButton(
           key: const Key('camera-reconnect'),
@@ -116,8 +121,9 @@ class _LiveCameraViewState extends State<LiveCameraView> {
   }
 }
 
-class _SmallChip extends StatelessWidget {
-  const _SmallChip({super.key, required this.label, required this.selected, required this.onTap});
+/// A small pill to pick an option over or under a camera's video.
+class SmallChip extends StatelessWidget {
+  const SmallChip({super.key, required this.label, required this.selected, required this.onTap});
   final String label;
   final bool selected;
   final VoidCallback onTap;
@@ -250,10 +256,18 @@ class _FullScreenCameraState extends State<FullScreenCamera> {
 
 /// Plays an RTSP camera with Android's own video player.
 class RtspPlayer extends StatefulWidget {
-  const RtspPlayer({super.key, required this.url, this.muted = true, this.fit = BoxFit.cover});
+  const RtspPlayer(
+      {super.key, required this.url, this.muted = true, this.paused = false, this.fit = BoxFit.cover, this.onPosition, this.failed});
   final Uri url;
   final bool muted;
+  final bool paused;
   final BoxFit fit;
+
+  /// How far it has played, as it plays.
+  final ValueChanged<Duration>? onPosition;
+
+  /// What to say when the video does not start.
+  final String? failed;
 
   @override
   State<RtspPlayer> createState() => _RtspPlayerState();
@@ -265,8 +279,10 @@ class _RtspPlayerState extends State<RtspPlayer> {
   String? _problem;
   Timer? _slow;
 
-  static const _failed = 'The video did not start. Check the camera\'s login under Live video, and that the camera '
+  static const _didNotStart = 'The video did not start. Check the camera\'s login under Live video, and that the camera '
       'and this phone are on the same Wi-Fi.';
+  String get _failed => widget.failed ?? _didNotStart;
+  Duration _at = Duration.zero;
 
   @override
   void initState() {
@@ -274,7 +290,7 @@ class _RtspPlayerState extends State<RtspPlayer> {
     _video.addListener(_changed);
     _video.initialize().then((_) async {
       await _video.setVolume(widget.muted ? 0 : 1);
-      await _video.play();
+      if (!widget.paused) await _video.play();
       if (mounted) setState(() {});
     }).catchError((Object _) {
       if (mounted) setState(() => _problem = _failed);
@@ -288,12 +304,18 @@ class _RtspPlayerState extends State<RtspPlayer> {
 
   void _changed() {
     if (_video.value.hasError && _problem == null && mounted) setState(() => _problem = _failed);
+    final at = _video.value.position;
+    if (at != _at) {
+      _at = at;
+      widget.onPosition?.call(at);
+    }
   }
 
   @override
   void didUpdateWidget(RtspPlayer old) {
     super.didUpdateWidget(old);
     if (old.muted != widget.muted && _video.value.isInitialized) _video.setVolume(widget.muted ? 0 : 1);
+    if (old.paused != widget.paused && _video.value.isInitialized) widget.paused ? _video.pause() : _video.play();
   }
 
   @override

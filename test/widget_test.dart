@@ -13,11 +13,13 @@ import 'package:smartmenukj/integrations/network_scan.dart';
 import 'package:smartmenukj/models/device.dart';
 import 'package:smartmenukj/state/app_settings.dart';
 import 'package:smartmenukj/util/haptics.dart';
+import 'package:smartmenukj/ui/screens/camera_playback.dart';
 import 'package:smartmenukj/ui/screens/connect_screen.dart';
 import 'package:smartmenukj/ui/screens/home_screen.dart';
 import 'package:smartmenukj/ui/screens/room_sheet.dart';
 import 'package:smartmenukj/state/home_store.dart';
 import 'package:smartmenukj/state/repository.dart';
+import 'package:smartmenukj/ui/widgets/camera_live.dart';
 import 'package:smartmenukj/ui/widgets/nothing_widgets.dart';
 
 Future<HomeStore> pumpApp(WidgetTester tester, {Size size = const Size(420, 900), http.Client? client}) async {
@@ -759,6 +761,99 @@ void main() {
     await openControls(tester, 'Hall camera');
     expect(find.textContaining('plays in the Android app'), findsOneWidget);
     expect(find.byKey(const Key('camera-setup-tile')), findsOneWidget);
+  });
+
+  testWidgets('a Dahua or Imou camera plays its recordings from a clip, the line and the skip buttons', (tester) async {
+    debugRtspPlays = true;
+    debugRtspPlayer = (url) => Text('$url', key: const Key('fake-player'));
+    final now = DateTime(2026, 10, 17, 18, 30);
+    debugPlaybackClock = () => now;
+    addTearDown(() {
+      debugRtspPlays = null;
+      debugRtspPlayer = null;
+      debugPlaybackClock = null;
+    });
+    final days = <String>[];
+    final store = await pumpApp(tester, client: MockClient((req) async {
+      final q = req.url.queryParameters;
+      if (req.url.path != '/cgi-bin/mediaFileFind.cgi') return http.Response('[]', 200);
+      if (q['action'] == 'findFile') days.add(q['condition.StartTime']!.substring(0, 10));
+      final day = days.isEmpty ? '' : days.last;
+      return http.Response(
+          switch (q['action']) {
+            'factory.create' => 'result=7',
+            'findNextFile' => 'found=2\r\n'
+                'items[0].StartTime=$day 00:10:00\r\nitems[0].EndTime=$day 00:40:00\r\nitems[0].Flags[0]=Timing\r\n'
+                'items[1].StartTime=$day 00:52:30\r\nitems[1].EndTime=$day 00:54:00\r\nitems[1].Events[0]=VideoMotion\r\n',
+            _ => 'OK',
+          },
+          200);
+    }));
+    final cam = store.addVirtualDevice('demo', 'Yard camera', DeviceKind.camera);
+    cam.props['streamUrl'] = 'rtsp://admin:L2AB34CD@10.0.0.7:554/cam/realmonitor?channel=1&subtype=0';
+    store.updateDevice(cam, favorite: true);
+    await tester.pump();
+    await openControls(tester, 'Yard camera');
+    expect(find.byKey(const Key('camera-live')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('camera-playback')));
+    await tester.tap(find.byKey(const Key('camera-playback')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('RECORDINGS'), findsOneWidget);
+    expect(find.textContaining('Tap the line below'), findsOneWidget);
+    const today = '2026-10-17';
+    expect(days, [today]);
+    // Newest first, motion marked.
+    expect(find.descendant(of: find.byKey(const Key('playback-clip-0')), matching: find.text('Motion · 1 min')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('playback-clip-1')), matching: find.text('00:10 – 00:40')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('playback-clip-0')));
+    await tester.pumpAndSettle();
+    final stamp = today.replaceAll('-', '_');
+    String playing() => tester.widget<Text>(find.byKey(const Key('fake-player'))).data!;
+    expect(playing(), startsWith('rtsp://admin:L2AB34CD@10.0.0.7:554/cam/playback?channel=1&subtype=0&starttime=${stamp}_00_52_30'));
+    expect(find.textContaining('00:52:30'), findsOneWidget, reason: 'the time playing shows over the video');
+
+    await tester.tap(find.byKey(const Key('playback-rewind')));
+    await tester.pumpAndSettle();
+    expect(playing(), contains('starttime=${stamp}_00_52_00'));
+    await tester.tap(find.byKey(const Key('playback-forward')));
+    await tester.pumpAndSettle();
+    expect(playing(), contains('starttime=${stamp}_00_52_30'));
+
+    // The whole day's line: its left end is midnight.
+    final line = find.byKey(const Key('playback-timeline'));
+    await tester.tapAt(tester.getBottomLeft(line) + const Offset(1, -20));
+    await tester.pumpAndSettle();
+    expect(playing(), contains('starttime=${stamp}_00_0'));
+
+    await tester.tap(find.byKey(const Key('playback-day-1')));
+    await tester.pumpAndSettle();
+    expect(days.last, '2026-10-16');
+    expect(find.text('YESTERDAY'), findsOneWidget);
+    expect(find.text('THU 15'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('playback-back')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('camera-live')), findsOneWidget);
+  });
+
+  testWidgets('a camera whose recordings stay in its own app has no Recordings button', (tester) async {
+    debugRtspPlays = true;
+    debugRtspPlayer = (url) => Text('$url');
+    addTearDown(() {
+      debugRtspPlays = null;
+      debugRtspPlayer = null;
+    });
+    final store = await pumpApp(tester);
+    final cam = store.addVirtualDevice('demo', 'Tapo camera', DeviceKind.camera);
+    cam.props
+      ..['streamUrl'] = 'rtsp://u:p@10.0.0.5/stream1'
+      ..['cameraBrand'] = 'tapo';
+    store.updateDevice(cam, favorite: true);
+    await tester.pump();
+    await openControls(tester, 'Tapo camera');
+    expect(find.byKey(const Key('camera-live')), findsOneWidget);
+    expect(find.byKey(const Key('camera-playback')), findsNothing);
   });
 
   testWidgets('the Connect tab has a way to add a camera', (tester) async {

@@ -51,7 +51,9 @@ const _topics = [
     'Watch a camera',
     'Open Connect and tap Add a camera. Pick the camera it finds, or type its address, choose its brand and type the '
         'camera\'s own user and password (on Tapo, make a Camera account in the Tapo app under the camera\'s Advanced '
-        'settings). The video plays live in the Android app while you are on your home Wi-Fi.',
+        'settings). The video plays live in the Android app while you are on your home Wi-Fi. On Dahua, Imou, '
+        'Amcrest, Hikvision and Ezviz cameras, Recordings under the video plays what the camera saved on its memory '
+        'card: tap a clip or a time on the line.',
   ),
   (
     Icons.home_work_outlined,

@@ -15,6 +15,8 @@ import '../../state/home_store.dart';
 import '../../theme/nothing_theme.dart';
 import '../../util/color_math.dart';
 import '../nav.dart';
+import '../../integrations/camera/playback.dart';
+import 'camera_playback.dart';
 import 'camera_sheet.dart';
 import '../widgets/camera_live.dart';
 import '../widgets/controls.dart';
@@ -708,7 +710,20 @@ class CameraPanel extends StatelessWidget {
           text: 'Live video plays on your home Wi-Fi. Connect to it to watch ${d.name}.',
         );
       }
-      return LiveCameraView(key: const Key('camera-live'), stream: live, name: d.name, client: store.client);
+      final view = LiveCameraView(key: const Key('camera-live'), stream: live, name: d.name, client: store.client);
+      if (!rtspPlays || CameraPlayback.of(d.props) == null) return view;
+      return Column(children: [
+        view,
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            key: const Key('camera-playback'),
+            onPressed: () => showCameraPlayback(context, d),
+            icon: const Icon(Icons.history),
+            label: const Text('Recordings'),
+          ),
+        ),
+      ]);
     }
     final appOnly = live != null ? 'Live video from ${d.name} plays in the Android app.' : null;
     if (d.has(Capability.snapshot)) {

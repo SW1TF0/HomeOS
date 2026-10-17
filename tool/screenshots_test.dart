@@ -15,6 +15,8 @@ import 'package:smartmenukj/models/device.dart';
 import 'package:smartmenukj/models/scene.dart';
 import 'package:smartmenukj/state/home_store.dart';
 import 'package:smartmenukj/state/repository.dart';
+import 'package:smartmenukj/ui/screens/camera_playback.dart';
+import 'package:smartmenukj/ui/widgets/camera_live.dart';
 
 Future<void> _loadFonts() async {
   Future<void> asset(String family, String path) async {
@@ -33,11 +35,12 @@ Future<void> _loadFonts() async {
   }
 }
 
-Future<HomeStore> _app(WidgetTester tester, Size size, {String theme = 'dark', CloudSync? cloud}) async {
+Future<HomeStore> _app(WidgetTester tester, Size size, {String theme = 'dark', CloudSync? cloud, http.Client? client}) async {
   tester.view.physicalSize = size * 2;
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
-  final store = HomeStore(repository: MemoryHomeRepository(), client: MockClient((_) async => http.Response('[]', 200)));
+  final store = HomeStore(
+      repository: MemoryHomeRepository(), client: client ?? MockClient((_) async => http.Response('[]', 200)));
   await store.load();
   store.data.themeMode = theme;
   // A pretend cloud, signed out, so the account card shows as it does in the app.
@@ -261,6 +264,56 @@ void main() {
     await tester.enterText(find.byKey(const Key('camera-pass')), 'secret12');
     FocusManager.instance.primaryFocus?.unfocus();
     await _shot(tester, 'phone-camera-setup');
+  });
+
+  testWidgets('phone camera playback', (tester) async {
+    final now = DateTime(2026, 10, 17, 18, 40);
+    debugPlaybackClock = () => now;
+    debugRtspPlays = true;
+    // A stand-in picture of a yard at dusk.
+    debugRtspPlayer = (_) => const DecoratedBox(
+        decoration: BoxDecoration(
+            gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF2B3440), Color(0xFF4A4F45), Color(0xFF23271F)])));
+    addTearDown(() {
+      debugPlaybackClock = null;
+      debugRtspPlays = null;
+      debugRtspPlayer = null;
+    });
+    String item(int i, String from, String to, bool motion) => 'items[$i].StartTime=2026-10-17 $from\r\n'
+        'items[$i].EndTime=2026-10-17 $to\r\nitems[$i].Flags[0]=${motion ? 'Event' : 'Timing'}\r\n';
+    final clips = [
+      ('07:00:00', '08:10:00', false),
+      ('08:10:00', '08:12:30', true),
+      ('08:12:30', '12:00:00', false),
+      ('12:40:15', '12:42:00', true),
+      ('13:00:00', '17:05:00', false),
+      ('17:05:00', '17:08:40', true),
+      ('17:08:40', '18:21:00', false),
+      ('18:21:00', '18:23:10', true),
+    ];
+    final store = await _app(tester, phone, client: MockClient((req) async {
+      final action = req.url.queryParameters['action'];
+      return http.Response(
+          action == 'factory.create'
+              ? 'result=1'
+              : action == 'findNextFile'
+                  ? 'found=${clips.length}\r\n${[for (final (i, c) in clips.indexed) item(i, c.$1, c.$2, c.$3)].join()}'
+                  : 'OK',
+          200);
+    }));
+    final cam = store.addVirtualDevice('demo', 'Yard camera', DeviceKind.camera);
+    cam.props['streamUrl'] = 'rtsp://admin:pw@192.168.1.30/cam/realmonitor?channel=1&subtype=0';
+    store.updateDevice(cam, favorite: true);
+    await tester.pumpAndSettle();
+    await openControls(tester, 'Yard camera');
+    await tester.ensureVisible(find.byKey(const Key('camera-playback')));
+    await tester.tap(find.byKey(const Key('camera-playback')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('playback-clip-0')));
+    await _shot(tester, 'phone-camera-playback');
   });
 
   testWidgets('phone light theme', (tester) async {
