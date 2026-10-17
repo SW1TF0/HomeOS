@@ -12,6 +12,7 @@ import '../nav.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
 import 'device_sheet.dart';
+import 'homes_sheet.dart';
 import 'room_sheet.dart';
 import 'scenes.dart';
 
@@ -35,10 +36,28 @@ class HomeScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
             sliver: SliverList.list(children: [
               Row(children: [
-                Text('SMARTMENUKJ', style: NType.label(color: p.textDim)),
+                Flexible(
+                  child: InkWell(
+                    key: const Key('home-switch'),
+                    onTap: () => showHomesSheet(context),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Flexible(
+                          child: Text(store.homeName.toUpperCase(),
+                              maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.label(color: p.text)),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                            width: 6, height: 6, decoration: const BoxDecoration(color: NothingPalette.red, shape: BoxShape.circle)),
+                        const SizedBox(width: 4),
+                        Icon(Icons.unfold_more, size: 16, color: p.textDim),
+                      ]),
+                    ),
+                  ),
+                ),
                 const SizedBox(width: 8),
-                Container(width: 6, height: 6, decoration: const BoxDecoration(color: NothingPalette.red, shape: BoxShape.circle)),
-                const Spacer(),
                 TextButton.icon(
                   key: const Key('home-edit'),
                   onPressed: () => showHomeEditor(context),

@@ -209,4 +209,60 @@ void main() {
     await store.setBrightness(lights, 0);
     expect(lights.every((d) => d.state.on == false), isTrue);
   });
+
+  group('homes', () {
+    test('a new home is empty and has its own devices', () async {
+      final sample = store.devices.length;
+      final beach = await store.addHome('Beach house');
+      expect(store.homeId, beach.id);
+      expect(store.homeName, 'Beach house');
+      expect(store.devices, isEmpty);
+      expect(store.floors.single.name, 'Ground floor');
+      store.addVirtualDevice('demo', 'Porch light', DeviceKind.light);
+      await store.openHome('home');
+      expect(store.devices.length, sample);
+      expect(store.devices.any((d) => d.name == 'Porch light'), isFalse);
+      await store.openHome(beach.id);
+      expect(store.devices.single.name, 'Porch light');
+    });
+
+    test('the open home and the list are remembered', () async {
+      final office = await store.addHome('Office');
+      await store.renameHome(office, 'Studio');
+      store.addRoom(store.floors.first.id, name: 'Desk');
+      await store.saveNow();
+      final again = HomeStore(repository: repo, client: MockClient((_) async => http.Response('', 500)));
+      await again.load();
+      expect(again.homes.map((h) => h.name), ['My home', 'Studio']);
+      expect(again.homeName, 'Studio');
+      expect(again.rooms.single.name, 'Desk');
+      again.dispose();
+    });
+
+    test('the theme stays when another home opens', () async {
+      store.themeMode = 'light';
+      await store.addHome('Office');
+      expect(store.themeMode, 'light');
+      store.themeMode = 'dark';
+      await store.openHome('home');
+      expect(store.themeMode, 'dark');
+    });
+
+    test('deleting a home opens another, and the last home stays', () async {
+      final first = store.homes.single;
+      expect(await store.removeHome(first), isFalse);
+      final office = await store.addHome('Office');
+      expect(await store.removeHome(office), isTrue);
+      expect(store.homeId, first.id);
+      expect(store.homes.single, first);
+      expect(await repo.load(office.id), isNull);
+    });
+
+    test('scenes of the other homes are known, for their timers', () async {
+      store.addScene('Morning', store.devices.take(1));
+      await store.addHome('Office');
+      expect(store.scenes, isEmpty);
+      expect(store.allScenes.map((s) => s.name), ['Morning']);
+    });
+  });
 }

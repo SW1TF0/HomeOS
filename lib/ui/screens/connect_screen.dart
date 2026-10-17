@@ -15,6 +15,7 @@ import '../../theme/nothing_theme.dart';
 import '../../util/text.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
+import 'homes_sheet.dart';
 import 'matter_sheet.dart';
 
 /// Connections (hubs, brokers, device families), network scan and settings.
@@ -633,6 +634,15 @@ class _SettingsCard extends StatelessWidget {
           ]),
         ),
         ListTile(
+          key: const Key('settings-homes'),
+          leading: const Icon(Icons.home_work_outlined),
+          title: const Text('Homes'),
+          subtitle: Text(store.homes.length == 1
+              ? 'Add another home, like a holiday house or an office'
+              : '${store.homes.length} homes · ${store.homeName} is open'),
+          onTap: () => showHomesSheet(context),
+        ),
+        ListTile(
           leading: const Icon(Icons.ios_share),
           title: const Text('Back up home'),
           subtitle: const Text('Copies rooms, devices and connections as text'),
@@ -678,7 +688,7 @@ class _SettingsCard extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-          child: Text('SMARTMENUKJ 1.4 · FREE · LOCAL-FIRST · NO ACCOUNT', style: NType.label(color: p.textDim)),
+          child: Text('SMARTMENUKJ 1.6 · FREE · LOCAL-FIRST', style: NType.label(color: p.textDim)),
         ),
       ]),
     );

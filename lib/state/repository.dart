@@ -4,19 +4,83 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/home.dart';
 
-/// Where the home is saved. Local only: SmartMenuKJ has no cloud or account.
-abstract class HomeRepository {
-  Future<HomeData?> load();
-  Future<void> save(HomeData data);
+/// One home in the list of homes kept on this device.
+class HomeEntry {
+  HomeEntry({required this.id, required this.name});
+
+  final String id;
+  String name;
+
+  Map<String, dynamic> toJson() => {'id': id, 'name': name};
+
+  factory HomeEntry.fromJson(Map<String, dynamic> j) =>
+      HomeEntry(id: j['id'] as String, name: j['name'] as String? ?? defaultHomeName);
 }
 
+/// The homes on this device, in the order they are listed, and the one that is open.
+class HomeList {
+  HomeList({required this.homes, required this.current});
+
+  final List<HomeEntry> homes;
+  String current;
+
+  Map<String, dynamic> toJson() => {'current': current, 'homes': homes.map((h) => h.toJson()).toList()};
+
+  factory HomeList.fromJson(Map<String, dynamic> j) => HomeList(
+        homes: [for (final h in (j['homes'] as List? ?? const [])) HomeEntry.fromJson(Map<String, dynamic>.from(h as Map))],
+        current: j['current'] as String? ?? firstHomeId,
+      );
+
+  HomeList copy() => HomeList.fromJson(jsonDecode(jsonEncode(toJson())) as Map<String, dynamic>);
+}
+
+/// The id of the home every install starts with. Homes saved before there
+/// could be more than one become this home.
+const firstHomeId = 'home';
+const defaultHomeName = 'My home';
+
+/// Where the homes are saved. Each home is its own JSON document.
+abstract class HomeRepository {
+  /// The list of homes and which one is open. Never empty.
+  Future<HomeList> homes();
+  Future<void> saveHomes(HomeList list);
+
+  /// One home's floors, rooms, devices, connections and scenes; null when it has none yet.
+  Future<HomeData?> load(String homeId);
+  Future<void> save(String homeId, HomeData data);
+  Future<void> remove(String homeId);
+}
+
+/// Saves on the device itself, in the app's preferences.
 class LocalHomeRepository implements HomeRepository {
-  static const _key = 'smartmenukj.home.v1';
+  static const _listKey = 'smartmenukj.homes.v1';
+
+  /// The first home keeps the key it had when there was only one home.
+  static String _key(String homeId) => homeId == firstHomeId ? 'smartmenukj.home.v1' : 'smartmenukj.home.v1.$homeId';
 
   @override
-  Future<HomeData?> load() async {
+  Future<HomeList> homes() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
+    final raw = prefs.getString(_listKey);
+    try {
+      if (raw != null) {
+        final list = HomeList.fromJson(Map<String, dynamic>.from(jsonDecode(raw) as Map));
+        if (list.homes.isNotEmpty) return fixCurrent(list);
+      }
+    } catch (_) {}
+    return HomeList(homes: [HomeEntry(id: firstHomeId, name: defaultHomeName)], current: firstHomeId);
+  }
+
+  @override
+  Future<void> saveHomes(HomeList list) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_listKey, jsonEncode(list.toJson()));
+  }
+
+  @override
+  Future<HomeData?> load(String homeId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_key(homeId));
     if (raw == null) return null;
     try {
       return HomeData.fromJson(Map<String, dynamic>.from(jsonDecode(raw) as Map));
@@ -26,24 +90,54 @@ class LocalHomeRepository implements HomeRepository {
   }
 
   @override
-  Future<void> save(HomeData data) async {
+  Future<void> save(String homeId, HomeData data) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, jsonEncode(data.toJson()));
+    await prefs.setString(_key(homeId), jsonEncode(data.toJson()));
+  }
+
+  @override
+  Future<void> remove(String homeId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_key(homeId));
   }
 }
 
+/// Makes sure the open home is one of the listed homes.
+HomeList fixCurrent(HomeList list) {
+  if (!list.homes.any((h) => h.id == list.current)) list.current = list.homes.first.id;
+  return list;
+}
+
+/// Keeps everything in memory, for tests and screenshots.
 class MemoryHomeRepository implements HomeRepository {
-  MemoryHomeRepository([this.data]);
-  HomeData? data;
+  MemoryHomeRepository([HomeData? data]) {
+    if (data != null) _homes[firstHomeId] = _copy(data);
+  }
+
+  final Map<String, HomeData> _homes = {};
+  HomeList _list = HomeList(homes: [HomeEntry(id: firstHomeId, name: defaultHomeName)], current: firstHomeId);
   int saves = 0;
 
-  @override
-  Future<HomeData?> load() async =>
-      data == null ? null : HomeData.fromJson(jsonDecode(jsonEncode(data!.toJson())) as Map<String, dynamic>);
+  /// The saved copy of the open home.
+  HomeData? get data => _homes[_list.current];
+
+  static HomeData _copy(HomeData d) => HomeData.fromJson(jsonDecode(jsonEncode(d.toJson())) as Map<String, dynamic>);
 
   @override
-  Future<void> save(HomeData d) async {
+  Future<HomeList> homes() async => _list.copy();
+
+  @override
+  Future<void> saveHomes(HomeList list) async => _list = fixCurrent(list.copy());
+
+  @override
+  Future<HomeData?> load(String homeId) async => _homes[homeId] == null ? null : _copy(_homes[homeId]!);
+
+  @override
+  Future<void> save(String homeId, HomeData d) async {
     saves++;
-    data = HomeData.fromJson(jsonDecode(jsonEncode(d.toJson())) as Map<String, dynamic>);
+    _homes[homeId] = _copy(d);
   }
+
+  @override
+  Future<void> remove(String homeId) async => _homes.remove(homeId);
 }

@@ -106,6 +106,14 @@ void main() {
       expect(await runDueAlarm(store, alarm, thursday7.add(const Duration(seconds: 20))), isFalse);
     });
 
+    test('an alarm for a scene in another home opens that home and runs it', () async {
+      final s = fanOn();
+      await store.addHome('Office');
+      expect(await runDueAlarm(store, SceneAlarms.idOf(s.id), thursday7), isTrue);
+      expect(store.homeName, 'My home');
+      expect(fanIsOn(), isTrue);
+    });
+
     test('an alarm at the wrong time or for a deleted scene does nothing', () async {
       final s = fanOn();
       expect(await runDueAlarm(store, SceneAlarms.idOf(s.id), DateTime(2026, 10, 15, 9, 0)), isFalse);

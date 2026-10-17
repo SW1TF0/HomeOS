@@ -44,17 +44,18 @@ class SceneAlarms {
   Future<void> sync(Iterable<Scene> scenes, [DateTime? now]) =>
       _channel.invokeMethod<void>('sync', plan(scenes, now ?? DateTime.now()));
 
-  /// Keeps the alarms in step with the scenes: now, and whenever a schedule changes.
+  /// Keeps the alarms in step with the scenes of every home: now, and whenever a schedule changes.
   void follow(HomeStore store) {
     String? booked;
     void check() {
+      final scenes = store.allScenes;
       final key = [
-        for (final s in store.data.scenes)
+        for (final s in scenes)
           if (s.schedule != null) '${s.id} ${jsonEncode(s.schedule!.toJson())}',
       ].join('|');
       if (key == booked) return;
       booked = key;
-      sync(store.data.scenes).catchError((Object e) => debugPrint('Scene alarms: $e'));
+      sync(scenes).catchError((Object e) => debugPrint('Scene alarms: $e'));
     }
 
     store.addListener(check);
@@ -78,9 +79,15 @@ Future<bool> claimSceneRun(String sceneId, String slot) async {
   return true;
 }
 
-/// Runs the scene behind [alarm] if it is really due at [now] and has not run yet.
+/// Runs the scene behind [alarm] if it is really due at [now] and has not run yet,
+/// opening the home it belongs to when that is not the open one.
 Future<bool> runDueAlarm(HomeStore store, int alarm, DateTime now) async {
-  final scene = store.data.scenes.where((s) => SceneAlarms.idOf(s.id) == alarm).firstOrNull;
+  bool isIt(Scene s) => SceneAlarms.idOf(s.id) == alarm;
+  if (!store.data.scenes.any(isIt)) {
+    final home = store.otherScenes.entries.where((e) => e.value.any(isIt)).firstOrNull?.key;
+    if (home != null) await store.openHome(home);
+  }
+  final scene = store.data.scenes.where(isIt).firstOrNull;
   final run = scene?.schedule?.runNear(now);
   if (scene == null || run == null) return false;
   final claim = store.claimRun;
@@ -103,7 +110,7 @@ Future<void> runSceneAlarm(List<String> args) async {
     await store.load();
     final alarm = args.length > 1 && args.first == 'run' ? int.tryParse(args[1]) : null;
     if (alarm != null) await runDueAlarm(store, alarm, DateTime.now());
-    await SceneAlarms(channel).sync(store.data.scenes);
+    await SceneAlarms(channel).sync(store.allScenes);
   } catch (e) {
     debugPrint('Scene alarm: $e');
   } finally {
@@ -114,15 +121,25 @@ Future<void> runSceneAlarm(List<String> args) async {
   }
 }
 
-/// Reads the saved home but never writes it, so a run in the background
-/// cannot overwrite a change made in the open app at the same moment.
+/// Reads the saved homes but never writes them, so a run in the background
+/// cannot overwrite a change made in the open app at the same moment, or
+/// change which home the app opens.
 class _ReadOnly implements HomeRepository {
   _ReadOnly(this.inner);
   final HomeRepository inner;
 
   @override
-  Future<HomeData?> load() => inner.load();
+  Future<HomeList> homes() => inner.homes();
 
   @override
-  Future<void> save(HomeData data) async {}
+  Future<void> saveHomes(HomeList list) async {}
+
+  @override
+  Future<HomeData?> load(String homeId) => inner.load(homeId);
+
+  @override
+  Future<void> save(String homeId, HomeData data) async {}
+
+  @override
+  Future<void> remove(String homeId) async {}
 }

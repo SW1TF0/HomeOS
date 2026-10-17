@@ -5,6 +5,9 @@ import '../models/home.dart';
 
 const demoIntegrationId = 'demo';
 
+/// A new home: one floor and nothing on it yet.
+HomeData emptyHome() => HomeData(floors: [Floor(id: 'floor-ground', name: 'Ground floor')]);
+
 /// The sample home shown on first launch, so the app is alive before any
 /// hardware is connected. Everything here can be moved, renamed or deleted.
 HomeData seedHome() {

@@ -61,11 +61,11 @@ class HomeStore extends ChangeNotifier {
   // ---- Loading and saving ------------------------------------------------
 
   Future<void> load() async {
-    data = await repository.load() ?? seedHome();
+    homeList = await repository.homes();
+    data = await repository.load(homeId) ?? (homeId == firstHomeId ? seedHome() : emptyHome());
+    await _loadOtherScenes();
     loaded = true;
-    for (final cfg in data.integrations) {
-      _startDriver(cfg);
-    }
+    _startDrivers();
     notifyListeners();
   }
 
@@ -80,7 +80,7 @@ class HomeStore extends ChangeNotifier {
 
   Future<void> saveNow() async {
     _saveTimer?.cancel();
-    await repository.save(data);
+    await repository.save(homeId, data);
   }
 
   String newId(String prefix) =>
@@ -108,6 +108,84 @@ class HomeStore extends ChangeNotifier {
   List<Device> get favorites => data.devices.where((d) => d.favorite).toList();
 
   int get activeCount => data.devices.where((d) => d.countsAsOn).length;
+
+  // ---- Homes --------------------------------------------------------------------
+
+  /// Every home on this device, and the one that is open. Each home has its
+  /// own floors, rooms, devices, connections and scenes.
+  HomeList homeList = HomeList(homes: [HomeEntry(id: firstHomeId, name: defaultHomeName)], current: firstHomeId);
+  List<HomeEntry> get homes => homeList.homes;
+  String get homeId => homeList.current;
+  String get homeName => homes.where((h) => h.id == homeId).firstOrNull?.name ?? defaultHomeName;
+
+  /// The scenes of the homes that are not open, so their timers can be booked too.
+  final Map<String, List<Scene>> otherScenes = {};
+  List<Scene> get allScenes => [...data.scenes, for (final list in otherScenes.values) ...list];
+
+  Future<void> _loadOtherScenes() async {
+    otherScenes.clear();
+    for (final h in homes) {
+      if (h.id == homeId) continue;
+      final d = await repository.load(h.id);
+      if (d != null && d.scenes.isNotEmpty) otherScenes[h.id] = d.scenes;
+    }
+  }
+
+  /// Closes the open home and opens another one.
+  Future<void> openHome(String id) async {
+    if (id == homeId || !homes.any((h) => h.id == id)) return;
+    await saveNow();
+    await _stopDrivers();
+    final next = await repository.load(id) ?? emptyHome();
+    if (data.scenes.isNotEmpty) otherScenes[homeId] = data.scenes;
+    otherScenes.remove(id);
+    // The theme belongs to the app, not to a home.
+    next.themeMode = data.themeMode;
+    homeList.current = id;
+    data = next;
+    _undo.clear();
+    _startDrivers();
+    _changed();
+    await repository.saveHomes(homeList);
+    if (_pollTimer != null) unawaited(refreshAll());
+  }
+
+  /// Adds an empty home and opens it.
+  Future<HomeEntry> addHome(String name) async {
+    final home = HomeEntry(id: newId('home'), name: name.trim().isEmpty ? defaultHomeName : name.trim());
+    await repository.save(home.id, emptyHome()..themeMode = data.themeMode);
+    homes.add(home);
+    await repository.saveHomes(homeList);
+    await openHome(home.id);
+    return home;
+  }
+
+  Future<void> renameHome(HomeEntry home, String name) async {
+    if (name.trim().isEmpty) return;
+    home.name = name.trim();
+    _changed(save: false);
+    await repository.saveHomes(homeList);
+  }
+
+  /// Deletes a home with everything in it. The last home cannot be deleted.
+  Future<bool> removeHome(HomeEntry home) async {
+    if (homes.length <= 1 || !homes.contains(home)) return false;
+    if (home.id == homeId) await openHome(homes.firstWhere((h) => h.id != home.id).id);
+    homes.remove(home);
+    otherScenes.remove(home.id);
+    await repository.saveHomes(homeList);
+    await repository.remove(home.id);
+    _changed(save: false);
+    return true;
+  }
+
+  void moveHome(int from, int to) {
+    if (from < 0 || from >= homes.length) return;
+    final h = homes.removeAt(from);
+    homes.insert(to.clamp(0, homes.length), h);
+    _changed(save: false);
+    repository.saveHomes(homeList);
+  }
 
   // ---- Theme ------------------------------------------------------------------
 
@@ -605,6 +683,19 @@ class HomeStore extends ChangeNotifier {
 
   IntegrationDriver? driverFor(String integrationId) => _drivers[integrationId];
 
+  void _startDrivers() {
+    for (final cfg in data.integrations) {
+      _startDriver(cfg);
+    }
+  }
+
+  Future<void> _stopDrivers() async {
+    for (final id in _drivers.keys.toList()) {
+      await _stopDriver(id);
+    }
+    status.clear();
+  }
+
   void _startDriver(IntegrationConfig cfg) {
     final spec = specFor(cfg.type);
     if (spec == null || !cfg.enabled) return;
@@ -953,15 +1044,10 @@ class HomeStore extends ChangeNotifier {
   Future<void> importJson(String raw) async {
     final next = HomeData.fromJson(Map<String, dynamic>.from(jsonDecode(raw) as Map));
     if (next.floors.isEmpty) throw const FormatException('That backup has no floors.');
-    for (final id in _drivers.keys.toList()) {
-      await _stopDriver(id);
-    }
-    status.clear();
+    await _stopDrivers();
     _undo.clear();
     data = next;
-    for (final cfg in data.integrations) {
-      _startDriver(cfg);
-    }
+    _startDrivers();
     _changed();
     await saveNow();
   }

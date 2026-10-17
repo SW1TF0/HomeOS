@@ -64,7 +64,8 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
-  final _mapKey = GlobalKey<MapScreenState>();
+  var _mapKey = GlobalKey<MapScreenState>();
+  String? _homeId;
 
   HomeStore get _store => context.read<HomeStore>();
 
@@ -97,6 +98,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final p = context.palette;
     final nav = context.watch<AppNav>();
+    // Another home opened: every screen starts over, so none holds on to the old home's floors or rooms.
+    final homeId = context.select<HomeStore, String>((s) => s.homeId);
+    if (homeId != _homeId) {
+      if (_homeId != null) _mapKey = GlobalKey<MapScreenState>();
+      _homeId = homeId;
+    }
     if (nav.hasMapRequest) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final r = nav.takeMapRequest();
@@ -111,7 +118,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     ];
     final body = ToastListener(
       message: context.read<HomeStore>().message,
-      child: IndexedStack(index: nav.tab, children: pages),
+      child: KeyedSubtree(key: ValueKey(homeId), child: IndexedStack(index: nav.tab, children: pages)),
     );
 
     return LayoutBuilder(builder: (context, c) {

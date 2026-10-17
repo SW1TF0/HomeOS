@@ -81,7 +81,7 @@ class FakeScanner extends NetworkScanner {
 void main() {
   testWidgets('home shows favourites and tapping a tile switches it', (tester) async {
     final store = await pumpApp(tester);
-    expect(find.text('SMARTMENUKJ'), findsOneWidget);
+    expect(find.text('MY HOME'), findsOneWidget);
     final tv = store.devices.firstWhere((d) => d.name == 'TV');
     expect(tv.state.on, isFalse);
     await tester.tap(find.text('TV').first);
@@ -638,5 +638,30 @@ void main() {
     expect(find.byKey(const Key('camera-view')), findsOneWidget);
     expect(find.byType(Image), findsOneWidget);
     expect(asked.last, 'http://10.0.0.9/snap.jpg Basic ${base64.encode(utf8.encode('me:pw'))}');
+  });
+
+  testWidgets('a second home is added and opened from the home screen', (tester) async {
+    final store = await pumpApp(tester);
+    await tester.tap(find.byKey(const Key('home-switch')));
+    await tester.pumpAndSettle();
+    expect(find.text('HOMES'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('home-add')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Beach house');
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+    expect(find.text('BEACH HOUSE'), findsOneWidget);
+    expect(store.devices, isEmpty);
+    expect(find.text('Everything is off.'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('home-switch')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('My home'));
+    await tester.pumpAndSettle();
+    expect(find.text('MY HOME'), findsOneWidget);
+    expect(store.devices, isNotEmpty);
+    await tester.tap(find.byKey(const Key('tab-map')));
+    await tester.pumpAndSettle();
+    final kitchen = store.rooms.firstWhere((r) => r.name == 'Kitchen');
+    expect(find.byKey(Key('room-${kitchen.id}')), findsOneWidget);
   });
 }
