@@ -106,7 +106,7 @@ Future<void> runSceneAlarm(List<String> args) async {
   const channel = MethodChannel('smartmenukj/alarms');
   HomeStore? store;
   try {
-    store = HomeStore(repository: _ReadOnly(LocalHomeRepository()), claimRun: claimSceneRun);
+    store = HomeStore(repository: _ReadOnly(LocalHomeRepository()), claimRun: claimSceneRun, automate: false);
     await store.load();
     final alarm = args.length > 1 && args.first == 'run' ? int.tryParse(args[1]) : null;
     if (alarm != null) await runDueAlarm(store, alarm, DateTime.now());

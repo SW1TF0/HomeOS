@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:ui' show Offset, Rect;
 
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
@@ -11,6 +12,7 @@ import '../integrations/catalog.dart';
 import '../integrations/integration.dart';
 import '../integrations/lan/lan_driver.dart';
 import '../integrations/matter/matter_driver.dart';
+import '../models/automation.dart';
 import '../models/device.dart';
 import '../models/home.dart';
 import '../models/scene.dart';
@@ -46,6 +48,7 @@ class HomeStore extends ChangeNotifier {
     this._pollInterval = const Duration(seconds: 10),
     this.claimRun,
     this.onHomeNetwork,
+    this.automate = true,
   }) : client = client ?? http.Client();
 
   final HomeRepository repository;
@@ -69,6 +72,10 @@ class HomeStore extends ChangeNotifier {
   /// Whether this device is on a Wi-Fi or wired network right now (the app
   /// passes hasHomeNetwork from lan/net.dart). Without it the device is taken to be at home.
   final Future<bool> Function()? onHomeNetwork;
+
+  /// Whether automations run here. Off for the short background runs of timed scenes and widget taps, which would
+  /// otherwise see every change as new.
+  final bool automate;
 
   HomeData data = HomeData();
   bool loaded = false;
@@ -101,6 +108,7 @@ class HomeStore extends ChangeNotifier {
   void _changed({bool save = true}) {
     if (_disposed) return;
     notifyListeners();
+    _watchAutomations();
     if (save) {
       _saveTimer?.cancel();
       _saveTimer = Timer(const Duration(milliseconds: 400), saveNow);
@@ -178,6 +186,7 @@ class HomeStore extends ChangeNotifier {
     next.themeMode = data.themeMode;
     homeList.current = id;
     data = next;
+    _forgetAutomationState();
     _undo.clear();
     _startDrivers();
     _changed();
@@ -529,6 +538,7 @@ class HomeStore extends ChangeNotifier {
     for (final s in data.scenes) {
       s.actions.removeWhere((a) => a.deviceId == d.id);
     }
+    data.automations.removeWhere((a) => a.trigger.deviceId == d.id || a.then.deviceId == d.id);
     _changed();
     _forgetMatter(d);
   }
@@ -552,6 +562,7 @@ class HomeStore extends ChangeNotifier {
     for (final s in data.scenes) {
       s.actions.removeWhere((a) => ids.contains(a.deviceId));
     }
+    data.automations.removeWhere((a) => ids.contains(a.trigger.deviceId) || ids.contains(a.then.deviceId));
     if (rooms) {
       final seedRooms = seedHome().rooms.map((r) => r.id).toSet();
       data.rooms.removeWhere((r) => seedRooms.contains(r.id) && !data.devices.any((d) => d.roomId == r.id));
@@ -599,6 +610,7 @@ class HomeStore extends ChangeNotifier {
 
   void removeScene(Scene s) {
     data.scenes.remove(s);
+    data.automations.removeWhere((a) => a.then.sceneId == s.id);
     _changed();
   }
 
@@ -637,6 +649,93 @@ class HomeStore extends ChangeNotifier {
   Future<void> _runTimed(Scene s, String slot) async {
     if (claimRun != null && !await claimRun!(s.id, slot)) return;
     await runScene(s);
+  }
+
+  // ---- Automations ----------------------------------------------------------------------
+
+  List<Automation> get automations => data.automations;
+
+  /// When each automation last ran here, to show in the list.
+  final Map<String, DateTime> automationRuns = {};
+
+  /// Each device's state when automations last looked, to see what changed since.
+  final Map<String, DeviceState> _seen = {};
+  final Map<String, Timer> _offTimers = {};
+  bool _watching = false;
+
+  void addAutomation(Automation a) {
+    data.automations.add(a);
+    _changed();
+  }
+
+  /// Saves a change made to [a] in place.
+  void automationChanged(Automation a) => _changed();
+
+  void removeAutomation(Automation a) {
+    data.automations.remove(a);
+    _offTimers.remove(a.id)?.cancel();
+    _changed();
+  }
+
+  void _forgetAutomationState() {
+    _seen.clear();
+    for (final t in _offTimers.values) {
+      t.cancel();
+    }
+    _offTimers.clear();
+  }
+
+  /// Runs every automation whose change has just happened. Called after every change to the home.
+  void _watchAutomations() {
+    if (!automate || !loaded || _watching) return;
+    _watching = true;
+    try {
+      final now = clock.now();
+      final due = <Automation>[];
+      for (final a in data.automations) {
+        if (!a.enabled) continue;
+        final before = _seen[a.trigger.deviceId];
+        final after = device(a.trigger.deviceId)?.state;
+        if (before == null || after == null || identical(before, after)) continue;
+        if (!a.trigger.fired(before, after) || !a.allowedAt(now)) continue;
+        // One that sets itself off again (a lamp that turns itself off when on) waits a moment between runs.
+        final last = automationRuns[a.id];
+        if (last != null && now.difference(last) < const Duration(seconds: 3)) continue;
+        automationRuns[a.id] = now;
+        due.add(a);
+      }
+      _seen
+        ..clear()
+        ..addAll({for (final d in data.devices) d.id: d.state});
+      for (final a in due) {
+        unawaited(runAutomation(a));
+      }
+    } finally {
+      _watching = false;
+    }
+  }
+
+  /// Does what [a] does, whatever happened.
+  Future<void> runAutomation(Automation a) async {
+    final step = a.then;
+    if (step.sceneId case final id?) {
+      final s = scene(id);
+      if (s != null) await runScene(s, quiet: true);
+      return;
+    }
+    final d = device(step.deviceId ?? '');
+    final turn = d == null ? null : SceneAction.turn(d, step.on);
+    if (d == null || turn == null) return;
+    _offTimers.remove(a.id)?.cancel();
+    await command(d, turn.command);
+    if (step.on && step.offAfter != null) {
+      _offTimers[a.id] = Timer(Duration(minutes: step.offAfter!), () {
+        _offTimers.remove(a.id);
+        final still = device(d.id);
+        final off = still == null ? null : SceneAction.turn(still, false);
+        if (still != null && off != null) unawaited(command(still, off.command));
+      });
+    }
   }
 
   Device addVirtualDevice(String integrationId, String name, DeviceKind kind, {Map<String, dynamic>? props}) {
@@ -748,11 +847,16 @@ class HomeStore extends ChangeNotifier {
     return _lastToast ?? '${d.name} did not answer.';
   }
 
+  final Map<String, int> _commandTurn = {};
+
   /// Changes a device. The screen updates at once; if the device refuses,
   /// the old state comes back and the user is told why. Away from home, the
   /// device at home passes the change on.
   Future<bool> command(Device d, DeviceCommand c) async {
     final before = d.state;
+    // A newer command to the same device (a second tap, an automation) wins over this one's late answer.
+    final turn = _commandTurn[d.id] = (_commandTurn[d.id] ?? 0) + 1;
+    bool overtaken() => _commandTurn[d.id] != turn;
     d.state = d.state.applyCommand(c);
     _changed();
     final driver = _drivers[d.integrationId];
@@ -767,12 +871,14 @@ class HomeStore extends ChangeNotifier {
     }
     try {
       final confirmed = await driver.send(d, c);
+      if (overtaken()) return true;
       if (confirmed != null) d.state = d.state.merge(confirmed);
       if (!d.state.reachable) d.state = d.state.merge(const DeviceState(reachable: true));
       _changed();
       return true;
     } catch (e) {
       if (hub != null) return _sendViaHub(hub, d, c, before);
+      if (overtaken()) return false;
       d.state = before.merge(DeviceState.unreachable);
       _changed(save: false);
       toast(_offHomeNetwork && networked(d)
@@ -1321,6 +1427,7 @@ class HomeStore extends ChangeNotifier {
     await _stopDrivers();
     _undo.clear();
     data = next;
+    _forgetAutomationState();
     _startDrivers();
     _changed();
     await saveNow();
@@ -1332,6 +1439,7 @@ class HomeStore extends ChangeNotifier {
     _pollTimer?.cancel();
     _sceneTimer?.cancel();
     _saveTimer?.cancel();
+    _forgetAutomationState();
     for (final d in _drivers.values) {
       d.stop();
     }

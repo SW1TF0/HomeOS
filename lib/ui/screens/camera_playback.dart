@@ -6,6 +6,7 @@ import '../../models/device.dart';
 import '../../state/app_settings.dart';
 import '../../state/home_store.dart';
 import '../../theme/nothing_theme.dart';
+import '../../util/clock_text.dart';
 import '../widgets/camera_live.dart';
 import '../widgets/nothing_widgets.dart';
 
@@ -18,14 +19,6 @@ Future<void> showCameraPlayback(BuildContext context, Device device) =>
       builder: (_) => CameraPlaybackScreen(device: device, clock: debugPlaybackClock ?? DateTime.now),
     ));
 
-String _two(int v) => v.toString().padLeft(2, '0');
-
-/// A time of day as the app's clock setting shows it.
-String clockText(DateTime t, bool h24, {bool seconds = false}) {
-  final rest = '${_two(t.minute)}${seconds ? ':${_two(t.second)}' : ''}';
-  if (h24) return '${_two(t.hour)}:$rest';
-  return '${t.hour % 12 == 0 ? 12 : t.hour % 12}:$rest ${t.hour < 12 ? 'AM' : 'PM'}';
-}
 
 /// A camera's recordings: a week of days, a line through the day showing what was recorded (red where something
 /// moved), and the video from wherever the line is tapped. Plays over RTSP, so on the Android app.

@@ -41,6 +41,7 @@ dependencies:
   uuid: ^4.6.0
   pointycastle: ^4.0.0
   video_player: ^2.14.1
+  clock: ^1.1.2
 
 dev_dependencies:
   flutter_test:

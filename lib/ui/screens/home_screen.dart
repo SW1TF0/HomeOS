@@ -18,6 +18,7 @@ import 'device_sheet.dart';
 import 'homes_sheet.dart';
 import 'profile_menu.dart';
 import 'room_sheet.dart';
+import 'automations.dart';
 import 'scenes.dart';
 
 /// Overview: clock, what's going on, scenes, favourites and rooms.
@@ -115,7 +116,11 @@ class HomeScreen extends StatelessWidget {
                   ]),
                 ),
               ],
-              const SectionLabel('Scenes'),
+              SectionLabel('Scenes',
+                  trailing: _HeaderAction(
+                      key: const Key('automations-open'),
+                      label: store.automations.isEmpty ? 'Automations' : 'Automations · ${store.automations.length}',
+                      onTap: () => showAutomations(context))),
               const ScenesRow(),
               SectionLabel('Favourites',
                   accent: true,

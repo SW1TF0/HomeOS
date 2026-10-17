@@ -856,6 +856,75 @@ void main() {
     expect(find.byKey(const Key('camera-playback')), findsNothing);
   });
 
+  testWidgets('an automation is made from the home screen and runs when its change happens', (tester) async {
+    final store = await pumpApp(tester);
+    await tester.tap(find.byKey(const Key('automations-open')));
+    await tester.pumpAndSettle();
+    expect(find.text('AUTOMATIONS'), findsOneWidget);
+    expect(find.byKey(const Key('automations-empty')), findsOneWidget);
+
+    Future<void> pick(String text) async {
+      final list = find.descendant(of: find.byType(BottomSheet), matching: find.byType(Scrollable)).last;
+      await tester.scrollUntilVisible(find.text(text), 120, scrollable: list);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(text));
+      await tester.pumpAndSettle();
+    }
+
+    await tester.tap(find.byKey(const Key('automation-add')));
+    await tester.pumpAndSettle();
+    await pick('Bedroom sensor');
+    await pick('Temperature rises above …');
+    expect(find.text('Temperature above'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '25');
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
+    await pick('Turn something on');
+    await pick('Bath fan');
+
+    expect(find.byKey(const Key('automation-sheet')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('off-after-15')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('hours-night')));
+    await tester.tap(find.byKey(const Key('hours-night')));
+    await tester.pumpAndSettle();
+    final a = store.automations.single;
+    expect((a.trigger.number, a.then.offAfter, a.from, a.to), (25.0, 15, 19 * 60, 7 * 60));
+
+    await tester.tapAt(const Offset(200, 20));
+    await tester.pumpAndSettle();
+    expect(find.text('When Bedroom sensor Temperature rises above 25°'), findsOneWidget);
+    expect(find.text('Turn Bath fan on, off again after 15 min'), findsOneWidget);
+
+    // It gets warm at any hour: the fan turns on.
+    a.from = a.to = null;
+    final sensor = store.devices.firstWhere((d) => d.name == 'Bedroom sensor');
+    final fan = store.devices.firstWhere((d) => d.name == 'Bath fan');
+    expect(fan.state.on, isFalse);
+    sensor.state = sensor.state.merge(const DeviceState(readings: {'Temperature': '25.4 °C'}));
+    store.automationChanged(a);
+    await tester.pumpAndSettle();
+    expect(fan.state.on, isTrue);
+    expect(find.textContaining('RAN '), findsOneWidget);
+
+    await tester.tap(find.byKey(Key('automation-switch-${a.id}')));
+    await tester.pump();
+    expect(a.enabled, isFalse);
+    await tester.tap(find.byKey(Key('automation-${a.id}')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('automation-sheet')), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('automation-delete')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('automation-delete')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AlertDialog), findsOneWidget);
+    await tester.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Delete')));
+    await tester.pumpAndSettle();
+    expect(store.automations, isEmpty);
+    expect(find.byKey(const Key('automations-empty')), findsOneWidget);
+    await tester.pump(const Duration(minutes: 16));
+  });
+
   testWidgets('the Connect tab has a way to add a camera', (tester) async {
     await pumpApp(tester);
     await tester.tap(find.byKey(const Key('tab-connect')));

@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smartmenukj/app.dart';
 import 'package:smartmenukj/cloud/cloud_sync.dart';
 import 'package:smartmenukj/cloud/memory_cloud.dart';
+import 'package:smartmenukj/models/automation.dart';
 import 'package:smartmenukj/models/device.dart';
 import 'package:smartmenukj/models/scene.dart';
 import 'package:smartmenukj/state/home_store.dart';
@@ -314,6 +315,39 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('playback-clip-0')));
     await _shot(tester, 'phone-camera-playback');
+  });
+
+  testWidgets('phone automations', (tester) async {
+    final store = await _app(tester, phone);
+    Device named(String n) => store.devices.firstWhere((d) => d.name == n);
+    final hall = store.addVirtualDevice('demo', 'Hall motion', DeviceKind.sensor);
+    hall.state = const DeviceState(readings: {'Motion': 'Clear'});
+    final movie = store.addScene('Movie night', [named('Floor lamp'), named('TV')], icon: 'movie');
+    store
+      ..addAutomation(Automation(
+          id: 'auto-hall',
+          trigger: AutomationTrigger(deviceId: hall.id, kind: TriggerKind.becomes, label: 'Motion', value: 'Detected'),
+          then: AutomationStep.device(named('Ceiling light').id, on: true, offAfter: 5),
+          from: 19 * 60,
+          to: 7 * 60))
+      ..addAutomation(Automation(
+          id: 'auto-tv',
+          trigger: AutomationTrigger(deviceId: named('TV').id, kind: TriggerKind.turnsOn),
+          then: AutomationStep.scene(movie.id)))
+      ..addAutomation(Automation(
+          id: 'auto-cold',
+          trigger: AutomationTrigger(deviceId: named('Bedroom sensor').id, kind: TriggerKind.below, label: 'Temperature', number: 18),
+          then: AutomationStep.device(named('Thermostat').id, on: true)))
+      ..addAutomation(Automation(
+          id: 'auto-door',
+          enabled: false,
+          trigger: AutomationTrigger(deviceId: named('Front door').id, kind: TriggerKind.unlocks),
+          then: AutomationStep.device(named('Kitchen lights').id, on: true)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('automations-open')));
+    await _shot(tester, 'phone-automations');
+    await tester.tap(find.byKey(const Key('automation-auto-hall')));
+    await _shot(tester, 'phone-automation');
   });
 
   testWidgets('phone light theme', (tester) async {
