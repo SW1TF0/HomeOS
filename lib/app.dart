@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'cloud/cloud_sync.dart';
 import 'state/home_store.dart';
 import 'theme/nothing_theme.dart';
 import 'ui/screens/connect_screen.dart';
@@ -11,8 +12,9 @@ import 'ui/screens/map_screen.dart';
 import 'ui/widgets/nothing_widgets.dart';
 
 class SmartMenuApp extends StatelessWidget {
-  const SmartMenuApp({super.key, required this.store, this.poll = true});
+  SmartMenuApp({super.key, required this.store, CloudSync? cloud, this.poll = true}) : cloud = cloud ?? CloudSync.disabled(store);
   final HomeStore store;
+  final CloudSync cloud;
   final bool poll;
 
   @override
@@ -20,6 +22,7 @@ class SmartMenuApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: store),
+        ChangeNotifierProvider.value(value: cloud),
         ChangeNotifierProvider(create: (_) => AppNav()),
       ],
       child: Consumer<HomeStore>(
@@ -86,10 +89,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!widget.poll) return;
+    final cloud = context.read<CloudSync>();
     if (state == AppLifecycleState.resumed) {
       _store.startPolling();
+      cloud.resumed();
     } else if (state == AppLifecycleState.paused) {
-      _store.stopPolling();
+      // A device keeping the home online goes on watching its devices in the background.
+      if (!cloud.isHub) _store.stopPolling();
       _store.saveNow();
     }
   }

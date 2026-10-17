@@ -253,6 +253,46 @@ class DeviceCommand {
   /// An alarm code, sent with arm and disarm. Never saved.
   final String? code;
 
+  /// For sending a command to another device. Includes an alarm code, so it is never saved.
+  Map<String, dynamic> toJson() => {
+        'on': ?on,
+        'brightness': ?brightness,
+        'colorTempK': ?colorTempK,
+        'color': ?color,
+        'position': ?position,
+        'targetTemp': ?targetTemp,
+        'locked': ?locked,
+        'volume': ?volume,
+        'muted': ?muted,
+        'key': ?key?.name,
+        'action': ?action?.name,
+        'mode': ?mode,
+        'speed': ?speed,
+        'targetHumidity': ?targetHumidity,
+        'code': ?code,
+      };
+
+  factory DeviceCommand.fromJson(Map<String, dynamic> j) {
+    double? number(String k) => (j[k] as num?)?.toDouble();
+    return DeviceCommand(
+      on: j['on'] as bool?,
+      brightness: number('brightness'),
+      colorTempK: (j['colorTempK'] as num?)?.toInt(),
+      color: (j['color'] as num?)?.toInt(),
+      position: number('position'),
+      targetTemp: number('targetTemp'),
+      locked: j['locked'] as bool?,
+      volume: number('volume'),
+      muted: j['muted'] as bool?,
+      key: RemoteKey.values.where((k) => k.name == j['key']).firstOrNull,
+      action: DeviceAction.parse(j['action'] as String?),
+      mode: j['mode'] as String?,
+      speed: number('speed'),
+      targetHumidity: number('targetHumidity'),
+      code: j['code'] as String?,
+    );
+  }
+
   @override
   String toString() =>
       'DeviceCommand(on: $on, brightness: $brightness, ct: $colorTempK, color: $color, position: $position, target: $targetTemp, locked: $locked, volume: $volume, muted: $muted, key: $key, action: ${action?.name}, mode: $mode, speed: $speed, humidity: $targetHumidity${code == null ? '' : ', code: ****'})';

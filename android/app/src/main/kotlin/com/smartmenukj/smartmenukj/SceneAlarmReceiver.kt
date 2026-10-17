@@ -25,6 +25,8 @@ class SceneAlarmReceiver : BroadcastReceiver() {
             SceneAlarms.ACTION_RUN -> listOf("run", intent.getIntExtra(SceneAlarms.EXTRA_ALARM, -1).toString())
             Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED -> {
                 SceneAlarms.restore(app)
+                // A device that keeps a home online starts doing so again.
+                HubService.launch(app)
                 listOf("sync")
             }
             else -> return

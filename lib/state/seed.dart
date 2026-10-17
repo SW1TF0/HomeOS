@@ -5,6 +5,16 @@ import '../models/home.dart';
 
 const demoIntegrationId = 'demo';
 
+/// Whether [d] is still just the sample home: only its example devices, no
+/// real connections and no scenes.
+bool isSampleHome(HomeData d) {
+  final ids = seedHome().devices.map((x) => x.id).toSet();
+  return d.devices.isNotEmpty &&
+      d.integrations.every((i) => i.type == 'demo') &&
+      d.devices.every((x) => ids.contains(x.id)) &&
+      d.scenes.isEmpty;
+}
+
 /// A new home: one floor and nothing on it yet.
 HomeData emptyHome() => HomeData(floors: [Floor(id: 'floor-ground', name: 'Ground floor')]);
 

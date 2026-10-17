@@ -15,6 +15,7 @@ import '../../theme/nothing_theme.dart';
 import '../../util/text.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
+import 'account_sheet.dart';
 import 'homes_sheet.dart';
 import 'matter_sheet.dart';
 
@@ -34,7 +35,7 @@ class ConnectScreen extends StatelessWidget {
           sliver: SliverList.list(children: [
             const DotText('CONNECT', size: 34),
             const SizedBox(height: 4),
-            Text('Everything runs on your network. No account, no cloud, no fees.', style: NType.body(14, color: p.textDim)),
+            Text('Everything runs on your network. An account is optional and free.', style: NType.body(14, color: p.textDim)),
             const SizedBox(height: 18),
             NCard(
               key: const Key('scan-network'),
@@ -53,6 +54,7 @@ class ConnectScreen extends StatelessWidget {
                 Icon(Icons.arrow_forward, color: p.background),
               ]),
             ),
+            const AccountCard(),
             if (store.integrations.isNotEmpty) const SectionLabel('Your connections', accent: true),
             for (final cfg in store.integrations) ...[
               _IntegrationCard(config: cfg),

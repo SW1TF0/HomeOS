@@ -24,6 +24,19 @@ class IntegrationStatus {
   final DateTime? lastSync;
 }
 
+/// A way to reach this home's devices from anywhere: through the device
+/// that stays at home (see CloudSync).
+abstract class RemoteControl {
+  /// Whether the device at home is online right now.
+  bool get online;
+
+  /// The state of a device as the device at home sees it.
+  DeviceState? stateOf(String deviceId);
+
+  /// Has the device at home carry out [command]. Throws with a message for the user when it cannot.
+  Future<void> send(Device device, DeviceCommand command);
+}
+
 /// Holds the whole home and is the only place that changes it.
 class HomeStore extends ChangeNotifier {
   HomeStore({
@@ -86,7 +99,12 @@ class HomeStore extends ChangeNotifier {
   String newId(String prefix) =>
       '$prefix-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${_rand.nextInt(1 << 20).toRadixString(36)}';
 
-  void toast(String text) => message.value = text;
+  void toast(String text) {
+    _lastToast = text;
+    message.value = text;
+  }
+
+  String? _lastToast;
 
   // ---- Queries --------------------------------------------------------------
 
@@ -136,6 +154,7 @@ class HomeStore extends ChangeNotifier {
     if (id == homeId || !homes.any((h) => h.id == id)) return;
     await saveNow();
     await _stopDrivers();
+    viaHub.clear();
     final next = await repository.load(id) ?? emptyHome();
     if (data.scenes.isNotEmpty) otherScenes[homeId] = data.scenes;
     otherScenes.remove(id);
@@ -185,6 +204,63 @@ class HomeStore extends ChangeNotifier {
     homes.insert(to.clamp(0, homes.length), h);
     _changed(save: false);
     repository.saveHomes(homeList);
+  }
+
+  /// Saves the list of homes after their details changed (names, account links).
+  Future<void> saveHomeList() async {
+    _changed(save: false);
+    await repository.saveHomes(homeList);
+  }
+
+  HomeEntry? homeEntry(String id) => homes.where((h) => h.id == id).firstOrNull;
+  HomeEntry get openHomeEntry => homeEntry(homeId) ?? homes.first;
+
+  /// A home's saved data, whether or not it is open.
+  Future<HomeData?> homeData(String id) async {
+    if (id == homeId) return data;
+    return repository.load(id);
+  }
+
+  /// Adds a home that came from the account, without opening it.
+  Future<void> addSavedHome(HomeEntry home, HomeData d) async {
+    await repository.save(home.id, d..themeMode = data.themeMode);
+    homes.add(home);
+    if (d.scenes.isNotEmpty) otherScenes[home.id] = d.scenes;
+    await saveHomeList();
+  }
+
+  /// Takes in a newer copy of a home, saved on another device. The states this
+  /// device already knows stay, and connections keep running when they did not change.
+  Future<void> replaceHome(String id, HomeData next) async {
+    if (id != homeId) {
+      next.themeMode = data.themeMode;
+      await repository.save(id, next);
+      if (next.scenes.isNotEmpty) {
+        otherScenes[id] = next.scenes;
+      } else {
+        otherScenes.remove(id);
+      }
+      _changed(save: false);
+      return;
+    }
+    final states = {for (final d in data.devices) d.id: d.state};
+    for (final d in next.devices) {
+      if (states[d.id] case final s?) d.state = s;
+    }
+    next.themeMode = data.themeMode;
+    String connections(HomeData h) => jsonEncode([for (final i in h.integrations) i.toJson()]);
+    if (connections(next) == connections(data)) {
+      data = next;
+      for (final cfg in data.integrations) {
+        _drivers[cfg.id]?.attach(data.devices.where((d) => d.integrationId == cfg.id));
+      }
+    } else {
+      await _stopDrivers();
+      data = next;
+      _startDrivers();
+    }
+    _undo.clear();
+    _changed();
   }
 
   // ---- Theme ------------------------------------------------------------------
@@ -587,13 +663,48 @@ class HomeStore extends ChangeNotifier {
 
   // ---- Control ----------------------------------------------------------------------
 
+  /// Reaches the devices through the device at home, when this device is away.
+  RemoteControl? remote;
+
+  /// Devices shown as the device at home sees them, because this device cannot reach them itself.
+  final Set<String> viaHub = {};
+
+  RemoteControl? get _hub => remote != null && remote!.online ? remote : null;
+
+  /// New states from the device at home. They show for the devices this device cannot reach itself.
+  void applyHubStates(Map<String, DeviceState> states) {
+    var changed = false;
+    for (final d in data.devices) {
+      final s = states[d.id];
+      if (s == null) continue;
+      if (viaHub.contains(d.id) || _drivers[d.integrationId] == null || !d.state.reachable) {
+        d.state = s;
+        viaHub.add(d.id);
+        changed = true;
+      }
+    }
+    if (changed) _changed(save: false);
+  }
+
+  /// Carries out a command sent from another device. Returns what went wrong, or null.
+  Future<String?> runRemoteCommand(String deviceId, DeviceCommand c) async {
+    final d = device(deviceId);
+    if (d == null) return 'That device is not in this home any more.';
+    _lastToast = null;
+    if (await command(d, c)) return null;
+    return _lastToast ?? '${d.name} did not answer.';
+  }
+
   /// Changes a device. The screen updates at once; if the device refuses,
-  /// the old state comes back and the user is told why.
+  /// the old state comes back and the user is told why. Away from home, the
+  /// device at home passes the change on.
   Future<bool> command(Device d, DeviceCommand c) async {
     final before = d.state;
     d.state = d.state.applyCommand(c);
     _changed();
     final driver = _drivers[d.integrationId];
+    final hub = _hub;
+    if (hub != null && (driver == null || viaHub.contains(d.id))) return _sendViaHub(hub, d, c, before);
     if (driver == null) {
       d.state = before;
       _changed(save: false);
@@ -607,7 +718,22 @@ class HomeStore extends ChangeNotifier {
       _changed();
       return true;
     } catch (e) {
+      if (hub != null) return _sendViaHub(hub, d, c, before);
       d.state = before.merge(DeviceState.unreachable);
+      _changed(save: false);
+      toast('${d.name}: $e');
+      return false;
+    }
+  }
+
+  Future<bool> _sendViaHub(RemoteControl hub, Device d, DeviceCommand c, DeviceState before) async {
+    try {
+      await hub.send(d, c);
+      viaHub.add(d.id);
+      _changed();
+      return true;
+    } catch (e) {
+      d.state = before;
       _changed(save: false);
       toast('${d.name}: $e');
       return false;
@@ -703,6 +829,7 @@ class HomeStore extends ChangeNotifier {
     driver.onPush = (externalId, st) {
       final d = device(Device.idFor(cfg.id, externalId));
       if (d == null) return;
+      if (st.reachable) viaHub.remove(d.id);
       d.state = d.state.merge(st);
       _changed(save: false);
     };
@@ -1006,9 +1133,19 @@ class HomeStore extends ChangeNotifier {
         final mine = data.devices.where((d) => d.integrationId == cfg.id).toList();
         if (mine.isEmpty) return;
         final states = await driver.refreshAll(mine);
+        final hub = _hub;
         for (final d in mine) {
           final s = states[d.id];
-          if (s != null) d.state = s;
+          if (s == null) continue;
+          // Out of reach from here, but the device at home sees it.
+          final far = s.reachable ? null : hub?.stateOf(d.id);
+          if (far != null) {
+            d.state = far;
+            viaHub.add(d.id);
+          } else {
+            d.state = s;
+            viaHub.remove(d.id);
+          }
         }
         final reachable = mine.where((d) => d.state.reachable).length;
         if (spec.polls) {

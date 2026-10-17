@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../cloud/cloud_sync.dart';
 import '../../models/device.dart';
 import '../../models/home.dart';
 import '../../state/home_store.dart';
@@ -11,6 +12,7 @@ import '../../util/text.dart';
 import '../nav.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
+import 'account_sheet.dart';
 import 'device_sheet.dart';
 import 'homes_sheet.dart';
 import 'room_sheet.dart';
@@ -247,6 +249,7 @@ class _StatusStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final store = context.watch<HomeStore>();
+    final cloud = context.watch<CloudSync>();
     final all = store.devices;
     List<Device> ofKind(DeviceKind k) => all.where((d) => d.kind == k).toList();
     final lights = ofKind(DeviceKind.light);
@@ -283,6 +286,13 @@ class _StatusStrip extends StatelessWidget {
           onTap: () => danger.length == 1
               ? showDeviceSheet(context, danger.first)
               : showDeviceListSheet(context, title: 'WARNINGS', select: (s) => s.devices.where(alarming).toList()),
+        ),
+      if (cloud.away)
+        _Pill(
+          key: const Key('status-away'),
+          icon: Icons.public,
+          label: 'Away · through ${cloud.hubName ?? 'home device'}',
+          onTap: () => showAccountSheet(context),
         ),
       _Pill(
         key: const Key('home-all-off'),

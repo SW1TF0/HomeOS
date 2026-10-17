@@ -6,15 +6,50 @@ import '../models/home.dart';
 
 /// One home in the list of homes kept on this device.
 class HomeEntry {
-  HomeEntry({required this.id, required this.name});
+  HomeEntry({required this.id, required this.name, this.cloudId, this.account, this.stamp, this.synced, this.hub = false});
 
   final String id;
   String name;
 
-  Map<String, dynamic> toJson() => {'id': id, 'name': name};
+  /// Where the home is kept in the signed-in account, once it is saved there.
+  String? cloudId;
 
-  factory HomeEntry.fromJson(Map<String, dynamic> j) =>
-      HomeEntry(id: j['id'] as String, name: j['name'] as String? ?? defaultHomeName);
+  /// The account the home belongs to.
+  String? account;
+
+  /// Which saved version of the home this device has, and a fingerprint of
+  /// what it last sent or received, to tell whether anything changed since.
+  String? stamp;
+  String? synced;
+
+  /// Whether this device stays at home and carries out what other devices
+  /// ask for, from anywhere.
+  bool hub;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'cloudId': ?cloudId,
+        'account': ?account,
+        'stamp': ?stamp,
+        'synced': ?synced,
+        if (hub) 'hub': true,
+      };
+
+  factory HomeEntry.fromJson(Map<String, dynamic> j) => HomeEntry(
+        id: j['id'] as String,
+        name: j['name'] as String? ?? defaultHomeName,
+        cloudId: j['cloudId'] as String?,
+        account: j['account'] as String?,
+        stamp: j['stamp'] as String?,
+        synced: j['synced'] as String?,
+        hub: j['hub'] == true,
+      );
+
+  void unlink() {
+    cloudId = account = stamp = synced = null;
+    hub = false;
+  }
 }
 
 /// The homes on this device, in the order they are listed, and the one that is open.

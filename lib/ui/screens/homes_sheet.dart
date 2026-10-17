@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../cloud/cloud_sync.dart';
+import '../../cloud/firebase.dart';
 import '../../state/home_store.dart';
 import '../../state/repository.dart';
 import '../../theme/nothing_theme.dart';
@@ -22,6 +24,7 @@ class HomesSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final store = context.watch<HomeStore>();
+    final cloud = context.watch<CloudSync>();
     final p = context.palette;
     final homes = store.homes;
 
@@ -35,7 +38,15 @@ class HomesSheet extends StatelessWidget {
     Future<void> remove(HomeEntry h) async {
       if (await confirm(context,
           title: 'Delete ${h.name}?',
-          body: 'Its rooms, devices, connections and scenes are deleted from this device. Your other homes stay.')) {
+          body: h.cloudId != null && cloud.signedIn
+              ? 'Its rooms, devices, connections and scenes are deleted from your account and every device. Your other homes stay.'
+              : 'Its rooms, devices, connections and scenes are deleted from this device. Your other homes stay.')) {
+        try {
+          await cloud.forget(h);
+        } on CloudException catch (e) {
+          store.toast('${h.name} was not deleted: ${e.message}');
+          return;
+        }
         await store.removeHome(h);
         store.toast('${h.name} deleted.');
       }
@@ -72,7 +83,13 @@ class HomesSheet extends StatelessWidget {
                     leading: homes[i].id == store.homeId
                         ? const Icon(Icons.radio_button_checked, color: NothingPalette.red)
                         : Icon(Icons.radio_button_unchecked, color: p.textDim),
-                    title: Text(homes[i].name),
+                    title: Row(children: [
+                      Flexible(child: Text(homes[i].name, overflow: TextOverflow.ellipsis)),
+                      if (homes[i].cloudId != null && cloud.signedIn) ...[
+                        const SizedBox(width: 8),
+                        Icon(Icons.cloud_done_outlined, size: 16, color: p.textDim),
+                      ],
+                    ]),
                     subtitle: homes[i].id == store.homeId
                         ? Text('Open · ${store.devices.length} devices · ${store.rooms.length} rooms')
                         : null,
