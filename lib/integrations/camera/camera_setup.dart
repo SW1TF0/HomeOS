@@ -40,7 +40,8 @@ const cameraBrands = [
   CameraBrand('dahua', 'Dahua / Imou / Amcrest',
       paths: ['/cam/realmonitor?channel=1&subtype=0', '/cam/realmonitor?channel=1&subtype=1'],
       onvifPorts: [80],
-      hint: 'Imou: the user is admin and the password is the safety code on the sticker, unless you changed it.'),
+      hint: 'Imou: the user is admin and the password is the safety code from the sticker or the Imou Life app, '
+          'unless you changed it.'),
   CameraBrand('other', 'Other',
       paths: [
         '/stream1',
