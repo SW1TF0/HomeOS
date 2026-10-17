@@ -524,6 +524,23 @@ void main() {
     expect(robot.state.activity, Activity.docked);
   });
 
+  testWidgets('smoke or a leak shows first on the home screen', (tester) async {
+    final store = await pumpApp(tester);
+    expect(find.byKey(const Key('status-danger')), findsNothing);
+    final sensor = store.devices.firstWhere((d) => d.name == 'Bedroom sensor');
+    sensor.state = sensor.state.merge(const DeviceState(readings: {'Smoke': 'Smoke!'}));
+    store.notifyListeners();
+    await tester.pump();
+    expect(find.text('Bedroom sensor: Smoke!'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('status-danger')));
+    await tester.pumpAndSettle();
+    expect(find.text('SMOKE'), findsOneWidget, reason: 'the sensor opens with its readings');
+    sensor.state = sensor.state.merge(const DeviceState(readings: {'Smoke': 'Clear'}));
+    store.notifyListeners();
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('status-danger')), findsNothing);
+  });
+
   testWidgets('an alarm opens its controls, arms, and asks before disarming', (tester) async {
     final store = await pumpApp(tester);
     final alarm = store.devices.firstWhere((d) => d.name == 'Alarm');

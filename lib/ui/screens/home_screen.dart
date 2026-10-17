@@ -219,9 +219,9 @@ class _ClockState extends State<_Clock> {
   }
 }
 
-/// Pills that sum up the home: lights on, inside temperature, locks, the
-/// alarm, blinds, what is playing, robots at work, what is not answering.
-/// Each opens those devices.
+/// Pills that sum up the home: smoke or a leak first, then lights on, inside
+/// temperature, locks, the alarm, blinds, what is playing, robots at work,
+/// what is not answering. Each opens those devices.
 class _StatusStrip extends StatelessWidget {
   const _StatusStrip();
 
@@ -248,9 +248,23 @@ class _StatusStrip extends StatelessWidget {
         .where((d) => isRobot(d) && const {Activity.running, Activity.returning, Activity.paused, Activity.error}.contains(d.state.activity))
         .toList();
     final stuck = working.where((d) => d.state.activity == Activity.error).toList();
+    // Sensors say "Smoke!", "CO!" or "Leak!" when something is wrong.
+    bool alarming(Device d) => d.state.readings.values.any((v) => v.endsWith('!'));
+    final danger = all.where(alarming).toList();
 
     final anyOn = store.activeCount > 0;
     final pills = <Widget>[
+      if (danger.isNotEmpty)
+        _Pill(
+          key: const Key('status-danger'),
+          icon: Icons.warning_amber_rounded,
+          label: '${danger.first.name}: ${danger.first.state.readings.values.firstWhere((v) => v.endsWith('!'))}'
+              '${danger.length > 1 ? ' +${danger.length - 1}' : ''}',
+          alert: true,
+          onTap: () => danger.length == 1
+              ? showDeviceSheet(context, danger.first)
+              : showDeviceListSheet(context, title: 'WARNINGS', select: (s) => s.devices.where(alarming).toList()),
+        ),
       _Pill(
         key: const Key('home-all-off'),
         icon: Icons.power_settings_new,

@@ -70,6 +70,12 @@ class MatterEndpoint {
   /// The colour control feature map, when the endpoint has colour control.
   int? colorFeatures;
 
+  /// The fan control feature map, when the endpoint has fan control.
+  int? fanFeatures;
+
+  /// The commands an appliance's or robot's operational state cluster takes, when it has one.
+  List<int>? opCommands;
+
   bool has(int cluster) => clusters.contains(cluster);
 
   bool isA(int deviceType) => deviceTypes.contains(deviceType);
@@ -82,6 +88,8 @@ class MatterEndpoint {
         if (label != null) 'label': label,
         if (uniqueId != null) 'uid': uniqueId,
         if (colorFeatures != null) 'color': colorFeatures,
+        if (fanFeatures != null) 'fan': fanFeatures,
+        if (opCommands != null) 'opCommands': opCommands,
       };
 
   factory MatterEndpoint.fromJson(Map<String, dynamic> j) {
@@ -92,7 +100,9 @@ class MatterEndpoint {
       ..parts.addAll(ints(j['parts']))
       ..label = j['label'] as String?
       ..uniqueId = j['uid'] as String?
-      ..colorFeatures = (j['color'] as num?)?.toInt();
+      ..colorFeatures = (j['color'] as num?)?.toInt()
+      ..fanFeatures = (j['fan'] as num?)?.toInt()
+      ..opCommands = j['opCommands'] == null ? null : ints(j['opCommands']);
   }
 
   @override

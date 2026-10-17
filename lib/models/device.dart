@@ -341,7 +341,8 @@ class DeviceState {
         reachable: reachable,
       );
 
-  /// Overlays the known fields of [other] on this state.
+  /// Overlays the known fields of [other] on this state. An empty mode or reading in [other] is a device saying
+  /// it has none any more (a fan leaving its preset, a robot's problem fixed), so it is removed.
   DeviceState merge(DeviceState other) => DeviceState(
         on: other.on ?? on,
         brightness: other.brightness ?? brightness,
@@ -355,11 +356,13 @@ class DeviceState {
         muted: other.muted ?? muted,
         activity: other.activity ?? activity,
         battery: other.battery ?? battery,
-        mode: other.mode ?? mode,
+        mode: other.mode == null ? mode : (other.mode!.isEmpty ? null : other.mode),
         speed: other.speed ?? speed,
         targetHumidity: other.targetHumidity ?? targetHumidity,
         currentHumidity: other.currentHumidity ?? currentHumidity,
-        readings: other.readings.isEmpty ? readings : {...readings, ...other.readings},
+        readings: other.readings.isEmpty
+            ? readings
+            : ({...readings, ...other.readings}..removeWhere((_, value) => value.isEmpty)),
         reachable: other.reachable,
       );
 

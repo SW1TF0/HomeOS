@@ -65,7 +65,7 @@ abstract class IntegrationDriver {
     final out = <String, DeviceState>{};
     for (final d in devices) {
       try {
-        out[d.id] = await refresh(d) ?? d.state;
+        out[d.id] = d.state.merge(await refresh(d) ?? const DeviceState());
       } catch (_) {
         out[d.id] = d.state.merge(DeviceState.unreachable);
       }
@@ -106,7 +106,7 @@ abstract class IntegrationDriver {
         externalId: externalId,
         capabilities: capabilities,
         props: props,
-        state: state,
+        state: const DeviceState().merge(state),
       );
 
   // HTTP helpers with sensible timeouts for devices on the local network.

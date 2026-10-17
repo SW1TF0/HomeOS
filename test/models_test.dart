@@ -52,6 +52,14 @@ void main() {
     expect(hexToInt('#ff8800'), 0xff8800);
   });
 
+  test('a mode or a reading that a device no longer has is cleared', () {
+    const before = DeviceState(mode: 'Auto', readings: {'Error': 'Stuck', 'PM2.5': '12 µg/m³'});
+    final after = before.merge(const DeviceState(mode: '', readings: {'Error': ''}));
+    expect(after.mode, isNull);
+    expect(after.readings, {'PM2.5': '12 µg/m³'});
+    expect(before.merge(const DeviceState()).mode, 'Auto', reason: 'saying nothing keeps what was known');
+  });
+
   test('robots, alarms and fans: actions, modes and speeds', () {
     const docked = DeviceState(activity: Activity.docked, battery: 0.9);
     expect(docked.isActive, isFalse);

@@ -53,6 +53,9 @@ class LanContext {
     return res;
   }
 
+  Future<http.Response> put(Uri uri, String body, {Map<String, String>? headers}) =>
+      client.put(uri, body: body, headers: headers).timeout(timeout);
+
   Future<dynamic> getJson(Uri uri) async {
     final res = await get(uri);
     if (res.statusCode >= 400) throw IntegrationException('${uri.host} answered HTTP ${res.statusCode}.');

@@ -10,6 +10,7 @@ import 'roku.dart';
 import 'samsung.dart';
 import 'sony.dart';
 import 'upnp.dart';
+import 'valetudo.dart';
 import 'webos.dart';
 import 'wol.dart';
 
@@ -25,7 +26,7 @@ class LanMatch {
 
 /// "Network devices": anything on the home network, added from a scan or by
 /// its address. Speaks the local protocols of TVs (Samsung, LG, Sony, Roku,
-/// Google Cast), UPnP / DLNA players, Kasa, Yeelight and WeMo, and keeps
+/// Google Cast), UPnP / DLNA players, Kasa, Yeelight, WeMo and Valetudo robot vacuums, and keeps
 /// everything else as an online / offline device that can be woken with
 /// Wake-on-LAN.
 class LanDriver extends IntegrationDriver {
@@ -37,6 +38,7 @@ class LanDriver extends IntegrationDriver {
 
   /// In order of preference when several answer (a Samsung TV is also a UPnP renderer).
   final List<LanProtocol> protocols = [
+    const ValetudoProtocol(),
     const RokuProtocol(),
     SamsungProtocol(),
     SonyProtocol(),

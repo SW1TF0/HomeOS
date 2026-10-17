@@ -226,7 +226,7 @@ class HomeAssistantDriver extends IntegrationDriver {
         return DeviceState(
           on: state == 'on',
           speed: state == 'on' && pct != null && pct > 0 ? pct / 100 : null,
-          mode: attrs['preset_mode'] as String?,
+          mode: attrs['preset_mode'] as String? ?? '',
           reachable: reachable,
         );
       case 'lock':
@@ -259,7 +259,7 @@ class HomeAssistantDriver extends IntegrationDriver {
           activity: activity,
           battery: battery == null ? null : battery.clamp(0, 100) / 100,
           mode: attrs['fan_speed'] as String?,
-          readings: {if (activity == Activity.error && status is String && status.isNotEmpty) 'Error': status},
+          readings: {'Error': activity == Activity.error && status is String ? status : ''},
           reachable: reachable,
         );
       case 'lawn_mower':

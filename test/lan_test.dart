@@ -61,6 +61,60 @@ void main() {
     });
   });
 
+  group('Valetudo', () {
+    test('finds a robot vacuum, reads it and sends it cleaning, beeping and home', () async {
+      final puts = <String>[];
+      var status = 'docked';
+      final server = await fakeHttp((req, body) {
+        final path = req.uri.path;
+        if (req.method == 'PUT') {
+          puts.add('${path.split('/').last} $body');
+          if (body.contains('start')) status = 'cleaning';
+          return;
+        }
+        final reply = switch (path) {
+          '/api/v2/robot' => {'manufacturer': 'Roborock', 'modelName': 'S5 Max', 'implementation': 'RoborockS5MaxValetudoRobot'},
+          '/api/v2/robot/capabilities' => ['BasicControlCapability', 'FanSpeedControlCapability', 'LocateCapability'],
+          '/api/v2/robot/capabilities/FanSpeedControlCapability/presets' => ['low', 'medium', 'high', 'max'],
+          '/api/v2/robot/state/attributes' => [
+            {'__class': 'StatusStateAttribute', 'value': status, 'flag': 'none'},
+            {'__class': 'BatteryStateAttribute', 'level': 87, 'flag': status == 'docked' ? 'charging' : 'discharging'},
+            {'__class': 'PresetSelectionStateAttribute', 'type': 'fan_speed', 'value': 'high'},
+          ],
+          _ => null,
+        };
+        if (reply == null) {
+          req.response.statusCode = 404;
+        } else {
+          req.response.headers.contentType = ContentType.json;
+          req.response.write(jsonEncode(reply));
+        }
+      });
+      final driver = lanDriver({...await closedPorts(_allPorts), 80: server.port});
+      final found = await driver.identify('127.0.0.1', hints: {'protocol': 'valetudo', 'name': 'Valetudo RoborockS5Max QuietBlueFox'});
+      final robot = found.devices.single;
+      expect(robot.name, 'Roborock S5 Max');
+      expect(robot.kind, DeviceKind.vacuum);
+      expect(robot.capabilities, {Capability.run, Capability.dock, Capability.locate, Capability.mode});
+      expect(robot.modes, ['low', 'medium', 'high', 'max']);
+      expect((robot.state.activity, robot.state.battery, robot.state.mode), (Activity.charging, 0.87, 'high'));
+      expect(robot.state.readings, isEmpty);
+      expect((await driver.identify('127.0.0.1')).devices.single.props['protocol'], 'valetudo', reason: 'found without a hint too');
+
+      await driver.send(robot, const DeviceCommand(mode: 'max', action: DeviceAction.start));
+      await driver.send(robot, const DeviceCommand(action: DeviceAction.locate));
+      await driver.send(robot, const DeviceCommand(action: DeviceAction.dock));
+      expect(puts, [
+        'preset {"name":"max"}',
+        'BasicControlCapability {"action":"start"}',
+        'LocateCapability {"action":"locate"}',
+        'BasicControlCapability {"action":"home"}',
+      ]);
+      expect((await driver.refreshAll([robot]))[robot.id]!.activity, Activity.running);
+      await server.close(force: true);
+    });
+  });
+
   group('Roku', () {
     test('identifies a Roku TV and presses keys', () async {
       final presses = <String>[];

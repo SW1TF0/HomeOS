@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'case.dart';
 import 'clusters.dart';
@@ -195,7 +196,22 @@ class MatterController {
     }
   }
 
-  Future<ReadResult> read(int nodeId, List<AttributePath> paths) => run(nodeId, (im) => im.read(paths));
+  /// Reads [paths]. A device that cannot take that many at once is asked nine at a time, which every device
+  /// must accept.
+  Future<ReadResult> read(int nodeId, List<AttributePath> paths) async {
+    try {
+      return await run(nodeId, (im) => im.read(paths));
+    } on ImStatusException catch (e) {
+      if (paths.length <= 9 || !const {ImStatus.resourceExhausted, ImStatus.pathsExhausted}.contains(e.status)) rethrow;
+    }
+    final all = ReadResult();
+    for (var i = 0; i < paths.length; i += 9) {
+      final part = await run(nodeId, (im) => im.read(paths.sublist(i, min(i + 9, paths.length))));
+      all.values.addAll(part.values);
+      all.errors.addAll(part.errors);
+    }
+    return all;
+  }
 
   Future<CommandResponse> invoke(int nodeId, int endpoint, int cluster, int command,
           {void Function(TlvWriter w)? fields, Duration? timed}) =>
@@ -222,6 +238,10 @@ class MatterController {
       AttributePath(cluster: Cluster.bridgedDeviceBasicInformation, attribute: BasicInfoAttr.reachable),
       AttributePath(cluster: Cluster.bridgedDeviceBasicInformation, attribute: BasicInfoAttr.uniqueId),
       AttributePath(cluster: Cluster.colorControl, attribute: GlobalAttr.featureMap),
+      AttributePath(cluster: Cluster.fanControl, attribute: GlobalAttr.featureMap),
+      AttributePath(cluster: Cluster.operationalState, attribute: GlobalAttr.acceptedCommandList),
+      AttributePath(cluster: Cluster.rvcOperationalState, attribute: GlobalAttr.acceptedCommandList),
+      AttributePath(cluster: Cluster.ovenCavityOperationalState, attribute: GlobalAttr.acceptedCommandList),
     ]);
     final endpoints = <int, MatterEndpoint>{};
     MatterEndpoint ep(int id) => endpoints.putIfAbsent(id, () => MatterEndpoint(id));
@@ -254,6 +274,12 @@ class MatterController {
     }
     for (final v in r.where(cluster: Cluster.colorControl, attribute: GlobalAttr.featureMap)) {
       if (v.value is int) ep(v.endpoint).colorFeatures = v.value as int;
+    }
+    for (final v in r.where(cluster: Cluster.fanControl, attribute: GlobalAttr.featureMap)) {
+      if (v.value is int) ep(v.endpoint).fanFeatures = v.value as int;
+    }
+    for (final v in r.where(attribute: GlobalAttr.acceptedCommandList)) {
+      if (v.value is List) ep(v.endpoint).opCommands = (v.value as List).whereType<int>().toList();
     }
     String? str(int attr) {
       final v = r.get(0, Cluster.basicInformation, attr);

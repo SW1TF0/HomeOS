@@ -418,6 +418,22 @@ void main() {
       expect(bodies[6], {'entity_id': 'humidifier.nursery', 'humidity': 55});
     });
 
+    test('a purifier that leaves its preset and a robot whose problem is fixed are shown as they are now', () async {
+      final devices = await ha.discover();
+      final purifier = devices.firstWhere((d) => d.externalId == 'fan.bedroom_purifier');
+      final robot = devices.firstWhere((d) => d.externalId == 'vacuum.roborock_s8')
+        ..state = const DeviceState(activity: Activity.error, readings: {'Error': 'Brush jammed'});
+      expect(purifier.state.mode, 'auto');
+      final fan = states.firstWhere((e) => e['entity_id'] == 'fan.bedroom_purifier');
+      final before = Map.of(fan['attributes'] as Map);
+      (fan['attributes'] as Map).remove('preset_mode');
+      final now = await ha.refreshAll([purifier, robot]);
+      fan['attributes'] = before;
+      expect(now[purifier.id]!.mode, isNull);
+      expect(now[robot.id]!.activity, Activity.running);
+      expect(now[robot.id]!.readings.containsKey('Error'), isFalse);
+    });
+
     test('a camera picture comes through the camera proxy', () async {
       final cam = (await ha.discover()).firstWhere((d) => d.externalId == 'camera.door');
       expect(await ha.snapshot(cam), png);
@@ -516,6 +532,128 @@ void main() {
       m.register('manual:1', {'component': 'sensor', 'state_topic': 'garden/temp', 'name': 'Garden', 'unit_of_measurement': '°C'});
       final (changed, _) = m.handle('garden/temp', '14.2');
       expect(changed['manual:1']!.readings, {'Garden': '14.2 °C'});
+    });
+
+    List<Device> devicesOf(MqttModel m) => m.devices((id, name, kind, caps, props, state) =>
+        Device(id: id, name: name, kind: kind, integrationId: 'mqtt', externalId: id, capabilities: caps, props: props, state: state));
+
+    test('a Valetudo robot vacuum cleans, changes suction, goes home and shows its battery', () {
+      final m = MqttModel();
+      const dev = {
+        'ids': ['valetudo_rocky'],
+        'name': 'Rocky',
+        'mf': 'Roborock',
+      };
+      final (_, topics) = m.handle(
+          'homeassistant/vacuum/rocky/rocky_vacuum/config',
+          jsonEncode({
+            '~': 'valetudo/rocky',
+            'uniq_id': 'rocky_vacuum',
+            'dev': dev,
+            'schema': 'state',
+            'stat_t': '~/hass/rocky_vacuum/state',
+            'cmd_t': '~/BasicControlCapability/operation/set',
+            'set_fan_spd_t': '~/FanSpeedControlCapability/preset/set',
+            'fanspd_lst': ['low', 'medium', 'high', 'max'],
+            'sup_feat': ['start', 'stop', 'pause', 'return_home', 'battery', 'status', 'locate', 'fan_speed'],
+            'pl_strt': 'START',
+            'pl_paus': 'PAUSE',
+            'pl_stop': 'STOP',
+            'pl_ret': 'HOME',
+          }));
+      expect(topics, ['valetudo/rocky/hass/rocky_vacuum/state']);
+      m.handle(
+          'homeassistant/sensor/rocky/rocky_battery_level/config',
+          jsonEncode({
+            '~': 'valetudo/rocky',
+            'name': 'Battery level',
+            'dev': dev,
+            'dev_cla': 'battery',
+            'unit_of_meas': '%',
+            'stat_t': '~/BatteryStateAttribute/level',
+          }));
+
+      final (changed, _) = m.handle('valetudo/rocky/BatteryStateAttribute/level', '61');
+      expect(changed['ha:vacuum/rocky/rocky_vacuum']!.battery, closeTo(0.61, 1e-9));
+      m.handle('valetudo/rocky/hass/rocky_vacuum/state', jsonEncode({'state': 'cleaning', 'fan_speed': 'max'}));
+
+      final robot = devicesOf(m).single; // the battery shows on the robot, not as a sensor of its own
+      expect(robot.name, 'Rocky');
+      expect(robot.kind, DeviceKind.vacuum);
+      expect(robot.capabilities, {Capability.run, Capability.dock, Capability.locate, Capability.mode});
+      expect(robot.modes, ['low', 'medium', 'high', 'max']);
+      expect(robot.props['noStop'], isNull);
+      expect(robot.state.activity, Activity.running);
+      expect(robot.state.battery, closeTo(0.61, 1e-9));
+      expect(robot.state.mode, 'max');
+
+      expect(m.commandsFor(robot, const DeviceCommand(mode: 'high', action: DeviceAction.start)).map((o) => '$o'), [
+        'valetudo/rocky/FanSpeedControlCapability/preset/set <- high',
+        'valetudo/rocky/BasicControlCapability/operation/set <- START',
+      ]);
+      expect(m.commandsFor(robot, const DeviceCommand(action: DeviceAction.dock)).single.payload, 'HOME');
+      expect(m.commandsFor(robot, const DeviceCommand(action: DeviceAction.locate)).single.payload, 'locate');
+
+      m.handle('valetudo/rocky/hass/rocky_vacuum/state', jsonEncode({'state': 'docked', 'battery_level': 100}));
+      expect(m.states['ha:vacuum/rocky/rocky_vacuum']!.activity, Activity.docked);
+      expect(m.states['ha:vacuum/rocky/rocky_vacuum']!.battery, 1);
+    });
+
+    test('a vacuum that cannot stop, a lawn mower, a water valve, a siren and a button', () {
+      final m = MqttModel();
+      m.handle(
+          'homeassistant/vacuum/basic/config',
+          jsonEncode({
+            'name': 'Hall robot',
+            'cmd_t': 'robot/cmd',
+            'stat_t': 'robot/state',
+            'sup_feat': ['start', 'pause', 'return_home', 'status'],
+          }));
+      m.handle(
+          'homeassistant/lawn_mower/mower/config',
+          jsonEncode({
+            'name': 'Mower',
+            'activity_state_topic': 'mower/activity',
+            'activity_value_template': '{{ value_json.activity }}',
+            'start_mowing_command_topic': 'mower/start',
+            'pause_command_topic': 'mower/pause',
+            'dock_command_topic': 'mower/dock',
+          }));
+      m.handle('homeassistant/valve/tap/config',
+          jsonEncode({'name': 'Garden tap', 'cmd_t': 'tap/set', 'stat_t': 'tap/state', 'dev_cla': 'water'}));
+      m.handle('homeassistant/siren/siren/config', jsonEncode({'name': 'Siren', 'cmd_t': 'siren/set', 'stat_t': 'siren/state'}));
+      m.handle('homeassistant/button/chime/config', jsonEncode({'name': 'Chime', 'cmd_t': 'chime/ring', 'pl_prs': 'RING'}));
+      m.handle('homeassistant/cover/garage/config',
+          jsonEncode({'name': 'Garage', 'cmd_t': 'garage/set', 'stat_t': 'garage/state', 'dev_cla': 'garage'}));
+
+      m.handle('mower/activity', jsonEncode({'activity': 'mowing'}));
+      m.handle('tap/state', 'opening');
+      m.handle('siren/state', 'ON');
+      m.handle('robot/state', jsonEncode({'state': 'error'}));
+
+      final byName = {for (final d in devicesOf(m)) d.name: d};
+      expect(byName.keys, ['Hall robot', 'Mower', 'Garden tap', 'Siren', 'Chime', 'Garage']);
+      expect(byName['Hall robot']!.capabilities, {Capability.run, Capability.dock});
+      expect(byName['Hall robot']!.props['noStop'], isTrue);
+      expect(byName['Hall robot']!.state.activity, Activity.error);
+      expect(byName['Mower']!.kind, DeviceKind.mower);
+      expect(byName['Mower']!.capabilities, {Capability.run, Capability.dock});
+      expect(byName['Mower']!.state.activity, Activity.running);
+      expect(byName['Garden tap']!.kind, DeviceKind.valve);
+      expect(byName['Garden tap']!.state.on, isTrue);
+      expect(byName['Siren']!.kind, DeviceKind.siren);
+      expect(byName['Siren']!.state.on, isTrue);
+      expect(byName['Chime']!.kind, DeviceKind.button);
+      expect(byName['Chime']!.capabilities, {Capability.press});
+      expect(byName['Garage']!.kind, DeviceKind.garage);
+
+      String send(String name, DeviceCommand c) => m.commandsFor(byName[name]!, c).join(', ');
+      expect(send('Mower', const DeviceCommand(action: DeviceAction.start)), 'mower/start <- start_mowing');
+      expect(send('Mower', const DeviceCommand(action: DeviceAction.dock)), 'mower/dock <- dock');
+      expect(send('Garden tap', const DeviceCommand(on: false)), 'tap/set <- CLOSE');
+      expect(send('Siren', const DeviceCommand(on: false)), 'siren/set <- OFF');
+      expect(send('Chime', const DeviceCommand(action: DeviceAction.press)), 'chime/ring <- RING');
+      expect(send('Hall robot', const DeviceCommand(action: DeviceAction.pause)), 'robot/cmd <- pause');
     });
   });
 

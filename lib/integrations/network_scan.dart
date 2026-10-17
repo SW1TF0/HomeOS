@@ -115,6 +115,7 @@ class NetworkScanner {
   /// mDNS services of things the Network devices connection handles, with the protocol to try.
   static const lanServices = {
     '_googlecast._tcp': 'cast',
+    '_valetudo._tcp': 'valetudo',
     '_airplay._tcp': 'generic',
     '_spotify-connect._tcp': 'generic',
     '_androidtvremote2._tcp': 'generic',

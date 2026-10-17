@@ -12,6 +12,18 @@ class Cluster {
   static const bridgedDeviceBasicInformation = 0x0039;
   static const operationalCredentials = 0x003e;
   static const booleanState = 0x0045;
+  static const ovenCavityOperationalState = 0x0048;
+  static const ovenMode = 0x0049;
+  static const laundryWasherMode = 0x0051;
+  static const rvcRunMode = 0x0054;
+  static const rvcCleanMode = 0x0055;
+  static const dishwasherMode = 0x0059;
+  static const airQuality = 0x005b;
+  static const smokeCoAlarm = 0x005c;
+  static const microwaveOvenMode = 0x005e;
+  static const operationalState = 0x0060;
+  static const rvcOperationalState = 0x0061;
+  static const valveConfigurationAndControl = 0x0081;
   static const doorLock = 0x0101;
   static const windowCovering = 0x0102;
   static const thermostat = 0x0201;
@@ -22,10 +34,16 @@ class Cluster {
   static const pressureMeasurement = 0x0403;
   static const relativeHumidityMeasurement = 0x0405;
   static const occupancySensing = 0x0406;
+  static const carbonMonoxideConcentration = 0x040c;
+  static const carbonDioxideConcentration = 0x040d;
+  static const pm25Concentration = 0x042a;
+  static const pm10Concentration = 0x042d;
+  static const tvocConcentration = 0x042e;
 }
 
 /// Global attributes every cluster has.
 class GlobalAttr {
+  static const acceptedCommandList = 0xfff9;
   static const featureMap = 0xfffc;
   static const clusterRevision = 0xfffd;
 }
@@ -155,6 +173,83 @@ class FanControl {
   static const fanMode = 0x0000;
   static const percentSetting = 0x0002;
   static const percentCurrent = 0x0003;
+
+  /// FanMode values (Low, Medium and High are 1 to 3).
+  static const modeOff = 0;
+  static const modeOn = 4;
+  static const modeAuto = 5;
+
+  /// Feature map bit: the fan can run itself (FanMode Auto).
+  static const featureAuto = 0x02;
+}
+
+class Identify {
+  static const identify = 0x00;
+}
+
+class PowerSource {
+  /// The battery's charge, in half percent.
+  static const batPercentRemaining = 0x000c;
+}
+
+/// The mode clusters (a robot's run and cleaning modes, washer and dishwasher programs...) all work alike.
+class ModeBase {
+  static const supportedModes = 0x0000;
+  static const currentMode = 0x0001;
+
+  static const changeToMode = 0x00;
+
+  /// Robot run mode tags.
+  static const tagIdle = 0x4000;
+  static const tagCleaning = 0x4001;
+}
+
+/// What an appliance or a robot is doing (the operational state clusters).
+class OperationalState {
+  static const countdownTime = 0x0002;
+  static const operationalState = 0x0004;
+  static const operationalError = 0x0005;
+
+  static const pause = 0x00;
+  static const stop = 0x01;
+  static const start = 0x02;
+  static const resume = 0x03;
+
+  /// Robot vacuums only (Matter 1.4).
+  static const goHome = 0x80;
+
+  /// OperationalState values; the ones from 0x40 are for robots.
+  static const stopped = 0x00;
+  static const running = 0x01;
+  static const paused = 0x02;
+  static const error = 0x03;
+  static const seekingCharger = 0x40;
+  static const charging = 0x41;
+  static const docked = 0x42;
+}
+
+class Valve {
+  static const currentState = 0x0004;
+  static const targetState = 0x0005;
+
+  static const open = 0x00;
+  static const close = 0x01;
+
+  /// ValveState values.
+  static const closed = 0;
+  static const opened = 1;
+  static const moving = 2;
+}
+
+class SmokeCoAlarm {
+  static const smokeState = 0x0001;
+  static const coState = 0x0002;
+}
+
+/// The concentration measurement clusters (CO2, PM2.5...).
+class Concentration {
+  static const measuredValue = 0x0000;
+  static const measurementUnit = 0x0008;
 }
 
 /// Measured values of the sensor clusters are attribute 0.
@@ -188,7 +283,15 @@ class DeviceType {
   static const doorLock = 0x000a;
   static const thermostat = 0x0301;
   static const fan = 0x002b;
+  static const airQualitySensor = 0x002c;
   static const airPurifier = 0x002d;
+  static const waterValve = 0x0042;
+  static const laundryWasher = 0x0073;
+  static const roboticVacuumCleaner = 0x0074;
+  static const dishwasher = 0x0075;
+  static const smokeCoAlarm = 0x0076;
+  static const microwaveOven = 0x0079;
+  static const laundryDryer = 0x007c;
   static const roomAirConditioner = 0x0072;
   static const speaker = 0x0022;
   static const basicVideoPlayer = 0x0028;
@@ -221,7 +324,16 @@ class DeviceType {
         0x000a: 'Lock',
         0x0301: 'Thermostat',
         0x002b: 'Fan',
+        0x002c: 'Air quality sensor',
         0x002d: 'Air purifier',
+        0x0042: 'Water valve',
+        0x0073: 'Washing machine',
+        0x0074: 'Robot vacuum',
+        0x0075: 'Dishwasher',
+        0x0076: 'Smoke alarm',
+        0x0079: 'Microwave',
+        0x007b: 'Oven',
+        0x007c: 'Dryer',
         0x0072: 'Air conditioner',
         0x0022: 'Speaker',
         0x0028: 'TV',

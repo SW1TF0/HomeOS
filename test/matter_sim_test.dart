@@ -3,13 +3,14 @@
 //
 // They run when Node and matter.js are installed (`cd tool/matter && npm
 // install`, or point MATTER_SIM_DIR elsewhere) and skip otherwise. The
-// simulator is started as `node device.mjs <port> <light|bridge> <storage>`.
+// simulator is started as `node device.mjs <port> <light|bridge|robot> <storage>`.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:smartmenukj/integrations/integration.dart';
 import 'package:smartmenukj/integrations/matter/commissioner.dart';
 import 'package:smartmenukj/integrations/matter/controller.dart';
 import 'package:smartmenukj/integrations/matter/discovery.dart';
@@ -269,6 +270,93 @@ void main() {
       expect(again.controller.nodes, isEmpty);
       await expectLater(again.refreshAll([kettle]).then((m) => m[kettle.id]?.reachable), completion(isFalse));
       await again.stop();
+    }, timeout: const Timeout(Duration(minutes: 3)));
+  }, skip: skip);
+
+  group('matter.js robot vacuum and appliances', () {
+    late _Sim sim;
+    NetworkInterface? lo;
+
+    setUpAll(() async {
+      sim = await _Sim.start('robot');
+      lo = await _loopback();
+    });
+    tearDownAll(() => sim.stop());
+
+    test('a robot vacuum, an air purifier, a water valve, a washing machine and a smoke alarm', () async {
+      final cfg = IntegrationConfig(id: 'matter3', type: matterType, name: 'Matter');
+      final driver = _driver(cfg, lo);
+      final devices = await driver.commission(_code, address: '127.0.0.1:${sim.port}');
+      await sim.waitFor('EVENT commissioned');
+      expect(devices.map((d) => d.kind), [
+        DeviceKind.vacuum, DeviceKind.purifier, DeviceKind.valve, DeviceKind.appliance, DeviceKind.sensor, //
+      ]);
+      Device of(DeviceKind kind) => devices.singleWhere((d) => d.kind == kind);
+
+      // Sends [c], waits for the simulator to print [line], then reads the device back as the app would.
+      Future<DeviceState> send(Device d, DeviceCommand c, String line) async {
+        final mark = sim.lines.length;
+        final confirmed = await driver.send(d, c);
+        d.state = d.state.merge(confirmed!);
+        await sim.waitFor(line, after: mark);
+        return d.state = (await driver.refreshAll([d]))[d.id]!;
+      }
+
+      final robot = of(DeviceKind.vacuum);
+      expect(robot.capabilities, {Capability.run, Capability.dock, Capability.locate, Capability.mode});
+      expect(robot.props['noStop'], isFalse, reason: 'it has "go home", so stop is a button of its own');
+      expect(robot.state.activity, Activity.docked);
+      expect(robot.state.battery, 0.8);
+      expect(robot.modes, ['Vacuum', 'Mop', 'Deep clean']);
+      expect(robot.state.mode, 'Vacuum');
+      expect((await send(robot, const DeviceCommand(action: DeviceAction.start), 'COMMAND run 1')).activity,
+          Activity.running);
+      expect((await send(robot, const DeviceCommand(action: DeviceAction.pause), 'COMMAND pause')).activity,
+          Activity.paused);
+      expect((await send(robot, const DeviceCommand(action: DeviceAction.start), 'COMMAND resume')).activity,
+          Activity.running);
+      expect((await send(robot, const DeviceCommand(mode: 'Mop'), 'STATE clean=1')).mode, 'Mop');
+      await send(robot, const DeviceCommand(action: DeviceAction.locate), 'STATE identify=10');
+      expect((await send(robot, const DeviceCommand(action: DeviceAction.dock), 'COMMAND goHome')).activity,
+          Activity.returning);
+      await expectLater(driver.send(robot, const DeviceCommand(mode: 'Turbo')),
+          throwsA(isA<IntegrationException>().having((e) => e.message, 'message', contains('no mode called Turbo'))));
+
+      final purifier = of(DeviceKind.purifier);
+      expect(purifier.capabilities, {Capability.onOff, Capability.speed, Capability.mode});
+      expect(purifier.modes, ['Auto']);
+      expect(purifier.state.on, isFalse);
+      expect(purifier.state.readings['PM2.5'], '12 µg/m³');
+      var s = await send(purifier, const DeviceCommand(speed: 0.5), 'STATE fanMode=2');
+      expect((s.on, s.speed, s.mode), (true, 0.5, null));
+      s = await send(purifier, const DeviceCommand(mode: 'Auto'), 'STATE fanMode=5');
+      expect(s.mode, 'Auto');
+      s = await send(purifier, const DeviceCommand(speed: 1), 'STATE fanMode=3');
+      expect((s.speed, s.mode), (1.0, null), reason: 'a speed of its own takes it out of Auto');
+      expect((await send(purifier, const DeviceCommand(on: false), 'STATE fanMode=0')).on, isFalse);
+
+      final valve = of(DeviceKind.valve);
+      expect(valve.capabilities, {Capability.onOff});
+      expect(valve.state.on, isFalse);
+      expect((await send(valve, const DeviceCommand(on: true), 'STATE valve=1')).on, isTrue);
+      expect((await send(valve, const DeviceCommand(on: false), 'STATE valve=0')).on, isFalse);
+
+      final washer = of(DeviceKind.appliance);
+      expect(washer.capabilities, {Capability.run, Capability.mode});
+      expect(washer.props['noStop'], isFalse);
+      expect(washer.modes, ['Normal', 'Delicate', 'Heavy']);
+      expect(washer.state.activity, Activity.idle);
+      expect((await send(washer, const DeviceCommand(mode: 'Delicate'), 'STATE program=1')).mode, 'Delicate');
+      s = await send(washer, const DeviceCommand(action: DeviceAction.start), 'COMMAND start');
+      expect((s.activity, s.readings['Left']), (Activity.running, '45 min'));
+      expect((await send(washer, const DeviceCommand(action: DeviceAction.pause), 'COMMAND pause')).activity,
+          Activity.paused);
+      await send(washer, const DeviceCommand(action: DeviceAction.start), 'COMMAND resume');
+      s = await send(washer, const DeviceCommand(action: DeviceAction.stop), 'COMMAND stop');
+      expect((s.activity, s.readings['Left']), (Activity.idle, null), reason: 'no time left once it stops');
+
+      expect(of(DeviceKind.sensor).state.readings, {'Smoke': 'Clear', 'Carbon monoxide': 'Warning'});
+      await driver.stop();
     }, timeout: const Timeout(Duration(minutes: 3)));
   }, skip: skip);
 

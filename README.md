@@ -20,16 +20,20 @@ Everything is free and local-first. There is no account, no cloud, no subscripti
 | --- | --- | --- | --- |
 | ![Colour](docs/screenshots/phone-colour.png) | ![Connect](docs/screenshots/phone-connect.png) | ![Matter](docs/screenshots/phone-matter.png) | ![Light theme](docs/screenshots/phone-devices-light.png) |
 
+| Robot vacuum | Alarm |
+| --- | --- |
+| ![Robot vacuum](docs/screenshots/phone-vacuum.png) | ![Alarm](docs/screenshots/phone-alarm.png) |
+
 ![Desktop](docs/screenshots/desktop-map.png)
 
 ## What it does
 
 - **Floor plan.** Add a ready-made room (Kitchen, Bedroom, Garage...) and it drops into a free spot, or draw one by dragging on the dotted grid. Move rooms, resize them from any corner, duplicate or delete them, and undo any change. Devices that are not on the plan wait in a tray at the bottom: drag one into a room and it joins that room. Tap a device on the plan to switch it, hold it for full controls, tap a room to open it.
-- **Controls.** Dot-matrix sliders with one-tap presets for brightness and white (Warm, Neutral, Cool, Daylight), a colour ring, a thermostat dial with Eco / Comfort / Warm, blinds you slide open, volume, locks that only open when you hold them, and sensor readings, each shown only when the device supports it. Drag sideways across a light's tile to dim it without opening anything.
-- **Home screen.** A dot-matrix clock and a status strip (lights on, temperature inside, locks, open blinds, offline devices) where each pill opens the devices behind it, next to one button that switches everything off. Then your favourites and your rooms. **Edit home** picks and orders the favourites and rooms.
+- **Controls.** Dot-matrix sliders with one-tap presets for brightness and white (Warm, Neutral, Cool, Daylight), a colour ring, a thermostat dial with Eco / Comfort / Warm, blinds you slide open, volume, locks that only open when you hold them, and sensor readings, each shown only when the device supports it. Robot vacuums and mowers get start / pause ringed by their battery, send home, stop, find and suction or cleaning mode; washers, dryers and dishwashers show what they are doing and the time left; alarms arm home / away / night and ask before disarming (the code is never saved); purifiers and fans get speed and presets, humidifiers a dial, and valves, sirens, garage doors, buttons and cameras their own controls. Drag sideways across a light's tile to dim it without opening anything.
+- **Home screen.** A dot-matrix clock and a status strip (lights on, temperature inside, locks, open blinds, offline devices) where each pill opens the devices behind it, next to one button that switches everything off. Smoke, carbon monoxide and leaks show first, in red. Then your favourites and your rooms. **Edit home** picks and orders the favourites and rooms.
 - **Rooms.** Tap a room on the home screen or the plan to see everything in it: one slider for all its lights, all off / lights on, every device, and a shortcut to edit the room on the plan.
 - **Scenes.** Set your devices the way you like, save it as a scene ("Movie night", "Good night"...), and bring it back with one tap. Scenes can run by themselves at a time of day on chosen weekdays. On Android they run even when the app is closed (an exact alarm wakes it); on computers they run while the app is open.
-- **Matter, with no hub.** SmartMenuKJ is its own Matter controller: type a device's pairing code and its lights, plugs, sensors, blinds, locks or thermostat appear, controlled directly on your network. Matter bridges (Hue, IKEA, Aqara...) bring all their devices at once.
+- **Matter, with no hub.** SmartMenuKJ is its own Matter controller: type a device's pairing code and its lights, plugs, sensors, blinds, locks, thermostat, robot vacuum, washer, dishwasher, air purifier, water valve or smoke alarm appear, controlled directly on your network. Matter bridges (Hue, IKEA, Aqara...) bring all their devices at once.
 - **Scan network.** Finds everything on your Wi-Fi that answers (mDNS, UPnP / SSDP, Kasa and Yeelight discovery, and a quick check of TV ports): TVs, speakers, plugs, lights, hubs, printers and more. Add anything in one tap, or type a device's IP address.
 - **TV remote.** Power, volume, mute, channels, arrows, OK, back, home and play / pause for Samsung, LG, Sony and Roku TVs, plus volume and play / pause for Chromecast, Google TV and UPnP speakers. TVs that are fully off are woken with Wake-on-LAN.
 - **Backups.** Copy your whole home (rooms, devices, connections) as text and paste it back on another phone or computer.
@@ -41,10 +45,11 @@ No app can speak every protocol on its own, so SmartMenuKJ combines direct local
 
 | Connection | What it reaches | How |
 | --- | --- | --- |
-| **Matter** | Matter lights, plugs, switches, sensors, blinds, thermostats and locks, and everything behind a Matter bridge (Hue, IKEA, Aqara, SwitchBot...) | SmartMenuKJ is its own Matter controller: add a device with its pairing code and it is controlled directly on your network. No hub, cloud or account |
-| **Home Assistant** | Anything Home Assistant supports: Matter and Thread, Zigbee (ZHA), Z-Wave, Google Nest, Sonos, IKEA, Xiaomi, Tuya, TP-Link, thermostats, locks, media players and more | Its REST API with a long-lived access token |
-| **MQTT & Zigbee2MQTT** | Over 4,000 Zigbee devices through Zigbee2MQTT, plus anything that uses Home Assistant MQTT discovery (Tasmota, ESPHome, Shelly, OpenMQTTGateway...), plus any device you describe by topic | Any MQTT broker, live updates |
+| **Matter** | Matter lights, plugs, switches, sensors, blinds, thermostats, locks, fans, air purifiers, robot vacuums, washers, dryers, dishwashers, water valves, smoke and CO alarms and air quality sensors, and everything behind a Matter bridge (Hue, IKEA, Aqara, SwitchBot...) | SmartMenuKJ is its own Matter controller: add a device with its pairing code and it is controlled directly on your network. No hub, cloud or account |
+| **Home Assistant** | Anything Home Assistant supports: Matter and Thread, Zigbee (ZHA), Z-Wave, Google Nest, Sonos, IKEA, Xiaomi, Tuya, TP-Link, Roborock, Ecovacs, iRobot, thermostats, locks, alarms, cameras, media players and more | Its REST API with a long-lived access token |
+| **MQTT & Zigbee2MQTT** | Over 4,000 Zigbee devices through Zigbee2MQTT, plus anything that uses Home Assistant MQTT discovery (Tasmota, ESPHome, Shelly, Valetudo robots, OpenMQTTGateway...), including vacuums, mowers, valves, sirens and buttons, plus any device you describe by topic | Any MQTT broker, live updates |
 | **Network devices** | Samsung (Tizen), LG (webOS), Sony Bravia and Roku TVs; Chromecast, Google TV and Nest speakers; UPnP / DLNA TVs, speakers and receivers (Sonos and others); TP-Link Kasa plugs, strips and bulbs; Yeelight; Belkin WeMo. Anything else shows as online / offline and can be woken with Wake-on-LAN | Each device's own local protocol. Samsung and LG TVs ask once on screen to allow the app; Sony TVs need a pre-shared key set under IP control |
+| **Valetudo** | Robot vacuums running the cloud-free Valetudo firmware (Roborock, Dreame, Viomi...) | Its local REST API, found by Scan network |
 | **Philips Hue** | Hue lights and plugs | The bridge's local API. Press the link button, tap Pair |
 | **Shelly** | Gen1, Plus, Pro, Gen3 and Gen4 relays, plugs, dimmers, shutters and H&T sensors | Local HTTP / RPC |
 | **Tasmota** | Plugs, bulbs, switches and sensors with Tasmota firmware | Local HTTP commands |

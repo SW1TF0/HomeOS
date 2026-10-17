@@ -17,7 +17,8 @@ class MqttOut {
 /// Everything MQTT knows about devices, without any networking, so it can be
 /// tested on its own. Understands three sources:
 ///  * Zigbee2MQTT (thousands of Zigbee devices from every brand),
-///  * Home Assistant MQTT discovery (used by Tasmota, ESPHome, Shelly, OpenMQTTGateway, Zigbee2MQTT...),
+///  * Home Assistant MQTT discovery (used by Tasmota, ESPHome, Shelly, OpenMQTTGateway, Zigbee2MQTT, and by
+///    Valetudo, the local firmware for Roborock, Dreame and other robot vacuums),
 ///  * hand-made devices with topics the user types in.
 class MqttModel {
   MqttModel({this.z2mBase = 'zigbee2mqtt', this.discoveryPrefix = 'homeassistant'});
@@ -75,8 +76,35 @@ class MqttModel {
       if (cfg == null) continue;
       final parsed = parseEntityState(cfg, field, payload);
       if (parsed != null) changed[id] = states[id] = (states[id] ?? const DeviceState()).merge(parsed);
+      final robot = _robotOf(cfg);
+      final level = double.tryParse(applyTemplate(cfg['value_template'] as String?, payload));
+      if (robot != null && level != null) {
+        final battery = DeviceState(battery: level.clamp(0, 100) / 100);
+        changed[robot] = states[robot] = (states[robot] ?? const DeviceState()).merge(battery);
+      }
     }
     return (changed, newTopics);
+  }
+
+  /// The device a discovery entity belongs to, when it says.
+  static String? _deviceKey(Map<String, dynamic> cfg) {
+    final dev = cfg['device'];
+    if (dev is! Map) return null;
+    final ids = dev['identifiers'] ?? dev['ids'];
+    final first = ids is List ? ids.firstOrNull : ids;
+    return first == null ? null : '$first';
+  }
+
+  /// The robot a battery sensor belongs to. Valetudo and others send the battery on its own, so it is shown
+  /// on the robot instead of as a separate sensor.
+  String? _robotOf(Map<String, dynamic> cfg) {
+    if (cfg['component'] != 'sensor' || cfg['device_class'] != 'battery') return null;
+    final key = _deviceKey(cfg);
+    if (key == null) return null;
+    return entities.entries
+        .where((e) => const {'vacuum', 'lawn_mower'}.contains(e.value['component']) && _deviceKey(e.value) == key)
+        .firstOrNull
+        ?.key;
   }
 
   void _readZ2mDevices(String payload) {
@@ -120,9 +148,28 @@ class MqttModel {
     'rgb_cmd_t': 'rgb_command_topic',
     'dev': 'device',
     'avty_t': 'availability_topic',
+    'pl_strt': 'payload_start',
+    'pl_stop': 'payload_stop',
+    'pl_paus': 'payload_pause',
+    'pl_ret': 'payload_return_to_base',
+    'pl_loc': 'payload_locate',
+    'pl_prs': 'payload_press',
+    'set_fan_spd_t': 'set_fan_speed_topic',
+    'fanspd_lst': 'fan_speed_list',
+    'sup_feat': 'supported_features',
+    'stat_open': 'state_open',
+    'stat_opening': 'state_opening',
+    'stat_clsd': 'state_closed',
+    'stat_closing': 'state_closing',
   };
 
-  static const supportedComponents = {'switch', 'light', 'sensor', 'binary_sensor', 'cover', 'fan', 'lock'};
+  static const supportedComponents = {
+    'switch', 'light', 'sensor', 'binary_sensor', 'cover', 'fan', 'lock', 'vacuum', 'lawn_mower', 'valve', 'siren',
+    'button',
+  };
+
+  /// What an MQTT robot vacuum can do when its config does not say.
+  static const _vacuumDefaults = ['start', 'stop', 'return_home', 'status', 'battery', 'clean_spot'];
 
   /// Expands abbreviated keys and the "~" base topic of a discovery config.
   static Map<String, dynamic> expandConfig(Map<String, dynamic> raw) {
@@ -177,6 +224,7 @@ class MqttModel {
     }
 
     route(cfg['state_topic'] as String?, 'state');
+    route(cfg['activity_state_topic'] as String?, 'state');
     route(cfg['brightness_state_topic'] as String?, 'brightness');
     route(cfg['position_topic'] as String?, 'position');
     return topics;
@@ -223,10 +271,28 @@ class MqttModel {
         'light' => DeviceKind.light,
         'switch' => cfg['device_class'] == 'outlet' ? DeviceKind.outlet : DeviceKind.toggle,
         'fan' => DeviceKind.fan,
-        'cover' => DeviceKind.cover,
+        'cover' => const {'garage', 'gate'}.contains(cfg['device_class']) ? DeviceKind.garage : DeviceKind.cover,
         'lock' => DeviceKind.lock,
+        'vacuum' => DeviceKind.vacuum,
+        'lawn_mower' => DeviceKind.mower,
+        'valve' => DeviceKind.valve,
+        'siren' => DeviceKind.siren,
+        'button' => DeviceKind.button,
         _ => DeviceKind.sensor,
       };
+
+  static List<String> _vacuumFeatures(Map<String, dynamic> cfg) =>
+      (cfg['supported_features'] as List?)?.map((e) => '$e').toList() ?? _vacuumDefaults;
+
+  /// Extra props the app's controls read: suction powers, and whether it can stop.
+  static Map<String, dynamic> extraProps(Map<String, dynamic> cfg) {
+    if (cfg['component'] != 'vacuum') return const {};
+    final speeds = (cfg['fan_speed_list'] as List?)?.map((e) => '$e').toList() ?? const [];
+    return {
+      if (speeds.isNotEmpty) 'modes': speeds,
+      if (!_vacuumFeatures(cfg).contains('stop')) 'noStop': true,
+    };
+  }
 
   static Set<Capability> capabilitiesForEntity(Map<String, dynamic> cfg) {
     final component = cfg['component'] as String;
@@ -248,10 +314,33 @@ class MqttModel {
         return {Capability.lock};
       case 'sensor' || 'binary_sensor':
         return {Capability.readings};
+      case 'vacuum':
+        final f = _vacuumFeatures(cfg);
+        return {
+          Capability.run,
+          if (f.contains('return_home')) Capability.dock,
+          if (f.contains('locate')) Capability.locate,
+          if (f.contains('fan_speed') && (cfg['fan_speed_list'] as List?)?.isNotEmpty == true) Capability.mode,
+        };
+      case 'lawn_mower':
+        return {Capability.run, if (cfg['dock_command_topic'] != null) Capability.dock};
+      case 'button':
+        return {Capability.press};
       default:
         return {Capability.onOff};
     }
   }
+
+  /// MQTT robots and Home Assistant use the same words for what they are doing.
+  static String? _activity(String state) => switch (state.toLowerCase()) {
+        'cleaning' || 'mowing' => Activity.running,
+        'paused' => Activity.paused,
+        'returning' => Activity.returning,
+        'docked' => Activity.docked,
+        'idle' => Activity.idle,
+        'error' => Activity.error,
+        _ => null,
+      };
 
   static DeviceState? parseEntityState(Map<String, dynamic> cfg, String field, String payload) {
     final component = cfg['component'] as String;
@@ -282,6 +371,22 @@ class MqttModel {
         return null;
       }
     }
+    if (component == 'vacuum') {
+      try {
+        final j = jsonDecode(payload) as Map;
+        final battery = j['battery_level'];
+        return DeviceState(
+          activity: j['state'] is String ? _activity(j['state'] as String) : null,
+          battery: battery is num ? battery.clamp(0, 100) / 100 : null,
+          mode: j['fan_speed'] as String?,
+        );
+      } catch (_) {
+        return null;
+      }
+    }
+    if (component == 'lawn_mower') {
+      return DeviceState(activity: _activity(applyTemplate(cfg['activity_value_template'] as String?, payload)));
+    }
     final value = applyTemplate((cfg['state_value_template'] ?? cfg['value_template']) as String?, payload);
     switch (component) {
       case 'sensor':
@@ -301,6 +406,17 @@ class MqttModel {
         return null;
       case 'lock':
         return DeviceState(locked: value == '${cfg['state_locked'] ?? 'LOCKED'}');
+      case 'valve':
+        final v = value.toLowerCase();
+        if (v == '${cfg['state_open'] ?? 'open'}'.toLowerCase() || v == '${cfg['state_opening'] ?? 'opening'}'.toLowerCase()) {
+          return const DeviceState(on: true);
+        }
+        if (v == '${cfg['state_closed'] ?? 'closed'}'.toLowerCase() || v == '${cfg['state_closing'] ?? 'closing'}'.toLowerCase()) {
+          return const DeviceState(on: false);
+        }
+        return null;
+      case 'button':
+        return null;
       default:
         final onValue = '${cfg['state_on'] ?? cfg['payload_on'] ?? 'ON'}';
         return DeviceState(on: value == onValue || value.toLowerCase() == 'on' || value == 'true');
@@ -468,6 +584,30 @@ class MqttModel {
         if (c.locked != null && cmd != null) {
           out.add(MqttOut(cmd, '${c.locked! ? cfg['payload_lock'] ?? 'LOCK' : cfg['payload_unlock'] ?? 'UNLOCK'}'));
         }
+      case 'vacuum':
+        final speed = cfg['set_fan_speed_topic'] as String?;
+        if (c.mode != null && speed != null) out.add(MqttOut(speed, c.mode!));
+        final word = switch (c.action) {
+          DeviceAction.start => cfg['payload_start'] ?? 'start',
+          DeviceAction.pause => cfg['payload_pause'] ?? 'pause',
+          DeviceAction.stop => cfg['payload_stop'] ?? 'stop',
+          DeviceAction.dock => cfg['payload_return_to_base'] ?? 'return_to_base',
+          DeviceAction.locate => cfg['payload_locate'] ?? 'locate',
+          _ => null,
+        };
+        if (word != null && cmd != null) out.add(MqttOut(cmd, '$word'));
+      case 'lawn_mower':
+        final (topic, word) = switch (c.action) {
+          DeviceAction.start => (cfg['start_mowing_command_topic'], 'start_mowing'),
+          DeviceAction.pause => (cfg['pause_command_topic'], 'pause'),
+          DeviceAction.dock => (cfg['dock_command_topic'], 'dock'),
+          _ => (null, ''),
+        };
+        if (topic is String) out.add(MqttOut(topic, word));
+      case 'valve':
+        if (c.on != null && cmd != null) out.add(MqttOut(cmd, '${c.on! ? cfg['payload_open'] ?? 'OPEN' : cfg['payload_close'] ?? 'CLOSE'}'));
+      case 'button':
+        if (c.action == DeviceAction.press && cmd != null) out.add(MqttOut(cmd, '${cfg['payload_press'] ?? 'PRESS'}'));
       case 'sensor' || 'binary_sensor':
         break;
       default:
@@ -490,10 +630,10 @@ class MqttModel {
           {'z2m': name, ...props, if (def != null) 'model': '${def['vendor']} ${def['model']}'}, states['z2m:$name'] ?? const DeviceState()));
     });
     entities.forEach((id, cfg) {
-      if (id.startsWith('manual:')) return;
+      if (id.startsWith('manual:') || _robotOf(cfg) != null) return;
       final component = cfg['component'] as String;
-      out.add(make(id, entityName(cfg), kindForComponent(component, cfg), capabilitiesForEntity(cfg), cfg,
-          states[id] ?? const DeviceState()));
+      out.add(make(id, entityName(cfg), kindForComponent(component, cfg), capabilitiesForEntity(cfg),
+          {...cfg, ...extraProps(cfg)}, states[id] ?? const DeviceState()));
     });
     return out;
   }
