@@ -369,6 +369,14 @@ class HomeAssistantDriver extends IntegrationDriver {
     return getImage(Uri.parse('$baseUrl/api/camera_proxy/${device.externalId}'), headers: _headers);
   }
 
+  /// Home Assistant turns every camera into moving pictures (MJPEG) that play on any device.
+  @override
+  CameraStream? liveStream(Device device) =>
+      super.liveStream(device) ??
+      (device.externalId.startsWith('camera.')
+          ? CameraStream(mjpeg: Uri.parse('$baseUrl/api/camera_proxy_stream/${device.externalId}'), headers: _headers)
+          : null);
+
   Future<void> _call(String domain, String service, Map<String, dynamic> data) =>
       sendJson('POST', Uri.parse('$baseUrl/api/services/$domain/$service'), data, headers: _headers);
 

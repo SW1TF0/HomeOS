@@ -42,8 +42,16 @@ const _topics = [
   (
     Icons.auto_awesome_outlined,
     'Scenes',
-    'Set your devices the way you like, then tap New scene on the home screen to save it. Tap a scene to bring it '
-        'back. Hold it to rename it, change its devices or give it a time and days to run by itself.',
+    'Tap New scene on the home screen, pick a name, then choose what it does: turn devices off, turn them on, or keep '
+        'them how they are now. Tap a scene to run it. Hold it to change it: flip a device\'s switch to have it off or '
+        'on, or tap the device to set its brightness, colour or temperature. Give it a time and days to run by itself.',
+  ),
+  (
+    Icons.videocam_outlined,
+    'Watch a camera',
+    'Open Connect and tap Add a camera. Pick the camera it finds, or type its address, choose its brand and type the '
+        'camera\'s own user and password (on Tapo, make a Camera account in the Tapo app under the camera\'s Advanced '
+        'settings). The video plays live in the Android app while you are on your home Wi-Fi.',
   ),
   (
     Icons.home_work_outlined,

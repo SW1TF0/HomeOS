@@ -443,6 +443,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Movie night'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Keep them how they are now'));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('pick-done')));
     await tester.pumpAndSettle();
     final scene = store.scenes.single;
@@ -453,6 +455,58 @@ void main() {
     await tester.tap(find.byKey(Key('scene-${scene.id}')));
     await tester.pumpAndSettle();
     expect(store.devices.firstWhere((d) => d.name == 'Desk lamp').state.on, isTrue);
+  });
+
+  testWidgets('an All off scene turns everything off, and each device can be changed', (tester) async {
+    final store = await pumpApp(tester);
+    Device named(String n) => store.devices.firstWhere((d) => d.name == n);
+    await tester.tap(find.byKey(const Key('scene-new')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ListTile, 'All off'));
+    await tester.pumpAndSettle();
+    expect(find.text('What should it do?'), findsNothing, reason: 'All off needs no question');
+    expect(find.text('In this scene: Off'), findsWidgets);
+    await tester.tap(find.byKey(const Key('pick-done')));
+    await tester.pumpAndSettle();
+    final scene = store.scenes.single;
+    expect(scene.actions.length, store.devices.where(HomeStore.switchedTogether).length,
+        reason: 'like the All off button: not heating, doors or blinds');
+    expect(scene.actions.every((a) => a.isOff), isTrue);
+
+    await store.command(named('Desk lamp'), const DeviceCommand(on: true));
+    await store.command(named('Blinds'), const DeviceCommand(position: 0.8));
+    await tester.tap(find.byKey(Key('scene-${scene.id}')));
+    await tester.pumpAndSettle();
+    expect(named('Desk lamp').state.on, isFalse);
+    expect(named('Blinds').state.position, 0.8);
+
+    // Keep the desk lamp on at half brightness.
+    await tester.longPress(find.byKey(Key('scene-${scene.id}')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('step-switch-Desk lamp')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('step-switch-Desk lamp')));
+    await tester.pumpAndSettle();
+    expect(scene.actions.firstWhere((a) => a.deviceId == named('Desk lamp').id).command.on, isTrue);
+    await tester.tap(find.byKey(const Key('scene-step-Desk lamp')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('scene-step-sheet')), findsOneWidget);
+    await tester.tap(find.text('50%'));
+    await tester.pumpAndSettle();
+    final lamp = scene.actions.firstWhere((a) => a.deviceId == named('Desk lamp').id).command;
+    expect((lamp.on, lamp.brightness), (true, 0.5));
+    expect(named('Desk lamp').state.on, isFalse, reason: 'editing a scene does not touch the device');
+    final stepList = find.descendant(of: find.byKey(const Key('scene-step-sheet')), matching: find.byType(Scrollable)).first;
+    await tester.scrollUntilVisible(find.byKey(const Key('step-try')), 200, scrollable: stepList);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('step-try')));
+    await tester.pumpAndSettle();
+    expect((named('Desk lamp').state.on, named('Desk lamp').state.brightness), (true, 0.5));
+    await tester.scrollUntilVisible(find.byKey(const Key('step-remove')), 200, scrollable: stepList);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('step-remove')));
+    await tester.pumpAndSettle();
+    expect(scene.actions.any((a) => a.deviceId == named('Desk lamp').id), isFalse);
   });
 
   testWidgets('desktop width uses a side rail', (tester) async {
@@ -632,6 +686,8 @@ void main() {
     await openControls(tester, 'Door camera');
     expect(find.byKey(const Key('camera-view')), findsNothing);
     await tester.scrollUntilVisible(find.byKey(const Key('camera-url')), 200, scrollable: find.byType(Scrollable).last);
+    await tester.ensureVisible(find.byKey(const Key('camera-url')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('camera-url')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'http://me:pw@10.0.0.9/snap.jpg');
@@ -643,6 +699,73 @@ void main() {
     expect(find.byKey(const Key('camera-view')), findsOneWidget);
     expect(find.byType(Image), findsOneWidget);
     expect(asked.last, 'http://10.0.0.9/snap.jpg Basic ${base64.encode(utf8.encode('me:pw'))}');
+  });
+
+  testWidgets('a camera without its login offers to set up live video and says what is missing', (tester) async {
+    final store = await pumpApp(tester);
+    final cam = store.addVirtualDevice('demo', 'Garden camera', DeviceKind.camera);
+    store.updateDevice(cam, favorite: true);
+    await tester.pump();
+    await openControls(tester, 'Garden camera');
+    expect(find.byKey(const Key('camera-setup-card')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('camera-setup-start')));
+    await tester.pumpAndSettle();
+    expect(find.text('LIVE VIDEO'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('brand-tapo')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Camera account'), findsOneWidget);
+    expect(tester.widget<TextField>(find.byKey(const Key('camera-user'))).controller!.text, isEmpty,
+        reason: 'Tapo has no default user');
+    await tester.scrollUntilVisible(find.byKey(const Key('camera-connect')), 200,
+        scrollable: find.descendant(of: find.byKey(const Key('camera-setup')), matching: find.byType(Scrollable)).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('camera-connect')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('camera-problem')), findsOneWidget);
+    expect(find.textContaining('Type the camera'), findsOneWidget);
+  });
+
+  testWidgets('an MJPEG camera plays live, also full screen', (tester) async {
+    final frame = [0xFF, 0xD8, ...base64.decode('iVBORw0KGgo='), 0xFF, 0xD9];
+    final store = await pumpApp(tester,
+        client: MockClient.streaming((req, _) async => req.url.path == '/video.mjpg'
+            ? http.StreamedResponse(Stream.fromIterable([frame, frame]), 200,
+                headers: {'content-type': 'multipart/x-mixed-replace; boundary=frame'})
+            : http.StreamedResponse(Stream.value(utf8.encode('[]')), 200)));
+    final cam = store.addVirtualDevice('demo', 'Porch camera', DeviceKind.camera);
+    cam.props['mjpegUrl'] = 'http://10.0.0.9/video.mjpg';
+    store.updateDevice(cam, favorite: true);
+    await tester.pump();
+    expect(describeState(cam), 'Live');
+    await openControls(tester, 'Porch camera');
+    expect(find.byKey(const Key('camera-live')), findsOneWidget);
+    expect(find.text('LIVE'), findsWidgets);
+    expect(find.descendant(of: find.byKey(const Key('camera-live')), matching: find.byType(Image)), findsOneWidget);
+    await tester.tap(find.byKey(const Key('camera-fullscreen')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('camera-rotate')), findsOneWidget);
+    expect(find.text('PORCH CAMERA'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('camera-close')));
+    await tester.pumpAndSettle();
+    expect(find.text('PLAYING FULL SCREEN'), findsNothing);
+  });
+
+  testWidgets('an RTSP camera on a computer says where its live video plays', (tester) async {
+    final store = await pumpApp(tester);
+    final cam = store.addVirtualDevice('demo', 'Hall camera', DeviceKind.camera);
+    cam.props['streamUrl'] = 'rtsp://10.0.0.9/stream1';
+    store.updateDevice(cam, favorite: true);
+    await tester.pump();
+    await openControls(tester, 'Hall camera');
+    expect(find.textContaining('plays in the Android app'), findsOneWidget);
+    expect(find.byKey(const Key('camera-setup-tile')), findsOneWidget);
+  });
+
+  testWidgets('the Connect tab has a way to add a camera', (tester) async {
+    await pumpApp(tester);
+    await tester.tap(find.byKey(const Key('tab-connect')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('add-camera')), findsOneWidget);
   });
 
   testWidgets('a second home is added and opened from the home screen', (tester) async {

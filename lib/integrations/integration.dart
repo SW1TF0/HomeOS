@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/device.dart';
 import '../models/home.dart';
+import '../util/digest_auth.dart';
 
 /// A field on an integration's settings form.
 class SettingField {
@@ -32,6 +33,26 @@ class IntegrationException implements Exception {
   final String message;
   @override
   String toString() => message;
+}
+
+/// Where a camera's live video is: RTSP (the full and the smaller picture) or MJPEG over HTTP, with headers to send.
+class CameraStream {
+  const CameraStream({this.rtsp, this.rtspLow, this.mjpeg, this.headers = const {}});
+  final Uri? rtsp;
+  final Uri? rtspLow;
+  final Uri? mjpeg;
+  final Map<String, String> headers;
+
+  /// From a device's `streamUrl`, `streamUrlLow` and `mjpegUrl`. Null when it has none.
+  static CameraStream? fromProps(Map<String, dynamic> props) {
+    Uri? at(String key) {
+      final v = props[key];
+      return v is String && v.trim().isNotEmpty ? Uri.tryParse(v.trim()) : null;
+    }
+
+    final s = CameraStream(rtsp: at('streamUrl'), rtspLow: at('streamUrlLow'), mjpeg: at('mjpegUrl'));
+    return s.rtsp == null && s.mjpeg == null ? null : s;
+  }
 }
 
 /// Called by a driver when a device reports a new state on its own (MQTT pushes).
@@ -86,6 +107,9 @@ abstract class IntegrationDriver {
     return getImage(Uri.parse(url.trim()));
   }
 
+  /// Where to watch a camera live. By default from the addresses found when its login was entered.
+  CameraStream? liveStream(Device device) => CameraStream.fromProps(device.props);
+
   /// For integrations that pair (Hue): returns settings to store on success.
   Future<Map<String, dynamic>> pair() =>
       throw IntegrationException('${config.name} does not need pairing.');
@@ -127,12 +151,20 @@ abstract class IntegrationDriver {
     return _decode(uri, res);
   }
 
-  /// Downloads a picture. A user and password in the address are sent as HTTP basic authentication.
+  /// Downloads a picture. A user and password in the address are sent as HTTP Basic, or Digest when the camera asks.
   Future<Uint8List> getImage(Uri uri, {Map<String, String>? headers}) async {
-    final auth = uri.userInfo.isEmpty ? null : 'Basic ${base64.encode(utf8.encode(Uri.decodeComponent(uri.userInfo)))}';
-    final res = await client
-        .get(uri.replace(userInfo: ''), headers: {'Authorization': ?auth, ...?headers})
+    final (user, pass) = loginOf(uri);
+    final bare = uri.replace(userInfo: '');
+    var res = await client
+        .get(bare, headers: {if (user.isNotEmpty) 'Authorization': authorization(null, user, pass, 'GET', ''), ...?headers})
         .timeout(timeout);
+    final challenge = res.statusCode == 401 && user.isNotEmpty ? AuthChallenge.pick([res.headers['www-authenticate'] ?? '']) : null;
+    if (challenge?.scheme == 'digest') {
+      final path = bare.hasQuery ? '${bare.path}?${bare.query}' : bare.path;
+      res = await client
+          .get(bare, headers: {'Authorization': authorization(challenge, user, pass, 'GET', path), ...?headers})
+          .timeout(timeout);
+    }
     if (res.statusCode == 401 || res.statusCode == 403) {
       throw IntegrationException('${uri.host} refused access (HTTP ${res.statusCode}). Check the user and password.');
     }

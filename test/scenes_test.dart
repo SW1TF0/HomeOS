@@ -35,6 +35,37 @@ void main() {
     expect(tv.state.on, isFalse);
   });
 
+  test('a scene can turn things off: lights off, blinds closed, doors locked, robots home', () async {
+    final lamp = named('Floor lamp');
+    final blinds = named('Blinds');
+    final door = named('Front door');
+    final robot = named('Robot vacuum');
+    final alarm = named('Alarm');
+    expect(SceneAction.turn(alarm, false), isNull, reason: 'an alarm has no off');
+    expect(SceneAction.turn(door, true), isNull, reason: 'scenes never unlock a door by turning things on');
+    final s = store.addScene('Good night', [lamp, blinds, door, robot, alarm], turnOn: false);
+    expect(s.actions.take(4).every((a) => a.isOff), isTrue);
+    expect(s.actions.last.command.action, isNull, reason: 'the alarm keeps how it is now');
+
+    await store.command(lamp, const DeviceCommand(on: true, brightness: 0.8));
+    await store.command(blinds, const DeviceCommand(position: 0.7));
+    await store.command(door, const DeviceCommand(locked: false));
+    await store.command(robot, const DeviceCommand(action: DeviceAction.start));
+    await store.runScene(s);
+    expect((lamp.state.on, blinds.state.position, door.state.locked), (false, 0, true));
+    expect(const {Activity.returning, Activity.docked}.contains(robot.state.activity), isTrue);
+
+    final on = store.addScene('Wake up', [lamp, blinds], turnOn: true);
+    await store.runScene(on);
+    expect((lamp.state.on, blinds.state.position), (true, 1));
+
+    store.setSceneStep(on, SceneAction(deviceId: lamp.id, command: const DeviceCommand(on: true, brightness: 0.3)));
+    expect(on.actions.length, 2);
+    expect(on.actions.first.command.brightness, 0.3);
+    store.removeSceneStep(on, blinds.id);
+    expect(on.actions.map((a) => a.deviceId), [lamp.id]);
+  });
+
   test('scenes survive a backup and lose devices that are removed', () async {
     final lamp = named('Floor lamp');
     final s = store.addScene('Evening', [lamp, named('Desk lamp')]);

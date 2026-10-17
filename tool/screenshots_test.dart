@@ -12,6 +12,7 @@ import 'package:smartmenukj/app.dart';
 import 'package:smartmenukj/cloud/cloud_sync.dart';
 import 'package:smartmenukj/cloud/memory_cloud.dart';
 import 'package:smartmenukj/models/device.dart';
+import 'package:smartmenukj/models/scene.dart';
 import 'package:smartmenukj/state/home_store.dart';
 import 'package:smartmenukj/state/repository.dart';
 
@@ -228,6 +229,38 @@ void main() {
     await tester.tap(find.byKey(const Key('profile-account')));
     await _shot(tester, 'phone-account');
     await signOff(tester, cloud);
+  });
+
+  testWidgets('phone scene', (tester) async {
+    final store = await _app(tester, phone);
+    final night = store.addScene('Good night',
+        store.devices.where((d) => SceneAction.turn(d, false) != null && d.kind != DeviceKind.alarm).take(6),
+        icon: 'night', turnOn: false);
+    final lamp = store.devices.firstWhere((d) => d.name == 'Floor lamp');
+    store.setSceneStep(night, SceneAction(deviceId: lamp.id, command: const DeviceCommand(on: true, brightness: 0.2)));
+    await tester.pumpAndSettle();
+    await tester.longPress(find.byKey(Key('scene-${night.id}')));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(DraggableScrollableSheet), const Offset(0, -300));
+    await _shot(tester, 'phone-scene');
+    await tester.tap(find.byKey(const Key('scene-step-Floor lamp')));
+    await _shot(tester, 'phone-scene-step');
+  });
+
+  testWidgets('phone camera setup', (tester) async {
+    final store = await _app(tester, phone);
+    final cam = store.addVirtualDevice('demo', 'Garden camera', DeviceKind.camera, props: {'host': '192.168.1.30'});
+    store.updateDevice(cam, favorite: true);
+    await tester.pumpAndSettle();
+    await openControls(tester, 'Garden camera');
+    await _shot(tester, 'phone-camera');
+    await tester.tap(find.byKey(const Key('camera-setup-start')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('brand-tapo')));
+    await tester.enterText(find.byKey(const Key('camera-user')), 'garden');
+    await tester.enterText(find.byKey(const Key('camera-pass')), 'secret12');
+    FocusManager.instance.primaryFocus?.unfocus();
+    await _shot(tester, 'phone-camera-setup');
   });
 
   testWidgets('phone light theme', (tester) async {

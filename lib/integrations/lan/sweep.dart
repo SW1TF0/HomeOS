@@ -77,6 +77,7 @@ String? guessFromPorts(Set<int> open) {
   if (open.contains(9999)) return 'kasa';
   if (open.contains(55443)) return 'yeelight';
   if (open.contains(1400)) return 'upnp';
+  if (open.contains(554)) return 'camera';
   return null;
 }
 

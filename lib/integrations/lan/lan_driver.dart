@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import '../../models/device.dart';
 import '../integration.dart';
+import 'camera.dart';
 import 'cast.dart';
 import 'lan_protocol.dart';
 import 'plugs.dart';
@@ -48,6 +49,7 @@ class LanDriver extends IntegrationDriver {
     const YeelightProtocol(),
     const WemoProtocol(),
     const UpnpRendererProtocol(),
+    const CameraProtocol(),
     const GenericProtocol(),
   ];
 

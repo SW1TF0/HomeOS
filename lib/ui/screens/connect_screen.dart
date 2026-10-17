@@ -14,6 +14,8 @@ import '../../theme/nothing_theme.dart';
 import '../../util/text.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
+import 'camera_sheet.dart';
+import 'device_sheet.dart';
 import 'matter_sheet.dart';
 import 'profile_menu.dart';
 
@@ -50,6 +52,26 @@ class ConnectScreen extends StatelessWidget {
                   ]),
                 ),
                 Icon(Icons.arrow_forward, color: p.background),
+              ]),
+            ),
+            const SizedBox(height: 10),
+            NCard(
+              key: const Key('add-camera'),
+              onTap: () async {
+                final cam = await showCameraSetup(context);
+                if (cam != null && context.mounted) await showDeviceSheet(context, cam);
+              },
+              child: Row(children: [
+                const Icon(Icons.videocam_outlined, size: 28),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Add a camera', style: NType.body(17, color: p.text, weight: 600)),
+                    Text('Watch it live: Tapo, Reolink, Hikvision, Imou and other RTSP / ONVIF cameras',
+                        style: NType.body(13, color: p.textDim)),
+                  ]),
+                ),
+                const Icon(Icons.add),
               ]),
             ),
             if (store.integrations.isNotEmpty) const SectionLabel('Your connections', accent: true),
@@ -496,6 +518,7 @@ class _ScanSheetState extends State<ScanSheet> {
       'upnp' => Icons.speaker_outlined,
       'kasa' || 'wemo' => Icons.power_outlined,
       'yeelight' => Icons.lightbulb_outline,
+      'camera' => Icons.videocam_outlined,
       _ => Icons.devices_other,
     };
   }

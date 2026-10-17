@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../integrations/catalog.dart';
+import '../../integrations/integration.dart';
 import '../../integrations/lan/lan_driver.dart';
 import '../../integrations/lan/wol.dart';
 import '../../integrations/matter/matter_driver.dart';
@@ -14,6 +15,8 @@ import '../../state/home_store.dart';
 import '../../theme/nothing_theme.dart';
 import '../../util/color_math.dart';
 import '../nav.dart';
+import 'camera_sheet.dart';
+import '../widgets/camera_live.dart';
 import '../widgets/controls.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
@@ -382,6 +385,16 @@ class DeviceSheet extends StatelessWidget {
                     if (k != null) store.updateDevice(d, kind: k);
                   },
                 ),
+                if (d.kind == DeviceKind.camera)
+                  ListTile(
+                    key: const Key('camera-setup-tile'),
+                    leading: const Icon(Icons.videocam_outlined),
+                    title: const Text('Live video'),
+                    subtitle: Text(CameraStream.fromProps(d.props) != null
+                        ? 'Set up · tap to change the login'
+                        : 'Enter the camera\'s login to watch it live'),
+                    onTap: () => showCameraSetup(context, device: d),
+                  ),
                 if (d.kind == DeviceKind.camera && (!d.has(Capability.snapshot) || d.props['snapshotUrl'] != null))
                   ListTile(
                     key: const Key('camera-url'),
@@ -567,7 +580,7 @@ class _Hero extends StatelessWidget {
         onTap: s.reachable ? () => store.command(d, DeviceCommand(action: running ? DeviceAction.pause : DeviceAction.start)) : null,
       );
     }
-    if (d.has(Capability.snapshot)) return CameraView(key: const Key('camera-view'), device: d);
+    if (d.kind == DeviceKind.camera || d.has(Capability.snapshot)) return CameraPanel(device: d);
     if (d.has(Capability.alarm)) {
       return PowerOrb(
         key: const Key('alarm-orb'),
@@ -669,6 +682,81 @@ class _ActionButton extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(label.toUpperCase(), style: NType.label(color: p.textDim)),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// What a camera shows: live video once it is set up, else its latest picture, else how to set it up.
+class CameraPanel extends StatelessWidget {
+  const CameraPanel({super.key, required this.device});
+  final Device device;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.read<HomeStore>();
+    final d = device;
+    final live = store.liveStream(d);
+    final onLan = store.integration(d.integrationId)?.type == lanType;
+    if (live != null && (live.mjpeg != null || rtspPlays)) {
+      if (store.offHomeNetwork && onLan) {
+        return _CameraNote(
+          key: const Key('camera-away'),
+          icon: Icons.wifi_off,
+          text: 'Live video plays on your home Wi-Fi. Connect to it to watch ${d.name}.',
+        );
+      }
+      return LiveCameraView(key: const Key('camera-live'), stream: live, name: d.name, client: store.client);
+    }
+    final appOnly = live != null ? 'Live video from ${d.name} plays in the Android app.' : null;
+    if (d.has(Capability.snapshot)) {
+      return Column(children: [
+        CameraView(key: const Key('camera-view'), device: d),
+        if (appOnly != null)
+          Text('$appOnly Here it shows a new picture every few seconds.',
+              textAlign: TextAlign.center, style: NType.body(12.5, color: context.palette.textDim)),
+      ]);
+    }
+    if (appOnly != null) {
+      return _CameraNote(
+          icon: Icons.phone_android, text: '$appOnly On this device it can show pictures: add its picture address below.');
+    }
+    return _CameraNote(
+      key: const Key('camera-setup-card'),
+      icon: Icons.videocam_outlined,
+      text: 'Enter the camera\'s login once to watch it live here.',
+      action: FilledButton.icon(
+        key: const Key('camera-setup-start'),
+        onPressed: () => showCameraSetup(context, device: d),
+        icon: const Icon(Icons.play_arrow),
+        label: const Text('Set up live video'),
+      ),
+    );
+  }
+}
+
+class _CameraNote extends StatelessWidget {
+  const _CameraNote({super.key, required this.icon, required this.text, this.action});
+  final IconData icon;
+  final String text;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return AspectRatio(
+      aspectRatio: 16 / 9,
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: p.surfaceHigh, borderRadius: BorderRadius.circular(22)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 32, color: p.textDim),
+            const SizedBox(height: 12),
+            Text(text, textAlign: TextAlign.center, style: NType.body(14, color: p.text)),
+            if (action != null) ...[const SizedBox(height: 14), action!],
           ]),
         ),
       ),

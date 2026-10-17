@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
+import 'camera/onvif.dart';
 import 'lan/mdns.dart';
 import 'lan/net.dart';
 import 'lan/plugs.dart';
@@ -61,6 +62,7 @@ class FoundService {
     'yeelight': 'Yeelight',
     'wemo': 'Belkin WeMo',
     'upnp': 'Media player',
+    'camera': 'Camera',
     'generic': 'Network device',
   };
 
@@ -181,6 +183,7 @@ class NetworkScanner {
               integrationType: 'lan',
               hints: {'protocol': 'yeelight', 'model': h['model'] ?? '', if ((h['name'] ?? '').isNotEmpty) 'name': h['name']!},
             ))),
+        _onvif(emit, timeout),
         if (sweep) _sweep(emit),
       ]);
       try {
@@ -204,6 +207,19 @@ class NetworkScanner {
         }
       }
     } catch (_) {}
+  }
+
+  Future<void> _onvif(void Function(FoundService) emit, Duration timeout) async {
+    for (final cam in await onvifProbe(timeout: timeout)) {
+      emit(FoundService(
+        name: cam.name ?? 'Camera',
+        host: cam.host,
+        port: cam.deviceUrl.port,
+        service: 'ONVIF',
+        integrationType: 'lan',
+        hints: {'protocol': 'camera', 'onvif': cam.deviceUrl.toString(), 'name': ?cam.name},
+      ));
+    }
   }
 
   Future<void> _ssdp(void Function(FoundService) emit, Duration timeout) async {

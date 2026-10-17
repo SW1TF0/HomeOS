@@ -6,6 +6,7 @@ import 'dart:ui' show Offset, Rect;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../integrations/camera/camera_setup.dart';
 import '../integrations/catalog.dart';
 import '../integrations/integration.dart';
 import '../integrations/lan/lan_driver.dart';
@@ -563,9 +564,10 @@ class HomeStore extends ChangeNotifier {
   List<Scene> get scenes => data.scenes;
   Scene? scene(String id) => data.scenes.where((s) => s.id == id).firstOrNull;
 
-  /// Creates a scene that remembers what [devices] are doing right now.
-  Scene addScene(String name, Iterable<Device> devices, {String icon = 'auto'}) {
-    final s = Scene(id: newId('scene'), name: name, icon: icon, actions: devices.map(SceneAction.capture).toList());
+  /// Creates a scene that remembers what [devices] are doing right now, or that turns them all off or on.
+  Scene addScene(String name, Iterable<Device> devices, {String icon = 'auto', bool? turnOn}) {
+    SceneAction make(Device d) => (turnOn == null ? null : SceneAction.turn(d, turnOn)) ?? SceneAction.capture(d);
+    final s = Scene(id: newId('scene'), name: name, icon: icon, actions: devices.map(make).toList());
     data.scenes.add(s);
     _changed();
     return s;
@@ -580,6 +582,18 @@ class HomeStore extends ChangeNotifier {
     } else if (schedule != null) {
       s.schedule = schedule;
     }
+    _changed();
+  }
+
+  /// Sets what [s] does to one device, adding the device when it was not in the scene.
+  void setSceneStep(Scene s, SceneAction a) {
+    final i = s.actions.indexWhere((x) => x.deviceId == a.deviceId);
+    i < 0 ? s.actions.add(a) : s.actions[i] = a;
+    _changed();
+  }
+
+  void removeSceneStep(Scene s, String deviceId) {
+    s.actions.removeWhere((x) => x.deviceId == deviceId);
     _changed();
   }
 
@@ -810,6 +824,82 @@ class HomeStore extends ChangeNotifier {
     if (await command(d, const DeviceCommand(action: DeviceAction.press))) toast('${d.name}: done.');
   }
 
+  /// Where to watch [d] live, or null when it has no video set up.
+  CameraStream? liveStream(Device d) => _drivers[d.integrationId]?.liveStream(d) ?? CameraStream.fromProps(d.props);
+
+  /// Finds where the camera at [host] streams its video, with its login, and saves that on [device]. Without a
+  /// device the camera is added to Network devices. Throws [CameraSetupException] with a message to show.
+  Future<Device> setUpCamera({
+    Device? device,
+    required String host,
+    required String user,
+    required String pass,
+    String brand = 'other',
+    String? link,
+    int rtspPort = 554,
+    List<int>? onvifPorts,
+  }) async {
+    final address = LanDriver.cleanHost(host);
+    if (address.isEmpty && (link ?? '').trim().isEmpty) {
+      throw const CameraSetupException('Type the camera\'s address, such as 192.168.1.30.');
+    }
+    final onvif = Uri.tryParse(device?.props['onvif'] as String? ?? '');
+    final links = await findCameraLinks(
+      host: address,
+      user: user.trim(),
+      pass: pass,
+      brand: brand,
+      link: link,
+      onvifUrl: onvif == null || onvif.host.isEmpty ? null : onvif,
+      client: client,
+      rtspPort: rtspPort,
+      onvifPorts: onvifPorts,
+    );
+    var d = device;
+    if (d == null) {
+      final cfg = lanIntegration;
+      final where = address.isEmpty ? Uri.parse(link!.trim()).host : address;
+      final id = Device.idFor(cfg.id, 'camera:$where');
+      d = this.device(id);
+      if (d == null) {
+        d = Device(
+          id: id,
+          name: links.name ?? 'Camera',
+          kind: DeviceKind.camera,
+          integrationId: cfg.id,
+          externalId: 'camera:$where',
+          props: {'host': where, 'protocol': 'camera'},
+        );
+        data.devices.add(d);
+      }
+      final hosts = parseHosts(cfg.setting('hosts'));
+      if (!hosts.contains(where)) cfg.settings['hosts'] = [...hosts, where].join('\n');
+      _drivers[cfg.id]?.attach(data.devices.where((x) => x.integrationId == cfg.id));
+    }
+    for (final (key, value) in [('streamUrl', links.stream), ('streamUrlLow', links.streamLow), ('mjpegUrl', links.mjpeg)]) {
+      value == null ? d.props.remove(key) : d.props[key] = value;
+    }
+    d.props['cameraBrand'] = brand;
+    if (links.snapshot != null) {
+      d.props['snapshotUrl'] = links.snapshot;
+      d.capabilities = {...d.capabilities, Capability.snapshot};
+    }
+    d.state = d.state.merge(const DeviceState(reachable: true));
+    _changed();
+    return d;
+  }
+
+  /// Forgets where [d]'s video is (and its login, which is part of each address).
+  void clearCamera(Device d) {
+    for (final key in const ['streamUrl', 'streamUrlLow', 'mjpegUrl', 'cameraBrand']) {
+      d.props.remove(key);
+    }
+    _changed();
+  }
+
+  static Set<Capability> _keepSnapshot(Device d, Set<Capability> found) =>
+      d.props['snapshotUrl'] is String ? {...found, Capability.snapshot} : found;
+
   /// A still picture from a camera, or null when it cannot take one.
   Future<Uint8List?> snapshot(Device d) async {
     final driver = _drivers[d.integrationId];
@@ -969,9 +1059,9 @@ class HomeStore extends ChangeNotifier {
           data.devices.add(f);
           added++;
         } else {
-          existing.capabilities = f.capabilities;
-          // Keep what was learned later (pairing tokens, MAC addresses, keys).
+          // Keep what was learned later (pairing tokens, MAC addresses, keys, a camera's picture).
           existing.props = {...existing.props, ...f.props};
+          existing.capabilities = _keepSnapshot(existing, f.capabilities);
           existing.state = existing.state.merge(f.state);
         }
       }
@@ -1057,8 +1147,8 @@ class HomeStore extends ChangeNotifier {
         data.devices.add(f);
         added.add(f);
       } else {
-        existing.capabilities = f.capabilities;
         existing.props = {...existing.props, ...f.props};
+        existing.capabilities = _keepSnapshot(existing, f.capabilities);
         existing.state = existing.state.merge(f.state);
       }
     }
@@ -1072,8 +1162,11 @@ class HomeStore extends ChangeNotifier {
       return const [];
     }
     final pairs = added.where((d) => const {'samsung', 'webos'}.contains(d.props['protocol'])).toList();
+    final cameras = added.where((d) => d.kind == DeviceKind.camera).toList();
     if (added.isEmpty) {
       toast('${match.devices.first.name} is already added.');
+    } else if (cameras.length == added.length) {
+      toast('Added ${cameras.first.name}. Open it and enter its login to watch it live.');
     } else if (pairs.isNotEmpty) {
       toast('Added ${pairs.first.name}. Look at the TV and allow SmartMenuKJ.');
     } else {

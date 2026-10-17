@@ -31,6 +31,32 @@ class SceneAction {
     );
   }
 
+  /// Turns [d] off or on. Things that do not switch do the nearest thing: a blind closes or opens, a robot goes home
+  /// or cleans, a lock locks. Null when there is nothing like that (a scene never unlocks a door by "on").
+  static SceneAction? turn(Device d, bool on) {
+    final robot = d.has(Capability.run) && (d.kind == DeviceKind.vacuum || d.kind == DeviceKind.mower);
+    final c = d.has(Capability.onOff)
+        ? DeviceCommand(on: on)
+        : d.has(Capability.position)
+            ? DeviceCommand(position: on ? 1 : 0)
+            : d.has(Capability.lock)
+                ? (on ? null : const DeviceCommand(locked: true))
+                : robot
+                    ? (on
+                        ? const DeviceCommand(action: DeviceAction.start)
+                        : d.has(Capability.dock)
+                            ? const DeviceCommand(action: DeviceAction.dock)
+                            : null)
+                    : null;
+    return c == null ? null : SceneAction(deviceId: d.id, command: c);
+  }
+
+  /// Whether this turns its device off (or closes, locks, sends home).
+  bool get isOff {
+    final c = command;
+    return c.on == false || c.locked == true || c.action == DeviceAction.dock || (c.on == null && c.position == 0);
+  }
+
   /// A robot that is out cleaning starts again, one at home goes home. An armed alarm is armed again, but scenes
   /// never disarm one (that needs its code, which is not saved).
   static DeviceAction? _action(Device d) {
@@ -172,6 +198,7 @@ class Scene {
 
 /// Ready-made scenes offered when creating one.
 const sceneTemplates = [
+  ('All off', 'off'),
   ('Good morning', 'morning'),
   ('Movie night', 'movie'),
   ('Good night', 'night'),

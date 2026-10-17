@@ -208,7 +208,8 @@ String describeState(Device d) {
       return 'Tap to run';
     case DeviceKind.camera:
       if (s.readings.isNotEmpty) return s.readings.values.first;
-      return d.has(Capability.snapshot) ? 'Tap to look' : 'Camera';
+      if (d.props['streamUrl'] != null || d.props['mjpegUrl'] != null) return 'Live';
+      return d.has(Capability.snapshot) ? 'Tap to look' : 'Tap to set up';
     case DeviceKind.humidifier:
       final parts = [
         if (s.currentHumidity != null) '${s.currentHumidity!.round()}%',
