@@ -8,6 +8,7 @@ import 'home_assistant.dart';
 import 'hue.dart';
 import 'integration.dart';
 import 'lan/lan_driver.dart';
+import 'matter/matter_driver.dart';
 import 'mqtt.dart';
 import 'shelly.dart';
 import 'tasmota.dart';
@@ -64,6 +65,18 @@ final List<IntegrationSpec> integrationCatalog = [
       SettingField('hosts', 'Device addresses', hint: 'One IP per line, e.g. 192.168.1.50', multiline: true),
     ],
     create: LanDriver.new,
+  ),
+  IntegrationSpec(
+    type: matterType,
+    name: 'Matter',
+    tagline: 'Lights, plugs, sensors, blinds, no hub',
+    description: 'Adds Matter devices straight to SmartMenuKJ with their pairing code, with no hub, cloud or account. '
+        'The device must already be on your network: share it from Google Home, Apple Home, SmartThings, Alexa or '
+        'another Matter app (look for "Linked Matter apps" or "Turn on pairing mode") to get a new code. '
+        'Bridges such as Hue, IKEA and Aqara bring all their devices.',
+    icon: Icons.join_inner,
+    fields: const [],
+    create: MatterDriver.new,
   ),
   IntegrationSpec(
     type: 'homeassistant',

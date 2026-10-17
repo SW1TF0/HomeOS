@@ -134,6 +134,19 @@ void main() {
     await _shot(tester, 'phone-connect');
   });
 
+  testWidgets('phone matter pairing', (tester) async {
+    await _app(tester, phone);
+    await tester.tap(find.byKey(const Key('tab-connect')));
+    await tester.pumpAndSettle();
+    final card = find.byKey(const Key('spec-matter'));
+    await tester.scrollUntilVisible(card, 200, scrollable: find.byType(Scrollable).last);
+    await tester.pumpAndSettle();
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('matter-code')), '3497-011-2332');
+    await _shot(tester, 'phone-matter');
+  });
+
   testWidgets('phone light theme', (tester) async {
     await _app(tester, phone, theme: 'light');
     await tester.tap(find.byKey(const Key('tab-devices')));

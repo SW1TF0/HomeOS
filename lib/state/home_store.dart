@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import '../integrations/catalog.dart';
 import '../integrations/integration.dart';
 import '../integrations/lan/lan_driver.dart';
+import '../integrations/matter/matter_driver.dart';
 import '../models/device.dart';
 import '../models/home.dart';
 import '../models/scene.dart';
@@ -353,6 +354,7 @@ class HomeStore extends ChangeNotifier {
       s.actions.removeWhere((a) => a.deviceId == d.id);
     }
     _changed();
+    _forgetMatter(d);
   }
 
   // ---- Sample home ---------------------------------------------------------------------
@@ -558,6 +560,7 @@ class HomeStore extends ChangeNotifier {
       d.state = d.state.merge(st);
       _changed(save: false);
     };
+    driver.onSettings = _changed;
     _drivers[cfg.id] = driver;
     driver.attach(data.devices.where((d) => d.integrationId == cfg.id));
     _starting[cfg.id] = driver.start().then((_) {
@@ -606,6 +609,14 @@ class HomeStore extends ChangeNotifier {
   }
 
   Future<void> removeIntegration(IntegrationConfig cfg) async {
+    final driver = _drivers[cfg.id];
+    // Matter devices forget the app's keys, which are deleted with the connection.
+    if (driver is MatterDriver) {
+      await Future.wait([
+        for (final node in driver.controller.nodes.keys.toList())
+          driver.removeNode(node).catchError((Object e) => debugPrint('Matter: $e')),
+      ]).timeout(const Duration(seconds: 15), onTimeout: () => const []);
+    }
     await _stopDriver(cfg.id);
     data.integrations.remove(cfg);
     data.devices.removeWhere((d) => d.integrationId == cfg.id);
@@ -659,6 +670,46 @@ class HomeStore extends ChangeNotifier {
       toast('${cfg.name}: $e');
       return 0;
     }
+  }
+
+  // ---- Matter ---------------------------------------------------------------------------
+
+  /// The Matter connection, created the first time it is needed.
+  IntegrationConfig get matterIntegration =>
+      data.integrations.where((i) => i.type == matterType).firstOrNull ?? addIntegration(matterType);
+
+  /// Adds a Matter device in pairing mode with its pairing code, then shows
+  /// its lights, plugs and sensors. Throws an error with a message to show.
+  Future<List<Device>> pairMatter(String code, {String? address, void Function(String step)? onProgress}) async {
+    final cfg = matterIntegration;
+    final driver = _drivers[cfg.id];
+    if (driver is! MatterDriver) throw IntegrationException('Matter is turned off.');
+    final List<Device> found;
+    try {
+      found = await driver.commission(code, address: address, onProgress: onProgress);
+    } finally {
+      // The app's Matter keys are kept even when adding fails.
+      _changed();
+    }
+    final added = [
+      for (final f in found)
+        if (device(f.id) == null) f,
+    ];
+    data.devices.addAll(added);
+    driver.attach(data.devices.where((d) => d.integrationId == cfg.id));
+    status[cfg.id] = IntegrationStatus(ok: true, lastSync: DateTime.now());
+    _changed();
+    return added;
+  }
+
+  /// When the last part of a Matter device leaves the app, the device forgets
+  /// SmartMenuKJ too, so it is not added back on sync and frees its place.
+  void _forgetMatter(Device d) {
+    final driver = _drivers[d.integrationId];
+    final node = matterNodeIdOf(d);
+    if (driver is! MatterDriver || node == null) return;
+    if (data.devices.any((o) => o.integrationId == d.integrationId && matterNodeIdOf(o) == node)) return;
+    driver.removeNode(node).catchError((Object e) => debugPrint('Matter: $e')).whenComplete(_changed);
   }
 
   // ---- Network devices ------------------------------------------------------------------

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -446,5 +447,28 @@ void main() {
     await pumpApp(tester, size: const Size(1280, 800));
     expect(find.text('KJ'), findsOneWidget);
     expect(find.byKey(const Key('tab-map')), findsNothing);
+  });
+
+  testWidgets('connect: Matter asks for the pairing code and explains a wrong one', (tester) async {
+    const lock = MethodChannel('smartmenukj/multicast');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(lock, (_) async => true);
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(lock, null));
+    final store = await pumpApp(tester);
+    await tester.tap(find.byKey(const Key('tab-connect')));
+    await tester.pumpAndSettle();
+    final card = find.byKey(const Key('spec-matter'));
+    await tester.scrollUntilVisible(card, 200, scrollable: find.byType(Scrollable).last);
+    await tester.pumpAndSettle();
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+    expect(find.text('ADD MATTER'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('matter-code')), '1234-567-8901');
+    await tester.tap(find.byKey(const Key('matter-add')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('typo'), findsOneWidget);
+    expect(find.text('ADD MATTER'), findsOneWidget, reason: 'the sheet stays open to try again');
+    final matter = store.integrations.where((i) => i.type == 'matter').single;
+    expect(matter.settings['fabric'], isA<Map>(), reason: 'the app keeps its Matter keys');
+    expect(store.devices.where((d) => d.integrationId == matter.id), isEmpty);
   });
 }

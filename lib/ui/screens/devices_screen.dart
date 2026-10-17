@@ -10,6 +10,7 @@ import '../../util/text.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
 import 'connect_screen.dart';
+import 'matter_sheet.dart';
 import 'device_sheet.dart';
 
 /// Every device, grouped by room, with search and add.
@@ -126,9 +127,10 @@ class _DevicesScreenState extends State<DevicesScreen> {
     final choice = await pickOne<String>(
       context,
       title: 'Add a device',
-      options: ['scan', 'address', 'connect', 'virtual', if (mqtt.isNotEmpty) 'mqtt'],
+      options: ['scan', 'matter', 'address', 'connect', 'virtual', if (mqtt.isNotEmpty) 'mqtt'],
       label: (o) => switch (o) {
         'scan' => 'Scan the network (TVs, speakers, plugs, anything)',
+        'matter' => 'Matter device, with its pairing code',
         'address' => 'By IP address',
         'connect' => 'From a hub (Hue, Home Assistant, MQTT...)',
         'virtual' => 'Virtual device (for planning or trying the app)',
@@ -136,6 +138,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
       },
       icon: (o) => switch (o) {
         'scan' => Icons.wifi_tethering,
+        'matter' => Icons.join_inner,
         'address' => Icons.lan_outlined,
         'connect' => Icons.hub_outlined,
         'virtual' => Icons.blur_on,
@@ -145,6 +148,8 @@ class _DevicesScreenState extends State<DevicesScreen> {
     if (!context.mounted || choice == null) return;
     if (choice == 'scan') {
       await openScanSheet(context);
+    } else if (choice == 'matter') {
+      await openMatterSheet(context);
     } else if (choice == 'address') {
       await addByAddress(context);
     } else if (choice == 'connect') {

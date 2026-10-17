@@ -14,6 +14,10 @@ Everything is free and local-first. There is no account, no cloud, no subscripti
 | --- | --- | --- | --- |
 | ![Map](docs/screenshots/phone-map.png) | ![Map editing](docs/screenshots/phone-map-edit.png) | ![Drawing a room](docs/screenshots/phone-map-draw.png) | ![Edit home](docs/screenshots/phone-home-edit.png) |
 
+| Colour | Connections | Adding a Matter device | Light theme |
+| --- | --- | --- | --- |
+| ![Colour](docs/screenshots/phone-colour.png) | ![Connect](docs/screenshots/phone-connect.png) | ![Matter](docs/screenshots/phone-matter.png) | ![Light theme](docs/screenshots/phone-devices-light.png) |
+
 ![Desktop](docs/screenshots/desktop-map.png)
 
 ## What it does
@@ -23,6 +27,7 @@ Everything is free and local-first. There is no account, no cloud, no subscripti
 - **Home screen.** A dot-matrix clock and a status strip (lights on, temperature inside, locks, open blinds, offline devices) where each pill opens the devices behind it, next to one button that switches everything off. Then your favourites and your rooms. **Edit home** picks and orders the favourites and rooms.
 - **Rooms.** Tap a room on the home screen or the plan to see everything in it: one slider for all its lights, all off / lights on, every device, and a shortcut to edit the room on the plan.
 - **Scenes.** Set your devices the way you like, save it as a scene ("Movie night", "Good night"...), and bring it back with one tap. Scenes can run by themselves at a time of day on chosen weekdays. On Android they run even when the app is closed (an exact alarm wakes it); on computers they run while the app is open.
+- **Matter, with no hub.** SmartMenuKJ is its own Matter controller: type a device's pairing code and its lights, plugs, sensors, blinds, locks or thermostat appear, controlled directly on your network. Matter bridges (Hue, IKEA, Aqara...) bring all their devices at once.
 - **Scan network.** Finds everything on your Wi-Fi that answers (mDNS, UPnP / SSDP, Kasa and Yeelight discovery, and a quick check of TV ports): TVs, speakers, plugs, lights, hubs, printers and more. Add anything in one tap, or type a device's IP address.
 - **TV remote.** Power, volume, mute, channels, arrows, OK, back, home and play / pause for Samsung, LG, Sony and Roku TVs, plus volume and play / pause for Chromecast, Google TV and UPnP speakers. TVs that are fully off are woken with Wake-on-LAN.
 - **Backups.** Copy your whole home (rooms, devices, connections) as text and paste it back on another phone or computer.
@@ -34,6 +39,7 @@ No app can speak every protocol on its own, so SmartMenuKJ combines direct local
 
 | Connection | What it reaches | How |
 | --- | --- | --- |
+| **Matter** | Matter lights, plugs, switches, sensors, blinds, thermostats and locks, and everything behind a Matter bridge (Hue, IKEA, Aqara, SwitchBot...) | SmartMenuKJ is its own Matter controller: add a device with its pairing code and it is controlled directly on your network. No hub, cloud or account |
 | **Home Assistant** | Anything Home Assistant supports: Matter and Thread, Zigbee (ZHA), Z-Wave, Google Nest, Sonos, IKEA, Xiaomi, Tuya, TP-Link, thermostats, locks, media players and more | Its REST API with a long-lived access token |
 | **MQTT & Zigbee2MQTT** | Over 4,000 Zigbee devices through Zigbee2MQTT, plus anything that uses Home Assistant MQTT discovery (Tasmota, ESPHome, Shelly, OpenMQTTGateway...), plus any device you describe by topic | Any MQTT broker, live updates |
 | **Network devices** | Samsung (Tizen), LG (webOS), Sony Bravia and Roku TVs; Chromecast, Google TV and Nest speakers; UPnP / DLNA TVs, speakers and receivers (Sonos and others); TP-Link Kasa plugs, strips and bulbs; Yeelight; Belkin WeMo. Anything else shows as online / offline and can be woken with Wake-on-LAN | Each device's own local protocol. Samsung and LG TVs ask once on screen to allow the app; Sony TVs need a pre-shared key set under IP control |
@@ -44,7 +50,7 @@ No app can speak every protocol on its own, so SmartMenuKJ combines direct local
 | **ESPHome** | Lights, switches, fans, covers, locks and sensors | The `web_server:` component |
 | **Virtual devices** | Placeholders for trying the app or planning before you buy | Built in |
 
-**Matter:** Matter devices currently join through Home Assistant's Matter integration (free) and then show up in SmartMenuKJ. Commissioning Matter devices directly inside the app is planned.
+**Matter:** the device has to be on your network already. If it is set up in Google Home, Apple Home, SmartThings or Alexa, open it there and choose *Linked Matter apps* (or *Turn on pairing mode*) to get a new pairing code, then type it in **Connect → Matter** or **Devices → Add device**. It stays in the other app too. Brand-new devices that join Wi-Fi over Bluetooth need to be set up once in another Matter app first; SmartMenuKJ cannot do Bluetooth setup yet.
 
 New device families are added by writing one driver class in `lib/integrations/` and listing it in `lib/integrations/catalog.dart`.
 

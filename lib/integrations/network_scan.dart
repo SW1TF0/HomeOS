@@ -26,8 +26,7 @@ class FoundService {
   final int port;
   final String service;
 
-  /// Which integration can use it, or null when it needs Home Assistant (Matter).
-  /// `lan` means the Network devices connection.
+  /// Which integration can use it. `lan` means the Network devices connection.
   final String? integrationType;
 
   /// What discovery learned, passed on to the Network devices connection.
@@ -44,8 +43,13 @@ class FoundService {
         _ => port == 80 || port == 0 ? host : '$host:$port',
       };
 
-  /// Network devices are one entry per address, whatever they announce.
-  String get key => isLan ? 'lan|$host' : '$integrationType|$host|$port';
+  /// Network devices are one entry per address, whatever they announce. A
+  /// Matter device announces itself once for every app it is in.
+  String get key => isLan
+      ? 'lan|$host'
+      : integrationType == 'matter'
+          ? 'matter|${hints['instance'] ?? host}'
+          : '$integrationType|$host|$port';
 
   static const protocolLabels = {
     'roku': 'Roku',
@@ -70,6 +74,21 @@ class FoundService {
       (name != host ? 1 : 0);
 }
 
+/// Runs [task] while holding Android's multicast lock, without which the
+/// phone drops mDNS answers (Matter pairing looks for the device that way).
+Future<T> withMulticast<T>(Future<T> Function() task) async {
+  try {
+    await NetworkScanner._lock.invokeMethod('acquire');
+  } catch (_) {}
+  try {
+    return await task();
+  } finally {
+    try {
+      await NetworkScanner._lock.invokeMethod('release');
+    } catch (_) {}
+  }
+}
+
 /// Looks for devices with mDNS (Bonjour), SSDP (UPnP), the Kasa and Yeelight
 /// broadcasts, a quick check of TV ports, and the free Hue discovery endpoint.
 class NetworkScanner {
@@ -88,8 +107,8 @@ class NetworkScanner {
     '_esphomelib._tcp': 'esphome',
     '_home-assistant._tcp': 'homeassistant',
     '_mqtt._tcp': 'mqtt',
-    '_matter._tcp': null,
-    '_matterc._udp': null,
+    '_matter._tcp': 'matter',
+    '_matterc._udp': 'matter',
     '_http._tcp': 'http',
   };
 
@@ -259,6 +278,12 @@ class NetworkScanner {
       if (svc.type == '_googlecast._tcp') {
         name = svc.txt['fn'] ?? name;
         if (svc.txt['md'] != null) hints['model'] = svc.txt['md']!;
+      }
+      if (type == 'matter') {
+        // Matter devices announce a random id; the name, if any, is in DN.
+        hints['instance'] = svc.instance;
+        if (svc.txt['CM'] != null) hints['pairing'] = svc.txt['CM']!;
+        name = svc.txt['DN'] ?? 'Matter device';
       }
       if (isLan) hints['name'] = name;
       emit(FoundService(

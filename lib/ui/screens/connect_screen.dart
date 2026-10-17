@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../integrations/catalog.dart';
 import '../../integrations/integration.dart';
 import '../../integrations/lan/net.dart';
+import '../../integrations/matter/matter_driver.dart';
 import '../../integrations/network_scan.dart';
 import '../../models/home.dart';
 import '../../state/home_store.dart';
@@ -14,6 +15,7 @@ import '../../theme/nothing_theme.dart';
 import '../../util/text.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
+import 'matter_sheet.dart';
 
 /// Connections (hubs, brokers, device families), network scan and settings.
 class ConnectScreen extends StatelessWidget {
@@ -70,7 +72,7 @@ class ConnectScreen extends StatelessWidget {
                 NCard(
                   key: Key('spec-${spec.type}'),
                   padding: const EdgeInsets.all(14),
-                  onTap: () => openIntegrationSheet(context, spec: spec),
+                  onTap: () => spec.type == matterType ? openMatterSheet(context) : openIntegrationSheet(context, spec: spec),
                   child: Row(children: [
                     Icon(spec.icon, size: 26),
                     const SizedBox(width: 14),
@@ -258,6 +260,20 @@ class _IntegrationSheetState extends State<IntegrationSheet> {
           ],
           if (_busy) ...[const SizedBox(height: 16), const LinearProgressIndicator()],
           const SizedBox(height: 20),
+          if (spec.type == matterType) ...[
+            OutlinedButton.icon(
+              key: const Key('matter-pair'),
+              onPressed: _busy
+                  ? null
+                  : () {
+                      Navigator.pop(context);
+                      openMatterSheet(context);
+                    },
+              icon: const Icon(Icons.add_link),
+              label: const Text('Add a Matter device'),
+            ),
+            const SizedBox(height: 10),
+          ],
           if (spec.canPair) ...[
             OutlinedButton.icon(
               onPressed: _busy
@@ -282,7 +298,7 @@ class _IntegrationSheetState extends State<IntegrationSheet> {
                 : () => _run(() async {
                       final c = await _save();
                       if (c == null) return;
-                      if (spec.fields.isEmpty) {
+                      if (spec.fields.isEmpty && spec.type != matterType) {
                         if (context.mounted) Navigator.pop(context);
                         return;
                       }
@@ -385,8 +401,14 @@ class _ScanSheetState extends State<ScanSheet> {
 
   /// What to show: a device that has its own connection is not listed twice.
   List<FoundService> get _visible {
+    final store = context.read<HomeStore>();
     final family = _found.values.where((s) => !s.isLan && s.integrationType != null).map((s) => s.host).toSet();
-    final list = _found.values.where((s) => !s.isLan || !family.contains(s.host)).toList();
+    // A Matter device on SmartMenuKJ and in other apps announces itself once per app: show it once, as added.
+    final ownMatter = _found.values.where((s) => s.integrationType == matterType && _isAdded(store, s)).map((s) => s.host).toSet();
+    final list = _found.values
+        .where((s) => !s.isLan || !family.contains(s.host))
+        .where((s) => s.integrationType != matterType || !ownMatter.contains(s.host) || _isAdded(store, s))
+        .toList();
     // Hubs first, then the best-known network devices.
     list.sort((a, b) {
       if (a.isLan != b.isLan) return a.isLan ? 1 : -1;
@@ -396,16 +418,24 @@ class _ScanSheetState extends State<ScanSheet> {
     return list;
   }
 
-  bool _isAdded(HomeStore store, FoundService s) => s.isLan
-      ? store.devices.any((d) => d.props['host'] == s.host && store.integration(d.integrationId)?.type == lanType)
-      : store.integrations.any((i) => i.type == s.integrationType &&
-          (parseHosts(i.setting('hosts')).contains(s.address) || i.setting('host') == s.address || i.setting('url') == s.address));
+  bool _isAdded(HomeStore store, FoundService s) {
+    if (s.integrationType == matterType) {
+      return store.integrations.any((i) => i.type == matterType &&
+          switch (store.driverFor(i.id)) { final MatterDriver m => m.owns(s.hints['instance'] ?? ''), _ => false });
+    }
+    return s.isLan
+        ? store.devices.any((d) => d.props['host'] == s.host && store.integration(d.integrationId)?.type == lanType)
+        : store.integrations.any((i) => i.type == s.integrationType &&
+            (parseHosts(i.setting('hosts')).contains(s.address) || i.setting('host') == s.address || i.setting('url') == s.address));
+  }
 
   Future<void> _add(FoundService s) async {
     final store = context.read<HomeStore>();
     final type = s.integrationType;
-    if (type == null) {
-      store.toast('Matter devices join through Home Assistant for now: add it there, then sync Home Assistant here.');
+    if (type == null) return;
+    if (type == matterType) {
+      Navigator.pop(context);
+      await openMatterSheet(context, name: s.name == 'Matter device' ? null : s.name);
       return;
     }
     if (s.isLan) {
@@ -451,8 +481,13 @@ class _ScanSheetState extends State<ScanSheet> {
   }
 
   String _subtitle(FoundService s) {
+    if (s.integrationType == matterType) {
+      return s.service == '_matter._tcp'
+          ? 'Matter · set up in an app'
+          : (s.hints['pairing'] == '0' ? 'Matter · not in pairing mode' : 'Matter · ready to pair');
+    }
     final what = s.integrationType == null
-        ? 'Matter'
+        ? 'Device'
         : s.isLan
             ? (FoundService.protocolLabels[s.protocol] ?? 'Network device')
             : specFor(s.integrationType!)?.name;
@@ -643,7 +678,7 @@ class _SettingsCard extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-          child: Text('SMARTMENUKJ 1.3 · FREE · LOCAL-FIRST · NO ACCOUNT', style: NType.label(color: p.textDim)),
+          child: Text('SMARTMENUKJ 1.4 · FREE · LOCAL-FIRST · NO ACCOUNT', style: NType.label(color: p.textDim)),
         ),
       ]),
     );

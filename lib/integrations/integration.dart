@@ -44,6 +44,9 @@ abstract class IntegrationDriver {
   final http.Client client;
   StatePush? onPush;
 
+  /// Called when the driver changed [config]'s settings itself (keys it was given), so they get saved.
+  void Function()? onSettings;
+
   /// Opens long-lived connections, if the integration has any.
   Future<void> start() async {}
 

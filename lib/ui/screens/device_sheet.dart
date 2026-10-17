@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../integrations/catalog.dart';
 import '../../integrations/lan/lan_driver.dart';
 import '../../integrations/lan/wol.dart';
+import '../../integrations/matter/matter_driver.dart';
 import '../../integrations/network_scan.dart';
 import '../../models/device.dart';
 import '../../state/home_store.dart';
@@ -322,9 +323,13 @@ class DeviceSheet extends StatelessWidget {
                   leading: const Icon(Icons.delete_outline, color: NothingPalette.red),
                   title: const Text('Remove device', style: TextStyle(color: NothingPalette.red)),
                   onTap: () async {
+                    final lastMatterPart = integration?.type == matterType &&
+                        !store.devices.any((o) => o.id != d.id && o.integrationId == d.integrationId && o.props['node'] == d.props['node']);
                     if (await confirm(context,
                         title: 'Remove ${d.name}?',
-                        body: 'It disappears from SmartMenuKJ. The device itself is not changed, and syncing its connection brings it back.')) {
+                        body: lastMatterPart
+                            ? 'It disappears from SmartMenuKJ and the device forgets SmartMenuKJ. To add it again you need a new pairing code.'
+                            : 'It disappears from SmartMenuKJ. The device itself is not changed, and syncing its connection brings it back.')) {
                       store.removeDevice(d);
                       if (context.mounted) Navigator.pop(context);
                     }
