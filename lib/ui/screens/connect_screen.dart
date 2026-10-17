@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../integrations/catalog.dart';
@@ -15,9 +14,8 @@ import '../../theme/nothing_theme.dart';
 import '../../util/text.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
-import 'account_sheet.dart';
-import 'homes_sheet.dart';
 import 'matter_sheet.dart';
+import 'profile_menu.dart';
 
 /// Connections (hubs, brokers, device families), network scan and settings.
 class ConnectScreen extends StatelessWidget {
@@ -33,9 +31,9 @@ class ConnectScreen extends StatelessWidget {
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
           sliver: SliverList.list(children: [
-            const DotText('CONNECT', size: 34),
+            const Row(children: [Expanded(child: DotText('CONNECT', size: 34)), ProfileButton()]),
             const SizedBox(height: 4),
-            Text('Everything runs on your network. An account is optional and free.', style: NType.body(14, color: p.textDim)),
+            Text('Find and connect your devices. Everything runs on your own network.', style: NType.body(14, color: p.textDim)),
             const SizedBox(height: 18),
             NCard(
               key: const Key('scan-network'),
@@ -54,7 +52,6 @@ class ConnectScreen extends StatelessWidget {
                 Icon(Icons.arrow_forward, color: p.background),
               ]),
             ),
-            const AccountCard(),
             if (store.integrations.isNotEmpty) const SectionLabel('Your connections', accent: true),
             for (final cfg in store.integrations) ...[
               _IntegrationCard(config: cfg),
@@ -90,13 +87,7 @@ class ConnectScreen extends StatelessWidget {
             ],
           ),
         ),
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-          sliver: SliverList.list(children: const [
-            SectionLabel('Settings'),
-            _SettingsCard(),
-          ]),
-        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 40)),
       ]);
     });
   }
@@ -610,89 +601,6 @@ class _ScanSheetState extends State<ScanSheet> {
           ],
         ],
       ),
-    );
-  }
-}
-
-class _SettingsCard extends StatelessWidget {
-  const _SettingsCard();
-
-  @override
-  Widget build(BuildContext context) {
-    final store = context.watch<HomeStore>();
-    final p = context.palette;
-    return NCard(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Column(children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-          child: Wrap(spacing: 8, runSpacing: 10, crossAxisAlignment: WrapCrossAlignment.center, children: [
-            const Icon(Icons.contrast),
-            const SizedBox(width: 8),
-            Text('Theme', style: NType.body(15, color: p.text, weight: 500)),
-            const SizedBox(width: 8),
-            for (final m in const ['dark', 'light', 'system'])
-              NChip(label: m[0].toUpperCase() + m.substring(1), selected: store.themeMode == m, onTap: () => store.themeMode = m),
-          ]),
-        ),
-        ListTile(
-          key: const Key('settings-homes'),
-          leading: const Icon(Icons.home_work_outlined),
-          title: const Text('Homes'),
-          subtitle: Text(store.homes.length == 1
-              ? 'Add another home, like a holiday house or an office'
-              : '${store.homes.length} homes · ${store.homeName} is open'),
-          onTap: () => showHomesSheet(context),
-        ),
-        ListTile(
-          leading: const Icon(Icons.ios_share),
-          title: const Text('Back up home'),
-          subtitle: const Text('Copies rooms, devices and connections as text'),
-          onTap: () async {
-            await Clipboard.setData(ClipboardData(text: store.exportJson()));
-            store.toast('Backup copied. Paste it somewhere safe. It includes your connection passwords.');
-          },
-        ),
-        ListTile(
-          leading: const Icon(Icons.download_outlined),
-          title: const Text('Restore backup'),
-          subtitle: const Text('Paste a backup to replace this home'),
-          onTap: () async {
-            final raw = await promptText(context, title: 'Paste backup', action: 'Restore');
-            if (raw == null || raw.isEmpty) return;
-            try {
-              await store.importJson(raw);
-              store.toast('Home restored.');
-            } catch (e) {
-              store.toast('That backup could not be read.');
-            }
-          },
-        ),
-        if (store.sampleDevices.isNotEmpty)
-          ListTile(
-            leading: const Icon(Icons.blur_off),
-            title: const Text('Remove sample home'),
-            subtitle: const Text('Deletes the example devices and their empty rooms'),
-            onTap: () async {
-              if (await confirm(context,
-                  title: 'Remove the sample home?',
-                  body: 'The example devices go away. Your own devices, rooms and connections stay.',
-                  action: 'Remove')) {
-                store.removeSampleHome();
-                store.toast('Sample devices removed.');
-              }
-            },
-          ),
-        ListTile(
-          leading: const Icon(Icons.refresh),
-          title: const Text('Refresh all devices'),
-          onTap: store.refreshAll,
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-          child: Text('SMARTMENUKJ 1.6 · FREE · LOCAL-FIRST', style: NType.label(color: p.textDim)),
-        ),
-      ]),
     );
   }
 }

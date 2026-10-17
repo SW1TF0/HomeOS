@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../models/device.dart';
 import '../../theme/nothing_theme.dart';
+import '../../util/haptics.dart';
 
 /// Remote keys a device supports, from what its connection reported.
 Set<RemoteKey> remoteKeysOf(Device d) {
@@ -145,7 +145,7 @@ class _Key extends StatelessWidget {
         key: Key('remote-${remoteKey.name}'),
         radius: size / 2 + 4,
         onTap: () {
-          HapticFeedback.selectionClick();
+          Haptics.selectionClick();
           onKey(remoteKey);
         },
         child: Container(

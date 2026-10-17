@@ -1,11 +1,11 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../models/device.dart';
 import '../../theme/nothing_theme.dart';
 import '../../util/color_math.dart';
+import '../../util/haptics.dart';
 import 'controls.dart';
 
 /// The dotted grid that sits behind Nothing-style surfaces and the floor plan.
@@ -315,7 +315,7 @@ class _DeviceTileState extends State<DeviceTile> {
   void _start(DragStartDetails _) {
     _from = _level ?? 0;
     _dx = 0;
-    HapticFeedback.selectionClick();
+    Haptics.selectionClick();
     setState(() => _drag = _from);
   }
 
@@ -324,7 +324,7 @@ class _DeviceTileState extends State<DeviceTile> {
     _dx += d.delta.dx;
     final v = (_from + _dx / (width * 0.9)).clamp(0.0, 1.0);
     if (v == _drag) return;
-    if (v == 0 || v == 1) HapticFeedback.selectionClick();
+    if (v == 0 || v == 1) Haptics.selectionClick();
     setState(() => _drag = v);
     if (widget.onLevel != null) _sender.add(v);
   }

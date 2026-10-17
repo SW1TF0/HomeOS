@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'cloud/cloud_sync.dart';
+import 'state/app_settings.dart';
 import 'state/home_store.dart';
 import 'theme/nothing_theme.dart';
 import 'ui/screens/connect_screen.dart';
@@ -12,9 +13,12 @@ import 'ui/screens/map_screen.dart';
 import 'ui/widgets/nothing_widgets.dart';
 
 class SmartMenuApp extends StatelessWidget {
-  SmartMenuApp({super.key, required this.store, CloudSync? cloud, this.poll = true}) : cloud = cloud ?? CloudSync.disabled(store);
+  SmartMenuApp({super.key, required this.store, CloudSync? cloud, AppSettings? settings, this.poll = true})
+      : cloud = cloud ?? CloudSync.disabled(store),
+        settings = settings ?? AppSettings();
   final HomeStore store;
   final CloudSync cloud;
+  final AppSettings settings;
   final bool poll;
 
   @override
@@ -23,6 +27,7 @@ class SmartMenuApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider.value(value: store),
         ChangeNotifierProvider.value(value: cloud),
+        ChangeNotifierProvider.value(value: settings),
         ChangeNotifierProvider(create: (_) => AppNav()),
       ],
       child: Consumer<HomeStore>(
@@ -36,7 +41,7 @@ class SmartMenuApp extends StatelessWidget {
             'system' => ThemeMode.system,
             _ => ThemeMode.dark,
           },
-          home: AppShell(poll: poll),
+          home: AppShell(poll: poll, initialTab: settings.startTab),
         ),
       ),
     );

@@ -2,16 +2,17 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/device.dart';
 import '../../models/home.dart';
 import '../../state/home_store.dart';
 import '../../theme/nothing_theme.dart';
+import '../../util/haptics.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
 import 'device_sheet.dart';
+import 'profile_menu.dart';
 import 'room_sheet.dart';
 
 /// Ready-made rooms for Add room: name, icon, width and height in map cells.
@@ -263,7 +264,7 @@ class MapScreenState extends State<MapScreen> {
     } else {
       store.placeDevice(d, floor.id, _viewCenter());
     }
-    HapticFeedback.selectionClick();
+    Haptics.selectionClick();
   }
 
   /// A device dropped from the tray at [global] (a screen position).
@@ -274,7 +275,7 @@ class MapScreenState extends State<MapScreen> {
     final scene = _transform.toScene(box.globalToLocal(global));
     store.placeDevice(
         d, _floor(store).id, Offset(math.max(0, _snap(scene.dx / cell, 0.5)), math.max(0, _snap(scene.dy / cell, 0.5))));
-    HapticFeedback.selectionClick();
+    Haptics.selectionClick();
   }
 
   Future<void> _floorMenu(HomeStore store, Floor f) async {
@@ -385,7 +386,7 @@ class MapScreenState extends State<MapScreen> {
               ),
             IconButton(tooltip: 'Fit to screen', onPressed: () => fit(store), icon: const Icon(Icons.fit_screen_outlined)),
             Padding(
-              padding: const EdgeInsets.only(right: 12),
+              padding: EdgeInsets.only(right: editing ? 12 : 4),
               child: editing
                   ? FilledButton(
                       key: const Key('map-done'),
@@ -400,6 +401,7 @@ class MapScreenState extends State<MapScreen> {
                       label: const Text('Edit'),
                     ),
             ),
+            if (!editing) const Padding(padding: EdgeInsets.only(right: 10), child: ProfileButton()),
           ])),
         ),
         Expanded(
@@ -753,7 +755,7 @@ class MapScreenState extends State<MapScreen> {
       data: d.id,
       affinity: Axis.vertical,
       dragAnchorStrategy: pointerDragAnchorStrategy,
-      onDragStarted: HapticFeedback.selectionClick,
+      onDragStarted: Haptics.selectionClick,
       feedback: Transform.translate(
         offset: const Offset(-22, -22),
         child: Material(

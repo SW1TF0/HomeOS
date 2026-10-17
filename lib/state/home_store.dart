@@ -42,13 +42,23 @@ class HomeStore extends ChangeNotifier {
   HomeStore({
     required this.repository,
     http.Client? client,
-    this.pollInterval = const Duration(seconds: 10),
+    this._pollInterval = const Duration(seconds: 10),
     this.claimRun,
   }) : client = client ?? http.Client();
 
   final HomeRepository repository;
   final http.Client client;
-  final Duration pollInterval;
+
+  /// How often devices are asked what they are doing while the app is open.
+  Duration get pollInterval => _pollInterval;
+  Duration _pollInterval;
+  set pollInterval(Duration v) {
+    if (v == _pollInterval) return;
+    _pollInterval = v;
+    if (_pollTimer == null) return;
+    _pollTimer!.cancel();
+    _pollTimer = Timer.periodic(v, (_) => refreshAll());
+  }
 
   /// Asked before a timed scene runs, with the scene and its time slot. When
   /// something else (an Android alarm) already ran that slot, it answers false.

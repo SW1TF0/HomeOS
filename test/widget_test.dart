@@ -11,6 +11,8 @@ import 'package:smartmenukj/cloud/cloud_sync.dart';
 import 'package:smartmenukj/cloud/memory_cloud.dart';
 import 'package:smartmenukj/integrations/network_scan.dart';
 import 'package:smartmenukj/models/device.dart';
+import 'package:smartmenukj/state/app_settings.dart';
+import 'package:smartmenukj/util/haptics.dart';
 import 'package:smartmenukj/ui/screens/connect_screen.dart';
 import 'package:smartmenukj/ui/screens/home_screen.dart';
 import 'package:smartmenukj/ui/screens/room_sheet.dart';
@@ -668,7 +670,7 @@ void main() {
     expect(find.byKey(Key('room-${kitchen.id}')), findsOneWidget);
   });
 
-  testWidgets('an account is made from Connect, and the home device switch turns on', (tester) async {
+  testWidgets('an account is made from the profile menu, and the home device switch turns on', (tester) async {
     SharedPreferences.setMockInitialValues({});
     tester.view.physicalSize = const Size(420, 900) * 2;
     tester.view.devicePixelRatio = 2;
@@ -679,11 +681,12 @@ void main() {
     final cloud = CloudSync(store: store, api: MemoryCloud().app(), delay: const Duration(milliseconds: 10), storageKey: 'w');
     await cloud.start();
     await tester.pumpWidget(SmartMenuApp(store: store, cloud: cloud, poll: false));
-    await tester.tap(find.byKey(const Key('tab-connect')));
+    await tester.tap(find.byKey(const Key('profile-button')));
     await tester.pumpAndSettle();
-    expect(find.text('Sign in'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('account-card')));
+    expect(find.text('Not signed in'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('profile-sign-in')));
     await tester.pumpAndSettle();
+    expect(find.byKey(const Key('profile-menu')), findsNothing);
     await tester.enterText(find.byKey(const Key('account-email')), 'me@example.com');
     await tester.enterText(find.byKey(const Key('account-password')), '123');
     await tester.tap(find.byKey(const Key('account-create')));
@@ -704,5 +707,93 @@ void main() {
     expect(cloud.signedIn, isFalse);
     cloud.dispose();
     await tester.pump(const Duration(seconds: 1));
+  });
+
+  group('profile menu and settings', () {
+    setUp(() => SharedPreferences.setMockInitialValues({}));
+
+    Future<HomeStore> pumpWith(WidgetTester tester, AppSettings settings) async {
+      tester.view.physicalSize = const Size(420, 900) * 2;
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+      final store = HomeStore(repository: MemoryHomeRepository(), client: MockClient((_) async => http.Response('[]', 200)));
+      await store.load();
+      await tester.pumpWidget(SmartMenuApp(store: store, settings: settings, poll: false));
+      await tester.pump();
+      return store;
+    }
+
+    testWidgets('the profile button is on every tab and switches homes', (tester) async {
+      final store = await pumpApp(tester);
+      await store.addHome('Cabin');
+      await store.openHome(store.homes.first.id);
+      await tester.pumpAndSettle();
+      for (final tab in ['map', 'devices', 'connect', 'home']) {
+        await tester.tap(find.byKey(Key('tab-$tab')));
+        await tester.pumpAndSettle();
+        expect(find.byKey(const Key('profile-button')).hitTestable(), findsOneWidget, reason: tab);
+      }
+      await tester.tap(find.byKey(const Key('profile-button')).hitTestable());
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('profile-menu')), findsOneWidget);
+      await tester.tap(find.byKey(ValueKey('profile-home-${store.homes.last.id}')));
+      await tester.pumpAndSettle();
+      expect(store.homeName, 'Cabin');
+      expect(find.byKey(const Key('profile-menu')), findsNothing);
+      expect(find.text('CABIN'), findsOneWidget);
+    });
+
+    testWidgets('settings change the clock, the check interval and vibration, and are kept', (tester) async {
+      final settings = AppSettings();
+      final store = await pumpWith(tester, settings);
+      await tester.tap(find.byKey(const Key('profile-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('profile-settings')));
+      await tester.pumpAndSettle();
+      expect(find.text('SETTINGS'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('choice-12-hour')));
+      await tester.pumpAndSettle();
+      expect(settings.clock24, isFalse);
+
+      final list = find.descendant(of: find.byKey(const Key('settings-list')), matching: find.byType(Scrollable));
+      await tester.scrollUntilVisible(find.byKey(const Key('choice-30 s')), 200, scrollable: list);
+      await tester.tap(find.byKey(const Key('choice-30 s')));
+      await tester.pumpAndSettle();
+      expect(store.pollInterval, const Duration(seconds: 30));
+
+      await tester.scrollUntilVisible(find.byKey(const Key('settings-haptics')), 200, scrollable: list);
+      await tester.tap(find.byKey(const Key('settings-haptics')));
+      await tester.pumpAndSettle();
+      expect(Haptics.enabled, isFalse);
+
+      await tester.tap(find.byKey(const Key('settings-back')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining(RegExp(r'· (AM|PM)$')), findsOneWidget, reason: 'the 12-hour clock says AM or PM');
+
+      final again = AppSettings();
+      await again.load();
+      expect(again.toJson(), {'clock24': false, 'haptics': false, 'startTab': 0, 'checkSeconds': 30});
+      again.haptics = true;
+    });
+
+    testWidgets('the app opens on the tab picked in settings', (tester) async {
+      final settings = AppSettings()..startTab = 1;
+      await pumpWith(tester, settings);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('map-edit')).hitTestable(), findsOneWidget);
+    });
+
+    testWidgets('help answers open', (tester) async {
+      await pumpApp(tester);
+      await tester.tap(find.byKey(const Key('profile-button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('profile-help')));
+      await tester.pumpAndSettle();
+      expect(find.text('HELP'), findsOneWidget);
+      await tester.tap(find.text('Add your devices'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Scan network'), findsWidgets);
+    });
   });
 }

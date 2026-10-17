@@ -178,7 +178,8 @@ void main() {
     await _shot(tester, 'phone-homes');
   });
 
-  testWidgets('phone account', (tester) async {
+  /// The app signed in, with this device keeping the home online.
+  Future<(HomeStore, CloudSync)> signedIn(WidgetTester tester) async {
     // ignore: invalid_use_of_visible_for_testing_member
     SharedPreferences.setMockInitialValues({});
     tester.view.physicalSize = phone * 2;
@@ -193,12 +194,40 @@ void main() {
     await cloud.setHub(true);
     await tester.pumpWidget(SmartMenuApp(store: store, cloud: cloud, poll: false));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('tab-connect')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('account-card')));
-    await _shot(tester, 'phone-account');
+    return (store, cloud);
+  }
+
+  Future<void> signOff(WidgetTester tester, CloudSync cloud) async {
     cloud.dispose();
     await tester.pump(const Duration(seconds: 1));
+  }
+
+  testWidgets('phone profile', (tester) async {
+    final (store, cloud) = await signedIn(tester);
+    await store.addHome('Beach house');
+    await store.openHome(store.homes.first.id);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('profile-button')));
+    await _shot(tester, 'phone-profile');
+    await signOff(tester, cloud);
+  });
+
+  testWidgets('phone settings', (tester) async {
+    final (_, cloud) = await signedIn(tester);
+    await tester.tap(find.byKey(const Key('profile-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('profile-settings')));
+    await _shot(tester, 'phone-settings');
+    await signOff(tester, cloud);
+  });
+
+  testWidgets('phone account', (tester) async {
+    final (_, cloud) = await signedIn(tester);
+    await tester.tap(find.byKey(const Key('profile-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('profile-account')));
+    await _shot(tester, 'phone-account');
+    await signOff(tester, cloud);
   });
 
   testWidgets('phone light theme', (tester) async {

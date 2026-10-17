@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../cloud/cloud_sync.dart';
 import '../../models/device.dart';
 import '../../models/home.dart';
+import '../../state/app_settings.dart';
 import '../../state/home_store.dart';
 import '../../theme/nothing_theme.dart';
 import '../../util/text.dart';
@@ -15,6 +16,7 @@ import '../widgets/nothing_widgets.dart';
 import 'account_sheet.dart';
 import 'device_sheet.dart';
 import 'homes_sheet.dart';
+import 'profile_menu.dart';
 import 'room_sheet.dart';
 import 'scenes.dart';
 
@@ -38,35 +40,42 @@ class HomeScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
             sliver: SliverList.list(children: [
               Row(children: [
-                Flexible(
-                  child: InkWell(
-                    key: const Key('home-switch'),
-                    onTap: () => showHomesSheet(context),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        Flexible(
-                          child: Text(store.homeName.toUpperCase(),
-                              maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.label(color: p.text)),
+                Expanded(
+                  child: Row(children: [
+                    Flexible(
+                      child: InkWell(
+                        key: const Key('home-switch'),
+                        onTap: () => showHomesSheet(context),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Flexible(
+                              child: Text(store.homeName.toUpperCase(),
+                                  maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.label(color: p.text)),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(color: NothingPalette.red, shape: BoxShape.circle)),
+                            const SizedBox(width: 4),
+                            Icon(Icons.unfold_more, size: 16, color: p.textDim),
+                          ]),
                         ),
-                        const SizedBox(width: 8),
-                        Container(
-                            width: 6, height: 6, decoration: const BoxDecoration(color: NothingPalette.red, shape: BoxShape.circle)),
-                        const SizedBox(width: 4),
-                        Icon(Icons.unfold_more, size: 16, color: p.textDim),
-                      ]),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      key: const Key('home-edit'),
+                      onPressed: () => showHomeEditor(context),
+                      style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12)),
+                      icon: const Icon(Icons.tune, size: 18),
+                      label: const Text('Edit home'),
+                    ),
+                  ]),
                 ),
-                const SizedBox(width: 8),
-                TextButton.icon(
-                  key: const Key('home-edit'),
-                  onPressed: () => showHomeEditor(context),
-                  style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12)),
-                  icon: const Icon(Icons.tune, size: 18),
-                  label: const Text('Edit home'),
-                ),
+                const ProfileButton(),
               ]),
               const SizedBox(height: 8),
               const _Clock(),
@@ -232,10 +241,14 @@ class _ClockState extends State<_Clock> {
     const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
     const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     final p = context.palette;
+    final clock24 = context.select<AppSettings, bool>((s) => s.clock24);
+    final hour = clock24 ? _now.hour : (_now.hour % 12 == 0 ? 12 : _now.hour % 12);
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      DotText('${two(_now.hour)}:${two(_now.minute)}', size: 76),
+      DotText('${two(hour)}:${two(_now.minute)}', key: const Key('home-clock'), size: 76),
       const SizedBox(height: 4),
-      Text('${days[_now.weekday - 1]} ${_now.day} ${months[_now.month - 1]}', style: NType.label(color: p.textDim)),
+      Text(
+          '${days[_now.weekday - 1]} ${_now.day} ${months[_now.month - 1]}${clock24 ? '' : ' · ${_now.hour < 12 ? 'AM' : 'PM'}'}',
+          style: NType.label(color: p.textDim)),
     ]);
   }
 }

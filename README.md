@@ -24,6 +24,10 @@ Everything is free and local-first. There is no subscription and no paywall, and
 | --- | --- | --- | --- |
 | ![Robot vacuum](docs/screenshots/phone-vacuum.png) | ![Alarm](docs/screenshots/phone-alarm.png) | ![Homes](docs/screenshots/phone-homes.png) | ![Account](docs/screenshots/phone-account.png) |
 
+| Profile menu | Settings |
+| --- | --- |
+| ![Profile menu](docs/screenshots/phone-profile.png) | ![Settings](docs/screenshots/phone-settings.png) |
+
 ![Desktop](docs/screenshots/desktop-map.png)
 
 ## What it does
@@ -37,8 +41,9 @@ Everything is free and local-first. There is no subscription and no paywall, and
 - **Scan network.** Finds everything on your Wi-Fi that answers (mDNS, UPnP / SSDP, Kasa and Yeelight discovery, and a quick check of TV ports): TVs, speakers, plugs, lights, hubs, printers and more. Add anything in one tap, or type a device's IP address.
 - **TV remote.** Power, volume, mute, channels, arrows, OK, back, home and play / pause for Samsung, LG, Sony and Roku TVs, plus volume and play / pause for Chromecast, Google TV and UPnP speakers. TVs that are fully off are woken with Wake-on-LAN.
 - **More than one home.** Tap the home's name at the top of the home screen to switch homes, add one, rename, reorder or delete them. Each home has its own floor plan, devices, connections and scenes.
-- **Account and control from anywhere (optional, free).** Sign in under **Connect** and your homes are saved to your account and stay in step on every device you sign in on. Most devices only answer on your home Wi-Fi, so leave one phone, tablet or computer at home with the app, signed in and plugged in, and turn on **Keep … online from this device** there. Your other devices then switch things through it from anywhere; the home screen shows *Away · through …* when they do. On Android it keeps running in the background with a small notification.
-- **Backups.** Copy your whole home (rooms, devices, connections) as text and paste it back on another phone or computer.
+- **Profile menu.** The round button in the top right of every tab opens your account, a quick switch between homes, **Settings** and **Help**. Settings has the theme, a 24- or 12-hour clock, the tab the app opens on, how often devices are checked, vibration, backups and the app's licences.
+- **Account and control from anywhere (optional, free).** Sign in from the profile button and your homes are saved to your account and stay in step on every device you sign in on. Most devices only answer on your home Wi-Fi, so leave one phone, tablet or computer at home with the app, signed in and plugged in, and turn on **Keep … online from this device** there. Your other devices then switch things through it from anywhere; the home screen shows *Away · through …* when they do. On Android it keeps running in the background with a small notification.
+- **Backups.** In Settings, copy your whole home (rooms, devices, connections) as text and paste it back on another phone or computer.
 - **Light and dark themes**, phone layout with a bottom bar, desktop layout with a side rail.
 
 ## Which devices work
@@ -84,7 +89,7 @@ The macOS app is not signed, so the first time you open it, right-click it and c
 1. The app opens with a sample home of virtual devices so you can try everything right away. Delete or move anything you like.
 2. Go to **Connect** and tap **Scan network**, or pick a connection and type its address.
 3. New devices appear on the **Devices** tab. Open **Map** and tap **Edit**: new devices wait in the tray at the bottom, drag each one into its room.
-4. To control your home when you are out, tap **Sign in** on **Connect**, create an account, and on a device that stays at home turn on **Keep … online from this device**.
+4. To control your home when you are out, tap the profile button in the top right, then **Sign in or create account**, and on a device that stays at home turn on **Keep … online from this device**.
 
 ## For developers
 

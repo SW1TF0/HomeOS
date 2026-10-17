@@ -15,7 +15,7 @@ Future<void> showAccountSheet(BuildContext context) => showModalBottomSheet(
       builder: (_) => const AccountSheet(),
     );
 
-/// The account on the Connect screen: sign in, or what it is doing.
+/// The account in Settings: sign in, or what it is doing.
 class AccountCard extends StatelessWidget {
   const AccountCard({super.key});
 
@@ -32,23 +32,20 @@ class AccountCard extends StatelessWidget {
             cloud.account!.email,
             cloud.problem ?? remoteSummary(cloud, store.homeName),
           );
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: NCard(
-        key: const Key('account-card'),
-        onTap: () => showAccountSheet(context),
-        child: Row(children: [
-          Icon(icon, size: 28),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.body(17, color: p.text, weight: 600)),
-              Text(subtitle, style: NType.body(13, color: p.textDim)),
-            ]),
-          ),
-          Icon(Icons.arrow_forward, color: p.textDim),
-        ]),
-      ),
+    return NCard(
+      key: const Key('account-card'),
+      onTap: () => showAccountSheet(context),
+      child: Row(children: [
+        Icon(icon, size: 28),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.body(17, color: p.text, weight: 600)),
+            Text(subtitle, style: NType.body(13, color: p.textDim)),
+          ]),
+        ),
+        Icon(Icons.arrow_forward, color: p.textDim),
+      ]),
     );
   }
 }

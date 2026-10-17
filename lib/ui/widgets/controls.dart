@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../models/device.dart';
 import '../../theme/nothing_theme.dart';
 import '../../util/color_math.dart';
+import '../../util/haptics.dart';
 import 'nothing_widgets.dart';
 
 // ---- The one level a quick drag changes ---------------------------------------
@@ -142,7 +142,7 @@ class PresetChip extends StatelessWidget {
       selected: selected,
       child: GestureDetector(
         onTap: () {
-          HapticFeedback.selectionClick();
+          Haptics.selectionClick();
           onTap();
         },
         child: AnimatedContainer(
@@ -289,7 +289,7 @@ class _ColorRingState extends State<ColorRing> {
   void _move(Offset local) {
     final h = _hueAt(local);
     if (h == null || h == _hue) return;
-    if (_hue != null) HapticFeedback.selectionClick();
+    if (_hue != null) Haptics.selectionClick();
     setState(() => _hue = h);
     if (widget.onLive != null) _sender.add(h);
   }
@@ -427,7 +427,7 @@ class _TempDialState extends State<TempDial> {
     if (v == null || v == _live) return;
     // Never jump from one end to the other across the gap at the bottom.
     if (_live != null && (v - _live!).abs() > (widget.max - widget.min) / 2) return;
-    if (_live != null) HapticFeedback.selectionClick();
+    if (_live != null) Haptics.selectionClick();
     setState(() => _live = v);
   }
 
@@ -572,7 +572,7 @@ class _BlindControlState extends State<BlindControl> {
   void _move(Offset local) {
     final v = _at(local);
     if (v == _live) return;
-    if (_live != null && (v == 0 || v == 1)) HapticFeedback.selectionClick();
+    if (_live != null && (v == 0 || v == 1)) Haptics.selectionClick();
     setState(() => _live = v);
   }
 
@@ -710,7 +710,7 @@ class _HoldOrbState extends State<HoldOrb> with SingleTickerProviderStateMixin {
   void _onStatus(AnimationStatus s) {
     if (s != AnimationStatus.completed || _fired) return;
     _fired = true;
-    HapticFeedback.heavyImpact();
+    Haptics.heavyImpact();
     widget.onUnlock();
     _ring.value = 0;
   }
@@ -719,13 +719,13 @@ class _HoldOrbState extends State<HoldOrb> with SingleTickerProviderStateMixin {
     _pressLocked = widget.locked;
     _fired = false;
     if (!_pressLocked) return;
-    HapticFeedback.selectionClick();
+    Haptics.selectionClick();
     _ring.forward();
   }
 
   void _up() {
     if (!_pressLocked) {
-      HapticFeedback.mediumImpact();
+      Haptics.mediumImpact();
       widget.onLock();
       return;
     }
@@ -844,7 +844,7 @@ class RobotOrb extends StatelessWidget {
         onTap: onTap == null
             ? null
             : () {
-                HapticFeedback.mediumImpact();
+                Haptics.mediumImpact();
                 onTap!();
               },
         child: SizedBox.square(

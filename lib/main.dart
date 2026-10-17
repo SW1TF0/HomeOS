@@ -9,13 +9,20 @@ import 'app.dart';
 import 'cloud/cloud_config.dart';
 import 'cloud/cloud_sync.dart';
 import 'cloud/firebase.dart';
+import 'state/app_settings.dart';
 import 'state/home_store.dart';
 import 'state/repository.dart';
 import 'state/scene_alarms.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final store = HomeStore(repository: LocalHomeRepository(), claimRun: SceneAlarms.supported ? claimSceneRun : null);
+  final settings = AppSettings();
+  await settings.load();
+  final store = HomeStore(
+    repository: LocalHomeRepository(),
+    pollInterval: settings.checkEvery,
+    claimRun: SceneAlarms.supported ? claimSceneRun : null,
+  );
   await store.load();
   if (SceneAlarms.supported) SceneAlarms().follow(store);
   final cloud = CloudSync(
@@ -25,7 +32,7 @@ Future<void> main() async {
     onHubChanged: _keepRunning,
   );
   unawaited(cloud.start());
-  runApp(SmartMenuApp(store: store, cloud: cloud));
+  runApp(SmartMenuApp(store: store, cloud: cloud, settings: settings));
 }
 
 const _hub = MethodChannel('smartmenukj/hub');

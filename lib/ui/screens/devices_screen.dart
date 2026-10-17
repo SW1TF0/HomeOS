@@ -12,6 +12,7 @@ import '../widgets/nothing_widgets.dart';
 import 'connect_screen.dart';
 import 'matter_sheet.dart';
 import 'device_sheet.dart';
+import 'profile_menu.dart';
 
 /// Every device, grouped by room, with search and add.
 class DevicesScreen extends StatefulWidget {
@@ -58,6 +59,8 @@ class _DevicesScreenState extends State<DevicesScreen> {
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add'),
               ),
+              const SizedBox(width: 6),
+              const ProfileButton(),
             ]),
             const SizedBox(height: 4),
             Text('${counted(store.devices.length, 'device')} · ${counted(store.integrations.length, 'connection')}',
