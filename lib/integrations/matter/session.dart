@@ -100,7 +100,7 @@ class CounterWindow {
     if (delta == 0) return false;
     if (delta < 0x80000000) {
       // Ahead of everything seen so far.
-      _bits = delta >= 32 ? 0 : ((_bits << delta) | (1 << (delta - 1))) & 0xffffffff;
+      _bits = delta > 32 ? 0 : ((_bits << delta) | (1 << (delta - 1))) & 0xffffffff;
       _max = counter;
       return true;
     }

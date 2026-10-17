@@ -128,13 +128,9 @@ class TlvReader {
       case 0x09:
         return (tag, true);
       case 0x0a:
-        final b = ByteData.sublistView(data, pos, pos + 4);
-        pos += 4;
-        return (tag, b.getFloat32(0, Endian.little));
+        return (tag, ByteData.sublistView(_take(4)).getFloat32(0, Endian.little));
       case 0x0b:
-        final b = ByteData.sublistView(data, pos, pos + 8);
-        pos += 8;
-        return (tag, b.getFloat64(0, Endian.little));
+        return (tag, ByteData.sublistView(_take(8)).getFloat64(0, Endian.little));
       case 0x0c || 0x0d || 0x0e || 0x0f:
         final len = _le(1 << (type - 0x0c));
         return (tag, utf8.decode(_take(len), allowMalformed: true));
