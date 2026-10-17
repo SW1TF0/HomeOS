@@ -17,12 +17,15 @@ import io.flutter.plugin.common.MethodChannel
  * starts the app's Dart code without a screen (sceneAlarmMain in main.dart),
  * which runs the scene, books the next alarms and says when it is done.
  * After a restart or an app update it books the alarms again the same way.
+ * Taps on the home-screen widget and the All off tile come here too.
  */
 class SceneAlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         val app = context.applicationContext
         val args = when (intent.action) {
             SceneAlarms.ACTION_RUN -> listOf("run", intent.getIntExtra(SceneAlarms.EXTRA_ALARM, -1).toString())
+            ScenesWidget.ACTION_TAP -> intent.getStringExtra(ScenesWidget.EXTRA_SCENE)?.let { listOf("scene", it) }
+                ?: listOf("alloff")
             Intent.ACTION_BOOT_COMPLETED, Intent.ACTION_MY_PACKAGE_REPLACED -> {
                 SceneAlarms.restore(app)
                 // A device that keeps a home online starts doing so again.
@@ -32,8 +35,18 @@ class SceneAlarmReceiver : BroadcastReceiver() {
             else -> return
         }
 
-        // Keep the phone awake until the scene has been sent, then let go.
         val result = goAsync()
+        if (intent.action == ScenesWidget.ACTION_TAP) {
+            // A running app does it with the connections it already has.
+            ScenesWidget.runInApp(app, args.getOrNull(1)) { done -> if (done) result.finish() else runDart(app, args, result) }
+        } else {
+            runDart(app, args, result)
+        }
+    }
+
+    /** Starts the app's Dart code without a screen, with [args], and lets [result] go when it is done. */
+    private fun runDart(app: Context, args: List<String>, result: PendingResult) {
+        // Keep the phone awake until the scene has been sent, then let go.
         val wakeLock = (app.getSystemService(Context.POWER_SERVICE) as PowerManager)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "SmartMenuKJ:scene")
         wakeLock.acquire(LIMIT_MS + 1_000)
@@ -68,6 +81,7 @@ class SceneAlarmReceiver : BroadcastReceiver() {
                     }
                     "done" -> {
                         reply.success(null)
+                        (call.arguments as? String)?.let { ScenesWidget.say(app, it) }
                         main.post(finish)
                     }
                     else -> reply.notImplemented()

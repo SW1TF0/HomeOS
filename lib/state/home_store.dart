@@ -1433,6 +1433,70 @@ class HomeStore extends ChangeNotifier {
     await saveNow();
   }
 
+  /// Every home on this device as one backup, the one kept in the backup file. Device states are left out: they come
+  /// from the devices, and without them the backup only changes when the homes do. Account links stay out too, since a
+  /// new install signs in again.
+  Future<Map<String, dynamic>> exportAll() async {
+    final list = <Map<String, dynamic>>[];
+    for (final h in homes) {
+      final d = h.id == homeId ? data : await repository.load(h.id);
+      if (d == null) continue;
+      final j = d.toJson();
+      for (final device in j['devices'] as List) {
+        (device as Map).remove('state');
+      }
+      list.add({'id': h.id, 'name': h.name, 'home': j});
+    }
+    return {'app': 'SmartMenuKJ', 'backup': 'homes', 'current': homeId, 'homes': list};
+  }
+
+  /// Whether [raw] is a backup of every home ([exportAll]) rather than of one home ([exportJson]).
+  static bool isAllHomes(String raw) {
+    try {
+      final j = jsonDecode(raw);
+      return j is Map && j['backup'] == 'homes' && j['homes'] is List;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Takes back the homes in a backup: every home on this device is replaced by the ones in a backup of every home,
+  /// and a backup of one home replaces the open home. Returns how many homes came back.
+  Future<int> importAll(String raw) async {
+    if (!isAllHomes(raw)) {
+      await importJson(raw);
+      return 1;
+    }
+    final j = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    final next = <(HomeEntry, HomeData)>[];
+    for (final h in j['homes'] as List) {
+      if (h is! Map || h['id'] is! String || h['home'] is! Map) continue;
+      final d = HomeData.fromJson(Map<String, dynamic>.from(h['home'] as Map));
+      if (d.floors.isEmpty || next.any((e) => e.$1.id == h['id'])) continue;
+      next.add((HomeEntry(id: h['id'] as String, name: h['name'] as String? ?? defaultHomeName), d));
+    }
+    if (next.isEmpty) throw const FormatException('That backup has no homes.');
+    _saveTimer?.cancel();
+    await _stopDrivers();
+    for (final old in homes) {
+      if (!next.any((e) => e.$1.id == old.id)) await repository.remove(old.id);
+    }
+    for (final (entry, d) in next) {
+      await repository.save(entry.id, d);
+    }
+    final current = next.where((e) => e.$1.id == j['current']).firstOrNull ?? next.first;
+    homeList = HomeList(homes: [for (final e in next) e.$1], current: current.$1.id);
+    await repository.saveHomes(homeList);
+    data = current.$2;
+    viaHub.clear();
+    _undo.clear();
+    _forgetAutomationState();
+    await _loadOtherScenes();
+    _startDrivers();
+    _changed(save: false);
+    return next.length;
+  }
+
   @override
   void dispose() {
     _disposed = true;

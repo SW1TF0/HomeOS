@@ -1,6 +1,7 @@
 package com.smartmenukj.smartmenukj
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -16,6 +17,12 @@ class MainActivity : FlutterActivity() {
     override fun provideFlutterEngine(context: Context): FlutterEngine = HomeEngine.get(context)
 
     override fun shouldDestroyEngineWithHost(): Boolean = false
+
+    /** Android's file picker answers here, after a backup file was picked (BackupFiles). */
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (BackupFiles.opened(this, requestCode, resultCode, data)) return
+        super.onActivityResult(requestCode, resultCode, data)
+    }
 
     override fun onDestroy() {
         if (HomeEngine.activity?.get() === this) HomeEngine.activity = null

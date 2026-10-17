@@ -34,6 +34,16 @@ class AppSettings extends ChangeNotifier {
 
   static const checkChoices = [5, 10, 30, 60];
 
+  /// A copy of every home kept in a file on the phone, which stays when the app is uninstalled (BackupFiles).
+  bool get autoBackup => _autoBackup;
+  bool _autoBackup = true;
+  set autoBackup(bool v) => _set(() => _autoBackup = v);
+
+  /// Whether the offer to take the homes back from a backup file was answered, on a new install.
+  bool get restoreAsked => _restoreAsked;
+  bool _restoreAsked = false;
+  set restoreAsked(bool v) => _set(() => _restoreAsked = v);
+
   Duration get checkEvery => Duration(seconds: _checkSeconds);
 
   void _set(void Function() change) {
@@ -42,14 +52,22 @@ class AppSettings extends ChangeNotifier {
     _save();
   }
 
-  Map<String, Object?> toJson() =>
-      {'clock24': _clock24, 'haptics': _haptics, 'startTab': _startTab, 'checkSeconds': _checkSeconds};
+  Map<String, Object?> toJson() => {
+        'clock24': _clock24,
+        'haptics': _haptics,
+        'startTab': _startTab,
+        'checkSeconds': _checkSeconds,
+        'autoBackup': _autoBackup,
+        'restoreAsked': _restoreAsked,
+      };
 
   void _read(Map<String, dynamic> j) {
     _clock24 = j['clock24'] as bool? ?? true;
     _haptics = j['haptics'] as bool? ?? true;
     _startTab = ((j['startTab'] as num?)?.toInt() ?? 0).clamp(0, 2);
     _checkSeconds = ((j['checkSeconds'] as num?)?.toInt() ?? 10).clamp(2, 600);
+    _autoBackup = j['autoBackup'] as bool? ?? true;
+    _restoreAsked = j['restoreAsked'] as bool? ?? false;
     Haptics.enabled = _haptics;
   }
 

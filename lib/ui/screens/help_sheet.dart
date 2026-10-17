@@ -47,6 +47,27 @@ const _topics = [
         'on, or tap the device to set its brightness, colour or temperature. Give it a time and days to run by itself.',
   ),
   (
+    Icons.bolt_outlined,
+    'Automations',
+    'Tap Automations next to Scenes on the home screen, then New automation. Pick what sets it off, like a sensor '
+        'detecting motion, a door opening or a room getting warm, and what it does: run a scene, or switch a device, '
+        'maybe off again a few minutes later. It can be kept to some hours, like the night. Automations run while the '
+        'app is open, and all the time on a device that keeps the home online.',
+  ),
+  (
+    Icons.widgets_outlined,
+    'Widget and All off tile',
+    'On Android, open Settings, Shortcuts. The widget puts your first four scenes and All off on the home screen. The '
+        'tile puts All off in Quick Settings, the menu you pull down from the top.',
+  ),
+  (
+    Icons.settings_backup_restore,
+    'Keep your home when you reinstall',
+    'On Android the app keeps a backup file of every home in Downloads/SmartMenuKJ, and the file stays when the app '
+        'is uninstalled. After installing again, tap Restore on the home screen, or Settings, Restore from a file, and '
+        'pick it.',
+  ),
+  (
     Icons.videocam_outlined,
     'Watch a camera',
     'Open Connect and tap Add a camera. Pick the camera it finds, or type its address, choose its brand and type the '

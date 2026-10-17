@@ -40,6 +40,9 @@ object HomeEngine {
         return engine
     }
 
+    /** The app's engine, while the app runs (with or without its screen). */
+    fun running(): FlutterEngine? = FlutterEngineCache.getInstance().get(ID)
+
     /** Stops the app's Dart code, when the screen closes and no home needs it. */
     fun destroy() {
         val engine = FlutterEngineCache.getInstance().get(ID) ?: return
@@ -79,6 +82,10 @@ object HomeEngine {
                 else -> result.notImplemented()
             }
         }
+        // A copy of every home in Downloads, kept when the app is uninstalled.
+        BackupFiles.attach(app, messenger)
+        // The home-screen widget shows the open home's scenes.
+        ScenesWidget.attach(app, messenger)
         // Keeping a home online: the app runs on in the background with a notification.
         MethodChannel(messenger, "smartmenukj/hub").setMethodCallHandler { call, result ->
             when (call.method) {

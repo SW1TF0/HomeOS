@@ -11,6 +11,7 @@ import '../models/home.dart';
 import '../models/scene.dart';
 import 'home_store.dart';
 import 'repository.dart';
+import 'scenes_widget.dart';
 
 /// Timed scenes that run even when the app is closed, on Android.
 ///
@@ -98,25 +99,32 @@ Future<bool> runDueAlarm(HomeStore store, int alarm, DateTime now) async {
 }
 
 /// Started by Android without a screen: `run <alarm>` when a scene's alarm
-/// goes off, `sync` after the phone restarts. It has about ten seconds, and
-/// ends by telling Android it is done.
+/// goes off, `sync` after the phone restarts, `scene <id>` or `alloff` for a
+/// tap on the home-screen widget or the All off tile. It has about ten
+/// seconds, and ends by telling Android it is done, with what to say.
 Future<void> runSceneAlarm(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   DartPluginRegistrant.ensureInitialized();
   const channel = MethodChannel('smartmenukj/alarms');
   HomeStore? store;
+  String? said;
   try {
     store = HomeStore(repository: _ReadOnly(LocalHomeRepository()), claimRun: claimSceneRun, automate: false);
     await store.load();
     final alarm = args.length > 1 && args.first == 'run' ? int.tryParse(args[1]) : null;
     if (alarm != null) await runDueAlarm(store, alarm, DateTime.now());
+    if (args.firstOrNull == 'scene' || args.firstOrNull == 'alloff') {
+      await store.whenStarted(timeout: const Duration(seconds: 3));
+      said = await runTapped(store, args.first == 'scene' ? args.elementAtOrNull(1) : null, anyHome: true)
+          .timeout(const Duration(seconds: 5), onTimeout: () => 'Sent. Some devices are slow to answer.');
+    }
     await SceneAlarms(channel).sync(store.allScenes);
   } catch (e) {
     debugPrint('Scene alarm: $e');
   } finally {
     store?.dispose();
     try {
-      await channel.invokeMethod<void>('done');
+      await channel.invokeMethod<void>('done', said);
     } catch (_) {}
   }
 }

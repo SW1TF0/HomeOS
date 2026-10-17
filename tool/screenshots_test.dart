@@ -14,6 +14,7 @@ import 'package:smartmenukj/cloud/memory_cloud.dart';
 import 'package:smartmenukj/models/automation.dart';
 import 'package:smartmenukj/models/device.dart';
 import 'package:smartmenukj/models/scene.dart';
+import 'package:smartmenukj/state/backup_files.dart';
 import 'package:smartmenukj/state/home_store.dart';
 import 'package:smartmenukj/state/repository.dart';
 import 'package:smartmenukj/ui/screens/camera_playback.dart';
@@ -36,7 +37,8 @@ Future<void> _loadFonts() async {
   }
 }
 
-Future<HomeStore> _app(WidgetTester tester, Size size, {String theme = 'dark', CloudSync? cloud, http.Client? client}) async {
+Future<HomeStore> _app(WidgetTester tester, Size size,
+    {String theme = 'dark', CloudSync? cloud, http.Client? client, BackupFiles? backups}) async {
   tester.view.physicalSize = size * 2;
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
@@ -45,7 +47,8 @@ Future<HomeStore> _app(WidgetTester tester, Size size, {String theme = 'dark', C
   await store.load();
   store.data.themeMode = theme;
   // A pretend cloud, signed out, so the account card shows as it does in the app.
-  await tester.pumpWidget(SmartMenuApp(store: store, cloud: cloud ?? CloudSync(store: store, api: MemoryCloud().app()), poll: false));
+  await tester.pumpWidget(SmartMenuApp(
+      store: store, cloud: cloud ?? CloudSync(store: store, api: MemoryCloud().app()), backups: backups, poll: false));
   await tester.pumpAndSettle();
   return store;
 }
@@ -64,6 +67,12 @@ void main() {
   testWidgets('phone home', (tester) async {
     await _app(tester, phone);
     await _shot(tester, 'phone-home');
+  });
+
+  testWidgets('phone restore', (tester) async {
+    // A new install on Android, with the offer to take the homes back from the backup file.
+    await _app(tester, phone, backups: BackupFiles(available: true));
+    await _shot(tester, 'phone-restore');
   });
 
   testWidgets('phone map', (tester) async {

@@ -1095,7 +1095,14 @@ void main() {
 
       final again = AppSettings();
       await again.load();
-      expect(again.toJson(), {'clock24': false, 'haptics': false, 'startTab': 0, 'checkSeconds': 30});
+      expect(again.toJson(), {
+        'clock24': false,
+        'haptics': false,
+        'startTab': 0,
+        'checkSeconds': 30,
+        'autoBackup': true,
+        'restoreAsked': false,
+      });
       again.haptics = true;
     });
 

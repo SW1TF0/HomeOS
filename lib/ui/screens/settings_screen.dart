@@ -5,12 +5,16 @@ import 'package:provider/provider.dart';
 import '../../app_info.dart';
 import '../../cloud/cloud_sync.dart';
 import '../../state/app_settings.dart';
+import '../../state/backup_files.dart';
 import '../../state/home_store.dart';
+import '../../state/scenes_widget.dart';
 import '../../theme/nothing_theme.dart';
+import '../../util/clock_text.dart';
 import '../nav.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
 import 'account_sheet.dart';
+import 'backup_restore.dart';
 import 'help_sheet.dart';
 import 'home_screen.dart';
 import 'homes_sheet.dart';
@@ -27,6 +31,7 @@ class SettingsScreen extends StatelessWidget {
     final store = context.watch<HomeStore>();
     final settings = context.watch<AppSettings>();
     final cloud = context.watch<CloudSync>();
+    final backups = context.watch<BackupFiles>();
     final p = context.palette;
 
     return Scaffold(
@@ -173,13 +178,67 @@ class SettingsScreen extends StatelessWidget {
                           ),
                       ]),
                     ),
+                    if (ScenesWidget.supported) ...[
+                      const SectionLabel('Shortcuts'),
+                      NCard(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Column(children: [
+                          ListTile(
+                            key: const Key('settings-widget'),
+                            leading: const Icon(Icons.widgets_outlined),
+                            title: const Text('Widget for your home screen'),
+                            subtitle: const Text('Your first four scenes and All off, without opening the app'),
+                            onTap: () async {
+                              if (!await const ScenesWidget().pin().catchError((_) => false)) {
+                                store.toast('Hold an empty spot on your home screen, tap Widgets and pick SmartMenuKJ.');
+                              }
+                            },
+                          ),
+                          ListTile(
+                            key: const Key('settings-tile'),
+                            leading: const Icon(Icons.power_settings_new),
+                            title: const Text('All off in Quick Settings'),
+                            subtitle: const Text('Switch everything off from the pull-down menu'),
+                            onTap: () async {
+                              if (!await const ScenesWidget().addTile().catchError((_) => false)) {
+                                store.toast('Pull down Quick Settings twice, tap the pencil and drag All off in.');
+                              }
+                            },
+                          ),
+                        ]),
+                      ),
+                    ],
                     const SectionLabel('Backup'),
                     NCard(
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       child: Column(children: [
+                        if (backups.available) ...[
+                          SwitchListTile(
+                            key: const Key('settings-backup-file'),
+                            secondary: const Icon(Icons.save_outlined),
+                            title: const Text('Keep a backup file'),
+                            subtitle: Text(settings.autoBackup
+                                ? '${switch ((backups.failed, backups.savedAt)) {
+                                    (true, _) => 'Could not be saved just now.',
+                                    (_, final at?) => 'Saved at ${clockText(at, settings.clock24)}.',
+                                    _ => 'Saved after every change.',
+                                  }} Every home, in Downloads/SmartMenuKJ. It stays when the app is uninstalled, and '
+                                    'includes your connection passwords.'
+                                : 'Every home, in Downloads/SmartMenuKJ, so a new install can take them back'),
+                            value: settings.autoBackup,
+                            onChanged: (v) => settings.autoBackup = v,
+                          ),
+                          ListTile(
+                            key: const Key('settings-restore-file'),
+                            leading: const Icon(Icons.settings_backup_restore),
+                            title: const Text('Restore from a file'),
+                            subtitle: const Text('Take your homes back after the app was reinstalled'),
+                            onTap: () => restoreFromFile(context),
+                          ),
+                        ],
                         ListTile(
                           leading: const Icon(Icons.ios_share),
-                          title: const Text('Back up home'),
+                          title: Text(backups.available ? 'Copy home as text' : 'Back up home'),
                           subtitle: Text('Copies ${store.homeName}: rooms, devices and connections, as text'),
                           onTap: () async {
                             await Clipboard.setData(ClipboardData(text: store.exportJson()));

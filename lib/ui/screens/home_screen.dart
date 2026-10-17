@@ -7,6 +7,7 @@ import '../../cloud/cloud_sync.dart';
 import '../../models/device.dart';
 import '../../models/home.dart';
 import '../../state/app_settings.dart';
+import '../../state/backup_files.dart';
 import '../../state/home_store.dart';
 import '../../theme/nothing_theme.dart';
 import '../../util/text.dart';
@@ -14,11 +15,12 @@ import '../nav.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/nothing_widgets.dart';
 import 'account_sheet.dart';
+import 'automations.dart';
+import 'backup_restore.dart';
 import 'device_sheet.dart';
 import 'homes_sheet.dart';
 import 'profile_menu.dart';
 import 'room_sheet.dart';
-import 'automations.dart';
 import 'scenes.dart';
 
 /// Overview: clock, what's going on, scenes, favourites and rooms.
@@ -93,6 +95,10 @@ class HomeScreen extends StatelessWidget {
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             sliver: SliverList.list(children: [
+              if (offerRestore(store, context.watch<AppSettings>(), context.watch<BackupFiles>())) ...[
+                const SizedBox(height: 18),
+                const RestoreCard(),
+              ],
               if (store.showSampleCleanup) ...[
                 const SizedBox(height: 18),
                 NCard(
