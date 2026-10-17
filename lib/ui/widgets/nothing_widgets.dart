@@ -129,23 +129,99 @@ IconData deviceIcon(DeviceKind kind, {bool active = false}) => switch (kind) {
       DeviceKind.lock => active ? Icons.lock_open : Icons.lock_outline,
       DeviceKind.media => active ? Icons.tv : Icons.tv_off_outlined,
       DeviceKind.camera => Icons.videocam_outlined,
+      DeviceKind.vacuum => Icons.cleaning_services_outlined,
+      DeviceKind.mower => Icons.grass,
+      DeviceKind.purifier => Icons.cyclone,
+      DeviceKind.humidifier => active ? Icons.water_drop : Icons.water_drop_outlined,
+      DeviceKind.appliance => Icons.local_laundry_service_outlined,
+      DeviceKind.alarm => active ? Icons.shield : Icons.shield_outlined,
+      DeviceKind.valve => Icons.plumbing,
+      DeviceKind.siren => active ? Icons.campaign : Icons.campaign_outlined,
+      DeviceKind.garage => active ? Icons.garage : Icons.garage_outlined,
+      DeviceKind.button => active ? Icons.touch_app : Icons.touch_app_outlined,
       DeviceKind.other => Icons.devices_other_outlined,
     };
+
+/// "Cleaning", "Going home", "Armed away"... for [DeviceState.activity].
+String activityLabel(DeviceKind kind, String? activity) => switch (activity) {
+      null => kind == DeviceKind.alarm ? 'Unknown' : 'Ready',
+      Activity.running => switch (kind) {
+          DeviceKind.vacuum => 'Cleaning',
+          DeviceKind.mower => 'Mowing',
+          _ => 'Running',
+        },
+      Activity.paused => 'Paused',
+      Activity.returning => 'Going home',
+      Activity.docked => 'Docked',
+      Activity.charging => 'Charging',
+      Activity.idle => 'Idle',
+      Activity.error => 'Needs help',
+      Activity.disarmed => 'Disarmed',
+      Activity.armedHome => 'Armed home',
+      Activity.armedAway => 'Armed away',
+      Activity.armedNight => 'Armed night',
+      Activity.armedVacation => 'Armed vacation',
+      Activity.armedCustom => 'Armed',
+      Activity.arming => 'Arming',
+      Activity.pending => 'Entry delay',
+      Activity.disarming => 'Disarming',
+      Activity.triggered => 'ALARM',
+      final String other => modeLabel(other),
+    };
+
+/// "fan_only" -> "Fan only", "heat_cool" -> "Heat/cool".
+String modeLabel(String mode) {
+  final m = mode.trim();
+  if (m.isEmpty) return m;
+  const known = {'heat_cool': 'Heat/cool', 'fan_only': 'Fan', 'dry': 'Dry', 'auto': 'Auto', 'off': 'Off'};
+  final k = known[m.toLowerCase()];
+  if (k != null) return k;
+  final words = m.replaceAll('_', ' ');
+  return words[0].toUpperCase() + words.substring(1);
+}
 
 /// One-line description of a device's state, e.g. "On · 72%".
 String describeState(Device d) {
   final s = d.state;
   if (!s.reachable) return 'Not responding';
   switch (d.kind) {
-    case DeviceKind.cover:
+    case DeviceKind.cover || DeviceKind.garage:
+      if (s.position == null && s.on != null) return s.on! ? 'Open' : 'Closed';
       final pos = s.position ?? 0;
       return pos <= 0.01 ? 'Closed' : (pos >= 0.99 ? 'Open' : 'Open ${(pos * 100).round()}%');
+    case DeviceKind.valve:
+      if (s.on == null) return s.readings.isEmpty ? 'Unknown' : s.readings.values.first;
+      return s.on! ? 'Open' : 'Closed';
+    case DeviceKind.siren:
+      return s.on == true ? 'Sounding' : (s.on == false ? 'Off' : 'Unknown');
+    case DeviceKind.vacuum || DeviceKind.mower || DeviceKind.appliance:
+      final problem = s.readings['Error'];
+      return [
+        if (s.activity == Activity.error && problem != null) problem else activityLabel(d.kind, s.activity),
+        if (s.battery != null) '${(s.battery! * 100).round()}%',
+        if (d.kind == DeviceKind.appliance && s.activity == Activity.running && s.readings['Left'] != null)
+          '${s.readings['Left']} left',
+      ].join(' · ');
+    case DeviceKind.alarm:
+      return activityLabel(d.kind, s.activity);
+    case DeviceKind.button:
+      return 'Tap to run';
+    case DeviceKind.camera:
+      if (s.readings.isNotEmpty) return s.readings.values.first;
+      return d.has(Capability.snapshot) ? 'Tap to look' : 'Camera';
+    case DeviceKind.humidifier:
+      final parts = [
+        if (s.currentHumidity != null) '${s.currentHumidity!.round()}%',
+        if (s.on == false) 'Off' else if (s.targetHumidity != null) 'set ${s.targetHumidity!.round()}%',
+      ];
+      return parts.isEmpty ? (s.on == true ? 'On' : 'Off') : parts.join(' · ');
     case DeviceKind.lock:
       return s.locked == null ? 'Unknown' : (s.locked! ? 'Locked' : 'Unlocked');
     case DeviceKind.climate:
+      final mode = d.has(Capability.mode) && s.mode != null ? modeLabel(s.mode!) : 'set';
       final parts = [
         if (s.currentTemp != null) '${s.currentTemp!.toStringAsFixed(1)}°',
-        if (s.on == false) 'Off' else if (s.targetTemp != null) 'set ${s.targetTemp!.toStringAsFixed(1)}°',
+        if (s.on == false) 'Off' else if (s.targetTemp != null) '$mode ${s.targetTemp!.toStringAsFixed(1)}°',
       ];
       return parts.isEmpty ? 'Climate' : parts.join(' · ');
     case DeviceKind.sensor:
@@ -161,6 +237,8 @@ String describeState(Device d) {
       if (s.on == null) return s.readings.isEmpty ? 'Unknown' : s.readings.values.first;
       if (!s.on!) return 'Off';
       if (d.has(Capability.brightness) && s.brightness != null) return 'On · ${(s.brightness! * 100).round()}%';
+      if (d.has(Capability.mode) && s.mode != null) return 'On · ${modeLabel(s.mode!)}';
+      if (d.has(Capability.speed) && s.speed != null) return 'On · ${(s.speed! * 100).round()}%';
       return 'On';
   }
 }
@@ -513,7 +591,9 @@ class PowerOrb extends StatelessWidget {
   const PowerOrb({super.key, required this.on, required this.onTap, this.icon = Icons.power_settings_new, this.size = 120});
 
   final bool on;
-  final VoidCallback onTap;
+
+  /// Null shows the state only.
+  final VoidCallback? onTap;
   final IconData icon;
   final double size;
 
@@ -521,7 +601,7 @@ class PowerOrb extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     return Semantics(
-      button: true,
+      button: onTap != null,
       toggled: on,
       child: GestureDetector(
         onTap: onTap,

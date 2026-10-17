@@ -23,8 +23,28 @@ class SceneAction {
         targetTemp: d.has(Capability.targetTemp) && lit ? s.targetTemp : null,
         locked: d.has(Capability.lock) ? s.locked : null,
         volume: d.has(Capability.volume) && lit ? s.volume : null,
+        mode: d.has(Capability.mode) && lit ? s.mode : null,
+        speed: d.has(Capability.speed) && lit ? s.speed : null,
+        targetHumidity: d.has(Capability.humidity) && lit ? s.targetHumidity : null,
+        action: _action(d),
       ),
     );
+  }
+
+  /// A robot that is out cleaning starts again, one at home goes home. An armed alarm is armed again, but scenes
+  /// never disarm one (that needs its code, which is not saved).
+  static DeviceAction? _action(Device d) {
+    final a = d.state.activity;
+    if (d.has(Capability.run) && (d.kind == DeviceKind.vacuum || d.kind == DeviceKind.mower)) {
+      if (a == Activity.running) return DeviceAction.start;
+      if (d.has(Capability.dock) && const {Activity.returning, Activity.docked, Activity.charging}.contains(a)) {
+        return DeviceAction.dock;
+      }
+    }
+    if (d.has(Capability.alarm) && d.props['codeArmRequired'] != true) {
+      return DeviceAction.values.where((x) => x != DeviceAction.disarm && x.alarmState == a).firstOrNull;
+    }
+    return null;
   }
 
   Map<String, dynamic> toJson() {
@@ -39,6 +59,10 @@ class SceneAction {
       'targetTemp': ?c.targetTemp,
       'locked': ?c.locked,
       'volume': ?c.volume,
+      'mode': ?c.mode,
+      'speed': ?c.speed,
+      'targetHumidity': ?c.targetHumidity,
+      'action': ?c.action?.name,
     };
   }
 
@@ -53,6 +77,10 @@ class SceneAction {
           targetTemp: (j['targetTemp'] as num?)?.toDouble(),
           locked: j['locked'] as bool?,
           volume: (j['volume'] as num?)?.toDouble(),
+          mode: j['mode'] as String?,
+          speed: (j['speed'] as num?)?.toDouble(),
+          targetHumidity: (j['targetHumidity'] as num?)?.toDouble(),
+          action: DeviceAction.parse(j['action'] as String?),
         ),
       );
 }

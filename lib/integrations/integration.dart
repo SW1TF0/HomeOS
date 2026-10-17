@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -77,6 +78,14 @@ abstract class IntegrationDriver {
   /// Sends [command]. Returns the confirmed state if the device reports one.
   Future<DeviceState?> send(Device device, DeviceCommand command);
 
+  /// A still picture (JPEG or PNG) from a camera. By default it is fetched
+  /// from the device's `snapshotUrl`, which can be set for any network camera.
+  Future<Uint8List?> snapshot(Device device) async {
+    final url = device.props['snapshotUrl'];
+    if (url is! String || url.trim().isEmpty) return null;
+    return getImage(Uri.parse(url.trim()));
+  }
+
   /// For integrations that pair (Hue): returns settings to store on success.
   Future<Map<String, dynamic>> pair() =>
       throw IntegrationException('${config.name} does not need pairing.');
@@ -117,6 +126,26 @@ abstract class IntegrationDriver {
     final res = await http.Response.fromStream(streamed).timeout(timeout);
     return _decode(uri, res);
   }
+
+  /// Downloads a picture. A user and password in the address are sent as HTTP basic authentication.
+  Future<Uint8List> getImage(Uri uri, {Map<String, String>? headers}) async {
+    final auth = uri.userInfo.isEmpty ? null : 'Basic ${base64.encode(utf8.encode(Uri.decodeComponent(uri.userInfo)))}';
+    final res = await client
+        .get(uri.replace(userInfo: ''), headers: {'Authorization': ?auth, ...?headers})
+        .timeout(timeout);
+    if (res.statusCode == 401 || res.statusCode == 403) {
+      throw IntegrationException('${uri.host} refused access (HTTP ${res.statusCode}). Check the user and password.');
+    }
+    if (res.statusCode >= 400) throw IntegrationException('${uri.host} answered HTTP ${res.statusCode}.');
+    final type = res.headers['content-type'] ?? '';
+    if (!type.startsWith('image/') && !_looksLikeImage(res.bodyBytes)) {
+      throw IntegrationException('${uri.host} did not send a picture.');
+    }
+    return res.bodyBytes;
+  }
+
+  static bool _looksLikeImage(Uint8List b) =>
+      (b.length > 3 && b[0] == 0xff && b[1] == 0xd8) || (b.length > 8 && b[0] == 0x89 && b[1] == 0x50 && b[2] == 0x4e);
 
   dynamic _decode(Uri uri, http.Response res) {
     if (res.statusCode == 401 || res.statusCode == 403) {

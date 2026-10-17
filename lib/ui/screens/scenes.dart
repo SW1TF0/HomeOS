@@ -29,6 +29,16 @@ String describeAction(Device d, DeviceCommand c) {
   if (c.locked != null) return c.locked! ? 'Locked' : 'Unlocked';
   if (c.on == false) return 'Off';
   final parts = <String>[
+    if (c.action != null)
+      switch (c.action!) {
+        DeviceAction.start => d.kind == DeviceKind.mower ? 'Mow' : 'Clean',
+        DeviceAction.dock => 'Go home',
+        DeviceAction.armHome => 'Arm home',
+        DeviceAction.armAway => 'Arm away',
+        DeviceAction.armNight => 'Arm night',
+        DeviceAction.armVacation => 'Arm vacation',
+        final a => modeLabel(a.name),
+      },
     if (c.position != null) c.position! <= 0.01 ? 'Closed' : 'Open ${(c.position! * 100).round()}%',
     if (c.on == true) 'On',
     if (c.brightness != null) '${(c.brightness! * 100).round()}%',
@@ -36,20 +46,26 @@ String describeAction(Device d, DeviceCommand c) {
     if (c.color != null) 'colour',
     if (c.targetTemp != null) '${c.targetTemp!.toStringAsFixed(1)}°',
     if (c.volume != null) 'vol ${(c.volume! * 100).round()}',
+    if (c.speed != null) 'speed ${(c.speed! * 100).round()}%',
+    if (c.targetHumidity != null) '${c.targetHumidity!.round()}% humidity',
+    if (c.mode != null) modeLabel(c.mode!),
   ];
   return parts.isEmpty ? 'As it was' : parts.join(' · ');
 }
 
 /// Devices a scene can set.
 List<Device> sceneCandidates(HomeStore store) => store.devices
-    .where((d) => [
+    .where((d) =>
+        [
           Capability.onOff,
           Capability.brightness,
           Capability.position,
           Capability.targetTemp,
           Capability.lock,
           Capability.volume,
-        ].any(d.has))
+          Capability.alarm,
+        ].any(d.has) ||
+        (d.has(Capability.run) && (d.kind == DeviceKind.vacuum || d.kind == DeviceKind.mower)))
     .toList();
 
 String _sceneSubtitle(Scene s) {

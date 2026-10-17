@@ -11,12 +11,13 @@ import 'nothing_widgets.dart';
 
 // ---- The one level a quick drag changes ---------------------------------------
 
-/// What a drag across a tile changes: brightness, blind position or volume.
+/// What a drag across a tile changes: brightness, fan speed, blind position or volume.
 /// Null when the device has no such level.
 double? deviceLevel(Device d) {
   final s = d.state;
   if (!s.reachable) return null;
   if (d.has(Capability.brightness)) return s.on == false ? 0 : (s.brightness ?? 1);
+  if (d.has(Capability.speed)) return s.on == false ? 0 : (s.speed ?? 1);
   if (d.has(Capability.position)) return s.position ?? 0;
   if (d.has(Capability.volume) && s.on != false) return s.volume ?? 0;
   return null;
@@ -24,6 +25,7 @@ double? deviceLevel(Device d) {
 
 DeviceCommand levelCommand(Device d, double v) {
   if (d.has(Capability.brightness)) return v <= 0.01 ? const DeviceCommand(on: false) : DeviceCommand(brightness: v);
+  if (d.has(Capability.speed)) return v <= 0.01 ? const DeviceCommand(on: false) : DeviceCommand(speed: v);
   if (d.has(Capability.position)) return DeviceCommand(position: v);
   return DeviceCommand(volume: v);
 }
@@ -36,6 +38,7 @@ bool sendsLive(Device d) => d.has(Capability.brightness);
 String levelLabel(Device d, double v) {
   final pct = (v * 100).round();
   if (d.has(Capability.brightness)) return pct == 0 ? 'Off' : 'Brightness $pct%';
+  if (d.has(Capability.speed)) return pct == 0 ? 'Off' : 'Speed $pct%';
   if (d.has(Capability.position)) return pct == 0 ? 'Closed' : (pct == 100 ? 'Open' : 'Open $pct%');
   return 'Volume $pct';
 }
@@ -382,6 +385,9 @@ class TempDial extends StatefulWidget {
     this.step = 0.5,
     this.off = false,
     this.size = 248,
+    this.unit = '°',
+    this.decimals = 1,
+    this.semanticLabel = 'Target temperature',
   });
 
   final double target;
@@ -392,6 +398,11 @@ class TempDial extends StatefulWidget {
   final double step;
   final bool off;
   final double size;
+
+  /// '°' for temperatures, '%' for humidity.
+  final String unit;
+  final int decimals;
+  final String semanticLabel;
 
   @override
   State<TempDial> createState() => _TempDialState();
@@ -431,10 +442,11 @@ class _TempDialState extends State<TempDial> {
   Widget build(BuildContext context) {
     final p = context.palette;
     final value = (_live ?? widget.target).clamp(widget.min, widget.max).toDouble();
+    String show(double v) => '${v.toStringAsFixed(widget.decimals)}${widget.unit}';
     return Semantics(
       slider: true,
-      label: 'Target temperature',
-      value: '${value.toStringAsFixed(1)}°',
+      label: widget.semanticLabel,
+      value: show(value),
       child: GestureDetector(
         onPanStart: (d) => _move(d.localPosition),
         onPanUpdate: (d) => _move(d.localPosition),
@@ -464,10 +476,10 @@ class _TempDialState extends State<TempDial> {
             Column(mainAxisSize: MainAxisSize.min, children: [
               Text(widget.off ? 'OFF' : 'TARGET', style: NType.label(color: p.textDim)),
               const SizedBox(height: 4),
-              DotText('${value.toStringAsFixed(1)}°', size: widget.size * 0.22, color: widget.off ? p.textDim : p.text),
+              DotText(show(value), size: widget.size * 0.22, color: widget.off ? p.textDim : p.text),
               if (widget.current != null) ...[
                 const SizedBox(height: 6),
-                Text('NOW ${widget.current!.toStringAsFixed(1)}°', style: NType.label(color: p.textDim)),
+                Text('NOW ${show(widget.current!)}', style: NType.label(color: p.textDim)),
               ],
             ]),
           ]),
@@ -802,4 +814,66 @@ class _HoldRingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_HoldRingPainter old) => old.progress != progress || old.track != track || old.fill != fill;
+}
+
+// ---- Robots and appliances -----------------------------------------------------------
+
+/// A robot vacuum, mower or appliance: one big start / pause button, ringed
+/// by its battery as dots (red when it runs low).
+class RobotOrb extends StatelessWidget {
+  const RobotOrb({super.key, required this.running, required this.onTap, this.battery, this.size = 184});
+
+  final bool running;
+  final VoidCallback? onTap;
+
+  /// 0..1, or null when it has no battery.
+  final double? battery;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final b = battery?.clamp(0.0, 1.0);
+    final low = b != null && b < 0.2;
+    final fg = running ? p.background : p.text;
+    return Semantics(
+      button: onTap != null,
+      label: running ? 'Pause' : 'Start',
+      value: b == null ? null : 'Battery ${(b * 100).round()}%',
+      child: GestureDetector(
+        onTap: onTap == null
+            ? null
+            : () {
+                HapticFeedback.mediumImpact();
+                onTap!();
+              },
+        child: SizedBox.square(
+          dimension: size,
+          child: Stack(alignment: Alignment.center, children: [
+            if (b != null)
+              Positioned.fill(
+                child: CustomPaint(painter: _HoldRingPainter(progress: b, track: p.border, fill: low ? NothingPalette.red : p.text)),
+              ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              width: size - 40,
+              height: size - 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: running ? p.text : Colors.transparent,
+                border: Border.all(color: running ? p.text : p.border, width: 1.5),
+              ),
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(running ? Icons.pause : Icons.play_arrow, size: size * 0.24, color: fg),
+                if (b != null) ...[
+                  const SizedBox(height: 2),
+                  Text('${(b * 100).round()}%', style: NType.dot(20, color: low && !running ? NothingPalette.red : fg)),
+                ],
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
 }

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,13 +15,13 @@ import 'package:smartmenukj/state/home_store.dart';
 import 'package:smartmenukj/state/repository.dart';
 import 'package:smartmenukj/ui/widgets/nothing_widgets.dart';
 
-Future<HomeStore> pumpApp(WidgetTester tester, {Size size = const Size(420, 900)}) async {
+Future<HomeStore> pumpApp(WidgetTester tester, {Size size = const Size(420, 900), http.Client? client}) async {
   tester.view.physicalSize = size * 2;
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
   final store = HomeStore(
     repository: MemoryHomeRepository(),
-    client: MockClient((_) async => http.Response('[]', 200)),
+    client: client ?? MockClient((_) async => http.Response('[]', 200)),
   );
   await store.load();
   await tester.pumpWidget(SmartMenuApp(store: store, poll: false));
@@ -50,6 +52,11 @@ Future<void> scrollHomeTo(WidgetTester tester, Finder f) async {
 
 /// Opens a device's full controls from its tile on the home screen.
 Future<void> openControls(WidgetTester tester, String name) async {
+  // Tiles far down are not built yet, and a .first finder cannot wait for them.
+  for (var i = 0; i < 20 && find.text(name).evaluate().isEmpty; i++) {
+    await tester.drag(homeScroll(), const Offset(0, -250));
+    await tester.pump();
+  }
   await scrollHomeTo(tester, find.text(name).first);
   await tester.longPress(find.text(name).first);
   await tester.pumpAndSettle();
@@ -470,5 +477,149 @@ void main() {
     final matter = store.integrations.where((i) => i.type == 'matter').single;
     expect(matter.settings['fabric'], isA<Map>(), reason: 'the app keeps its Matter keys');
     expect(store.devices.where((d) => d.integrationId == matter.id), isEmpty);
+  });
+
+  testWidgets('a robot vacuum starts from its tile, then goes home, cleans harder and beeps', (tester) async {
+    final store = await pumpApp(tester);
+    final robot = store.devices.firstWhere((d) => d.name == 'Robot vacuum');
+    expect(robot.state.activity, Activity.docked);
+    await scrollHomeTo(tester, find.byKey(Key('open-${robot.id}')));
+    await tester.tap(find.text('Robot vacuum').first);
+    await tester.pump();
+    expect(robot.state.activity, Activity.running);
+    expect(find.text('Living · Cleaning · 100%'), findsOneWidget);
+
+    await openControls(tester, 'Robot vacuum');
+    await tester.tap(find.byKey(const Key('mode-Max')));
+    await tester.pump();
+    expect(robot.state.mode, 'Max');
+    await tester.tap(find.byKey(const Key('robot-dock')));
+    await tester.pump();
+    expect(robot.state.activity, Activity.docked);
+    await tester.tap(find.byKey(const Key('robot-orb')));
+    await tester.pump();
+    expect(robot.state.activity, Activity.running);
+    await tester.tap(find.byKey(const Key('robot-orb')));
+    await tester.pump();
+    expect(robot.state.activity, Activity.paused);
+    await tester.tap(find.byKey(const Key('robot-locate')));
+    await tester.pump();
+    expect(find.text('Robot vacuum is beeping.'), findsOneWidget);
+    await tester.pumpAndSettle(const Duration(seconds: 4));
+  });
+
+  testWidgets('a working robot shows on the home screen and can be sent home from there', (tester) async {
+    final store = await pumpApp(tester);
+    final robot = store.devices.firstWhere((d) => d.name == 'Robot vacuum');
+    expect(find.byKey(const Key('status-robots')), findsNothing);
+    await store.command(robot, const DeviceCommand(action: DeviceAction.start));
+    await tester.pump();
+    expect(find.text('Robot vacuum: cleaning'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('status-robots')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('status-robots')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('All go home'));
+    await tester.pumpAndSettle();
+    expect(robot.state.activity, Activity.docked);
+  });
+
+  testWidgets('an alarm opens its controls, arms, and asks before disarming', (tester) async {
+    final store = await pumpApp(tester);
+    final alarm = store.devices.firstWhere((d) => d.name == 'Alarm');
+    expect(find.text('Alarm off'), findsOneWidget);
+    await scrollHomeTo(tester, find.byKey(Key('open-${alarm.id}')));
+    await tester.tap(find.text('Alarm').first);
+    await tester.pumpAndSettle();
+    expect(alarm.state.activity, Activity.disarmed, reason: 'a tap opens the controls, it does not arm');
+    await tester.tap(find.byKey(const Key('arm-armAway')));
+    await tester.pump();
+    expect(alarm.state.activity, Activity.armedAway);
+
+    await tester.tap(find.byKey(const Key('alarm-disarm')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(alarm.state.activity, Activity.armedAway);
+    await tester.tap(find.byKey(const Key('alarm-disarm')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Disarm'));
+    await tester.pumpAndSettle();
+    expect(alarm.state.activity, Activity.disarmed);
+  });
+
+  testWidgets('an alarm with a code asks for it and never keeps it', (tester) async {
+    final store = await pumpApp(tester);
+    final alarm = store.devices.firstWhere((d) => d.name == 'Alarm');
+    alarm.props['codeFormat'] = 'number';
+    alarm.state = alarm.state.merge(const DeviceState(activity: Activity.armedHome));
+    await openControls(tester, 'Alarm');
+    await tester.tap(find.byKey(const Key('alarm-disarm')));
+    await tester.pumpAndSettle();
+    expect(find.text('Code to disarm'), findsOneWidget);
+    expect(tester.widget<TextField>(find.byType(TextField)).obscureText, isTrue);
+    await tester.enterText(find.byType(TextField), '4321');
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    expect(alarm.state.activity, Activity.disarmed);
+    expect(jsonEncode(store.data.toJson()), isNot(contains('4321')));
+  });
+
+  testWidgets('an air purifier sets its speed and preset', (tester) async {
+    final store = await pumpApp(tester);
+    final purifier = store.devices.firstWhere((d) => d.name == 'Air purifier');
+    store.updateDevice(purifier, favorite: true);
+    await tester.pump();
+    await openControls(tester, 'Air purifier');
+    await tester.scrollUntilVisible(find.byKey(const Key('mode-Sleep')), 200, scrollable: find.byType(Scrollable).last);
+    await tester.tap(find.byKey(const Key('mode-Sleep')));
+    await tester.pump();
+    expect(purifier.state.mode, 'Sleep');
+    await tester.scrollUntilVisible(find.text('High'), 200, scrollable: find.byType(Scrollable).last);
+    await tester.tap(find.text('High'));
+    await tester.pump();
+    expect((purifier.state.on, purifier.state.speed), (true, 1.0));
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('a button runs when its tile is tapped', (tester) async {
+    final store = await pumpApp(tester);
+    final scene = store.addVirtualDevice('demo', 'Movie scene', DeviceKind.button);
+    store.updateDevice(scene, favorite: true);
+    await tester.pump();
+    await openControls(tester, 'Movie scene');
+    expect(find.byKey(const Key('press-orb')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('press-orb')));
+    await tester.pump();
+    expect(find.text('Movie scene: done.'), findsOneWidget);
+    await tester.pumpAndSettle(const Duration(seconds: 4));
+  });
+
+  testWidgets('a network camera shows the picture from its address', (tester) async {
+    final pixel = base64.decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==');
+    final asked = <String>[];
+    final store = await pumpApp(tester, client: MockClient((req) async {
+      asked.add('${req.url} ${req.headers['Authorization']}');
+      return req.url.path == '/snap.jpg'
+          ? http.Response.bytes(pixel, 200, headers: {'content-type': 'image/png'})
+          : http.Response('[]', 200);
+    }));
+    final cam = store.addVirtualDevice('demo', 'Door camera', DeviceKind.camera);
+    store.updateDevice(cam, favorite: true);
+    await tester.pump();
+    await openControls(tester, 'Door camera');
+    expect(find.byKey(const Key('camera-view')), findsNothing);
+    await tester.scrollUntilVisible(find.byKey(const Key('camera-url')), 200, scrollable: find.byType(Scrollable).last);
+    await tester.tap(find.byKey(const Key('camera-url')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'http://me:pw@10.0.0.9/snap.jpg');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(cam.has(Capability.snapshot), isTrue);
+    await tester.scrollUntilVisible(find.byKey(const Key('camera-view')), -200, scrollable: find.byType(Scrollable).last);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('camera-view')), findsOneWidget);
+    expect(find.byType(Image), findsOneWidget);
+    expect(asked.last, 'http://10.0.0.9/snap.jpg Basic ${base64.encode(utf8.encode('me:pw'))}');
   });
 }

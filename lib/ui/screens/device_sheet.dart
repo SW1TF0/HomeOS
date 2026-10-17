@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -24,8 +27,9 @@ Future<void> showDeviceSheet(BuildContext context, Device device) => showModalBo
       builder: (_) => DeviceSheet(deviceId: device.id),
     );
 
-/// A device tile wired to the store: tap switches it, a sideways drag sets
-/// its level, the arrow (or holding it) opens all its controls.
+/// A device tile wired to the store: tap switches it (or opens the controls
+/// of devices a tap cannot simply switch), a sideways drag sets its level,
+/// the arrow (or holding it) opens all its controls.
 class DeviceCard extends StatelessWidget {
   const DeviceCard({super.key, required this.device, this.subtitle});
   final Device device;
@@ -38,7 +42,7 @@ class DeviceCard extends StatelessWidget {
     return DeviceTile(
       device: d,
       subtitle: subtitle,
-      onTap: () => store.toggle(d),
+      onTap: () => HomeStore.tapControls(d) ? store.toggle(d) : showDeviceSheet(context, d),
       onLongPress: () => showDeviceSheet(context, d),
       onOpen: () => showDeviceSheet(context, d),
       onLevel: sendsLive(d) ? (v) => store.command(d, levelCommand(d, v)) : null,
@@ -58,6 +62,7 @@ class DeviceSheet extends StatelessWidget {
   final String deviceId;
 
   static const brightnessPresets = [('10%', 0.1), ('25%', 0.25), ('50%', 0.5), ('75%', 0.75), ('100%', 1.0)];
+  static const speedPresets = [('Low', 0.33), ('Medium', 0.66), ('High', 1.0)];
   static final whitePresets = [
     ('Warm', _kelvinT(2700)),
     ('Neutral', _kelvinT(4000)),
@@ -75,8 +80,14 @@ class DeviceSheet extends StatelessWidget {
     final room = store.room(d.roomId);
     final integration = store.integration(d.integrationId);
     final spec = integration == null ? null : specFor(integration.type);
-    final dial = d.has(Capability.targetTemp) && s.reachable;
+    // Humidifiers get the same dial as thermostats, in percent.
+    final humidity = d.has(Capability.humidity) && !d.has(Capability.targetTemp);
+    final dial = (d.has(Capability.targetTemp) || humidity) && s.reachable;
+    final (hMin, hMax) = humidityRange(d);
     Future<bool> send(DeviceCommand c) => store.command(d, c);
+    Future<bool> nudge(int steps) => humidity
+        ? send(DeviceCommand(targetHumidity: ((s.targetHumidity ?? 50) + steps * 5).clamp(hMin, hMax).toDouble()))
+        : send(DeviceCommand(targetTemp: ((s.targetTemp ?? 21) + steps * 0.5).clamp(5, 35)));
 
     return DraggableScrollableSheet(
       expand: false,
@@ -122,34 +133,102 @@ class DeviceSheet extends StatelessWidget {
           if (dial) ...[
             const SizedBox(height: 4),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              _RoundButton(
-                key: const Key('temp-down'),
-                icon: Icons.remove,
-                onTap: () => send(DeviceCommand(targetTemp: ((s.targetTemp ?? 21) - 0.5).clamp(5, 35))),
-              ),
+              _RoundButton(key: Key(humidity ? 'humidity-down' : 'temp-down'), icon: Icons.remove, onTap: () => nudge(-1)),
               if (d.has(Capability.onOff)) ...[
                 const SizedBox(width: 18),
                 PowerOrb(size: 56, on: s.on == true, onTap: () => store.toggle(d)),
               ],
               const SizedBox(width: 18),
-              _RoundButton(
-                key: const Key('temp-up'),
-                icon: Icons.add,
-                onTap: () => send(DeviceCommand(targetTemp: ((s.targetTemp ?? 21) + 0.5).clamp(5, 35))),
-              ),
+              _RoundButton(key: Key(humidity ? 'humidity-up' : 'temp-up'), icon: Icons.add, onTap: () => nudge(1)),
             ]),
             const SizedBox(height: 16),
             Center(
               child: Wrap(spacing: 8, runSpacing: 8, children: [
-                for (final (label, t) in const [('Eco', 18.0), ('Comfort', 21.0), ('Warm', 23.0)])
-                  PresetChip(
-                    label: '$label ${t.toStringAsFixed(0)}°',
-                    selected: s.targetTemp == t,
-                    onTap: () => send(DeviceCommand(targetTemp: t)),
-                  ),
+                if (humidity)
+                  for (final (label, h) in const [('Dry', 40.0), ('Comfort', 50.0), ('Humid', 60.0)])
+                    PresetChip(
+                      label: '$label ${h.round()}%',
+                      selected: s.targetHumidity == h,
+                      onTap: () => send(DeviceCommand(targetHumidity: h)),
+                    )
+                else
+                  for (final (label, t) in const [('Eco', 18.0), ('Comfort', 21.0), ('Warm', 23.0)])
+                    PresetChip(
+                      label: '$label ${t.toStringAsFixed(0)}°',
+                      selected: s.targetTemp == t,
+                      onTap: () => send(DeviceCommand(targetTemp: t)),
+                    ),
               ]),
             ),
           ],
+          if (d.has(Capability.run) || d.has(Capability.dock) || d.has(Capability.locate)) ...[
+            const SizedBox(height: 22),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              if (d.has(Capability.dock))
+                _ActionButton(
+                  key: const Key('robot-dock'),
+                  icon: Icons.home_outlined,
+                  label: 'Home',
+                  selected: const {Activity.returning, Activity.docked, Activity.charging}.contains(s.activity),
+                  onTap: () => send(const DeviceCommand(action: DeviceAction.dock)),
+                ),
+              if (d.has(Capability.run) && d.kind != DeviceKind.mower && d.props['noStop'] != true)
+                _ActionButton(
+                  key: const Key('robot-stop'),
+                  icon: Icons.stop,
+                  label: 'Stop',
+                  onTap: () => send(const DeviceCommand(action: DeviceAction.stop)),
+                ),
+              if (d.has(Capability.locate))
+                _ActionButton(
+                  key: const Key('robot-locate'),
+                  icon: Icons.my_location,
+                  label: 'Find',
+                  onTap: () async {
+                    if (await send(const DeviceCommand(action: DeviceAction.locate))) store.toast('${d.name} is beeping.');
+                  },
+                ),
+            ]),
+          ],
+          if (d.has(Capability.alarm)) ...[
+            const SizedBox(height: 22),
+            Center(
+              child: Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: [
+                for (final arm in alarmArms(d))
+                  PresetChip(
+                    key: Key('arm-${arm.name}'),
+                    label: alarmArmLabel(arm),
+                    selected: s.activity == arm.alarmState,
+                    onTap: () => _alarm(context, store, d, arm),
+                  ),
+              ]),
+            ),
+            const SizedBox(height: 14),
+            Center(
+              child: OutlinedButton.icon(
+                key: const Key('alarm-disarm'),
+                onPressed: s.activity == Activity.disarmed ? null : () => _alarm(context, store, d, DeviceAction.disarm),
+                icon: const Icon(Icons.shield_outlined, size: 18),
+                label: const Text('Disarm'),
+              ),
+            ),
+          ],
+          if (d.has(Capability.mode) && d.modes.isNotEmpty) ...[
+            SectionLabel(modeTitle(d),
+                trailing: s.mode == null ? null : Text(modeLabel(s.mode!).toUpperCase(), style: NType.dot(18, color: p.text))),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final m in d.modes)
+                PresetChip(key: Key('mode-$m'), label: modeLabel(m), selected: s.mode == m, onTap: () => send(DeviceCommand(mode: m))),
+            ]),
+          ],
+          if (d.has(Capability.speed))
+            LevelControl(
+              label: 'Speed',
+              value: s.on == false ? 0 : (s.speed ?? 1),
+              display: _pct,
+              presets: speedPresets,
+              onChangeEnd: (v) => send(v <= 0.01 ? const DeviceCommand(on: false) : DeviceCommand(speed: v)),
+            ),
           if (d.has(Capability.brightness))
             LevelControl(
               label: 'Brightness',
@@ -303,6 +382,20 @@ class DeviceSheet extends StatelessWidget {
                     if (k != null) store.updateDevice(d, kind: k);
                   },
                 ),
+                if (d.kind == DeviceKind.camera && (!d.has(Capability.snapshot) || d.props['snapshotUrl'] != null))
+                  ListTile(
+                    key: const Key('camera-url'),
+                    leading: const Icon(Icons.photo_camera_outlined),
+                    title: const Text('Picture address'),
+                    subtitle: Text(d.props['snapshotUrl'] == null ? 'Add the camera\'s snapshot link to see it here' : 'Set'),
+                    onTap: () async {
+                      final url = await promptText(context,
+                          title: 'Picture address',
+                          initial: '${d.props['snapshotUrl'] ?? ''}',
+                          hint: 'http://user:password@192.168.1.50/snapshot.jpg');
+                      if (url != null) store.setSnapshotUrl(d, url);
+                    },
+                  ),
                 if (integration?.type == lanType) ..._networkTiles(context, store, d),
                 if (d.mapPos != null)
                   ListTile(
@@ -345,6 +438,59 @@ class DeviceSheet extends StatelessWidget {
 }
 
 String _openLabel(double pos) => pos <= 0.01 ? 'CLOSED' : (pos >= 0.99 ? 'OPEN' : '${(pos * 100).round()}%');
+
+/// The humidity a humidifier can be set to, in percent.
+(double, double) humidityRange(Device d) =>
+    ((d.props['minHumidity'] as num?)?.toDouble() ?? 30, (d.props['maxHumidity'] as num?)?.toDouble() ?? 80);
+
+/// What the modes of [d] are called on its controls.
+String modeTitle(Device d) =>
+    d.props['modeTitle'] as String? ??
+    switch (d.kind) {
+      DeviceKind.vacuum => 'Suction',
+      DeviceKind.media => 'Input',
+      DeviceKind.fan || DeviceKind.purifier => 'Preset',
+      DeviceKind.appliance => 'Program',
+      _ => 'Mode',
+    };
+
+/// The ways [d] can be armed, from its `props['arms']` (home, away, night, vacation).
+List<DeviceAction> alarmArms(Device d) {
+  final names = (d.props['arms'] as List?)?.map((e) => '$e').toList() ?? const ['home', 'away'];
+  return [
+    for (final n in names)
+      ?switch (n) {
+        'home' => DeviceAction.armHome,
+        'away' => DeviceAction.armAway,
+        'night' => DeviceAction.armNight,
+        'vacation' => DeviceAction.armVacation,
+        _ => null,
+      },
+  ];
+}
+
+String alarmArmLabel(DeviceAction a) => switch (a) {
+      DeviceAction.armHome => 'Home',
+      DeviceAction.armAway => 'Away',
+      DeviceAction.armNight => 'Night',
+      DeviceAction.armVacation => 'Vacation',
+      _ => 'Disarm',
+    };
+
+/// Arms or disarms an alarm, asking for its code when it needs one. The code is sent once and never saved.
+Future<void> _alarm(BuildContext context, HomeStore store, Device d, DeviceAction a) async {
+  final format = d.props['codeFormat'] as String?;
+  final needsCode = format != null && (a == DeviceAction.disarm || d.props['codeArmRequired'] == true);
+  String? code;
+  if (needsCode) {
+    code = await promptText(context,
+        title: a == DeviceAction.disarm ? 'Code to disarm' : 'Code to arm', action: 'OK', secret: true, number: format == 'number');
+    if (code == null || code.isEmpty) return;
+  } else if (a == DeviceAction.disarm) {
+    if (!await confirm(context, title: 'Disarm ${d.name}?', body: 'It stops guarding the home.', action: 'Disarm')) return;
+  }
+  await store.command(d, DeviceCommand(action: a, code: code));
+}
 
 /// Address, Wake-on-LAN and per-device settings of a network device.
 List<Widget> _networkTiles(BuildContext context, HomeStore store, Device d) {
@@ -412,6 +558,27 @@ class _Hero extends StatelessWidget {
     final store = context.read<HomeStore>();
     final d = device;
     final s = d.state;
+    if (d.has(Capability.run)) {
+      final running = s.activity == Activity.running;
+      return RobotOrb(
+        key: const Key('robot-orb'),
+        running: running,
+        battery: s.battery,
+        onTap: s.reachable ? () => store.command(d, DeviceCommand(action: running ? DeviceAction.pause : DeviceAction.start)) : null,
+      );
+    }
+    if (d.has(Capability.snapshot)) return CameraView(key: const Key('camera-view'), device: d);
+    if (d.has(Capability.alarm)) {
+      return PowerOrb(
+        key: const Key('alarm-orb'),
+        on: s.isActive,
+        icon: s.activity == Activity.triggered ? Icons.notifications_active : deviceIcon(d.kind, active: s.isActive),
+        onTap: null,
+      );
+    }
+    if (d.has(Capability.press)) {
+      return PowerOrb(key: const Key('press-orb'), on: false, icon: deviceIcon(d.kind), onTap: () => store.press(d));
+    }
     if (d.has(Capability.lock)) {
       return HoldOrb(
         key: const Key('lock-orb'),
@@ -427,6 +594,22 @@ class _Hero extends StatelessWidget {
         current: s.currentTemp,
         off: s.on == false,
         onChangeEnd: (v) => store.command(d, DeviceCommand(targetTemp: v)),
+      );
+    }
+    if (d.has(Capability.humidity) && s.reachable) {
+      final (lo, hi) = humidityRange(d);
+      return TempDial(
+        key: const Key('humidity-dial'),
+        target: (s.targetHumidity ?? 50).clamp(lo, hi),
+        current: s.currentHumidity,
+        min: lo,
+        max: hi,
+        step: 1,
+        unit: '%',
+        decimals: 0,
+        semanticLabel: 'Target humidity',
+        off: s.on == false,
+        onChangeEnd: (v) => store.command(d, DeviceCommand(targetHumidity: v)),
       );
     }
     if (d.has(Capability.position)) {
@@ -448,6 +631,141 @@ class _Hero extends StatelessWidget {
       ]);
     }
     return Icon(deviceIcon(d.kind), size: 72, color: context.palette.textDim);
+  }
+}
+
+/// A round button with a word under it, for robots: Home, Stop, Find.
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({super.key, required this.icon, required this.label, required this.onTap, this.selected = false});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Semantics(
+        button: true,
+        label: label,
+        selected: selected,
+        excludeSemantics: true,
+        child: InkResponse(
+          onTap: onTap,
+          radius: 34,
+          child: Column(children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: selected ? p.text : Colors.transparent,
+                border: Border.all(color: selected ? p.text : p.border),
+              ),
+              child: Icon(icon, color: selected ? p.background : p.text),
+            ),
+            const SizedBox(height: 6),
+            Text(label.toUpperCase(), style: NType.label(color: p.textDim)),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// A camera's latest picture, refreshed every few seconds while it is open.
+class CameraView extends StatefulWidget {
+  const CameraView({super.key, required this.device});
+  final Device device;
+
+  static const every = Duration(seconds: 5);
+
+  @override
+  State<CameraView> createState() => _CameraViewState();
+}
+
+class _CameraViewState extends State<CameraView> {
+  Uint8List? _picture;
+  DateTime? _at;
+  String? _problem;
+  bool _loading = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    _timer = Timer.periodic(CameraView.every, (_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    if (_loading) return;
+    _loading = true;
+    try {
+      final picture = await context.read<HomeStore>().snapshot(widget.device);
+      if (!mounted) return;
+      setState(() {
+        if (picture != null) {
+          _picture = picture;
+          _at = DateTime.now();
+        }
+        _problem = picture == null ? 'No picture' : null;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _problem = '$e');
+    } finally {
+      _loading = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    String two(int v) => v.toString().padLeft(2, '0');
+    final at = _at;
+    return Column(children: [
+      AspectRatio(
+        aspectRatio: 16 / 9,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(22),
+          child: DecoratedBox(
+            decoration: BoxDecoration(color: p.surfaceHigh),
+            child: _picture == null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Text((_problem ?? 'Loading').toUpperCase(),
+                          textAlign: TextAlign.center, style: NType.label(color: _problem == null ? p.textDim : NothingPalette.red)),
+                    ),
+                  )
+                : Image.memory(_picture!, fit: BoxFit.cover, gaplessPlayback: true, width: double.infinity),
+          ),
+        ),
+      ),
+      const SizedBox(height: 8),
+      Row(children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(color: _problem == null && at != null ? NothingPalette.red : p.textDim, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(at == null ? 'NO PICTURE YET' : 'TAKEN ${two(at.hour)}:${two(at.minute)}:${two(at.second)}',
+              style: NType.label(color: p.textDim)),
+        ),
+        IconButton(key: const Key('camera-refresh'), tooltip: 'New picture', onPressed: _load, icon: const Icon(Icons.refresh)),
+      ]),
+    ]);
   }
 }
 

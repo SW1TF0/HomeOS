@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:smartmenukj/app.dart';
+import 'package:smartmenukj/models/device.dart';
 import 'package:smartmenukj/state/home_store.dart';
 import 'package:smartmenukj/state/repository.dart';
 
@@ -111,6 +112,22 @@ void main() {
     await _app(tester, phone);
     await openControls(tester, 'Thermostat');
     await _shot(tester, 'phone-thermostat');
+  });
+
+  testWidgets('phone robot vacuum', (tester) async {
+    final store = await _app(tester, phone);
+    final robot = store.devices.firstWhere((d) => d.name == 'Robot vacuum');
+    robot.state = robot.state.merge(const DeviceState(activity: Activity.running, battery: 0.72));
+    await openControls(tester, 'Robot vacuum');
+    await _shot(tester, 'phone-vacuum');
+  });
+
+  testWidgets('phone alarm', (tester) async {
+    final store = await _app(tester, phone);
+    final alarm = store.devices.firstWhere((d) => d.name == 'Alarm');
+    alarm.state = alarm.state.merge(const DeviceState(activity: Activity.armedAway));
+    await openControls(tester, 'Alarm');
+    await _shot(tester, 'phone-alarm');
   });
 
   testWidgets('phone room', (tester) async {

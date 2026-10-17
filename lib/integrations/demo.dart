@@ -13,6 +13,9 @@ class DemoDriver extends IntegrationDriver {
   Future<DeviceState?> refresh(Device device) async => device.state;
 
   @override
-  Future<DeviceState?> send(Device device, DeviceCommand command) async =>
-      device.state.applyCommand(command);
+  Future<DeviceState?> send(Device device, DeviceCommand command) async {
+    final s = device.state.applyCommand(command);
+    // A virtual robot is home at once.
+    return command.action == DeviceAction.dock ? s.merge(const DeviceState(activity: Activity.docked)) : s;
+  }
 }

@@ -219,8 +219,9 @@ class _ClockState extends State<_Clock> {
   }
 }
 
-/// Pills that sum up the home: lights on, inside temperature, locks, blinds,
-/// what is playing, what is not answering. Each opens those devices.
+/// Pills that sum up the home: lights on, inside temperature, locks, the
+/// alarm, blinds, what is playing, robots at work, what is not answering.
+/// Each opens those devices.
 class _StatusStrip extends StatelessWidget {
   const _StatusStrip();
 
@@ -239,6 +240,14 @@ class _StatusStrip extends StatelessWidget {
     final media = ofKind(DeviceKind.media);
     final playing = media.where((d) => d.state.on == true).toList();
     final offline = all.where((d) => !d.state.reachable).length;
+    final alarms = ofKind(DeviceKind.alarm);
+    final sounding = alarms.where((d) => const {Activity.triggered, Activity.pending}.contains(d.state.activity)).toList();
+    final armed = alarms.where((d) => d.state.isActive).toList();
+    bool isRobot(Device d) => d.kind == DeviceKind.vacuum || d.kind == DeviceKind.mower;
+    final working = all
+        .where((d) => isRobot(d) && const {Activity.running, Activity.returning, Activity.paused, Activity.error}.contains(d.state.activity))
+        .toList();
+    final stuck = working.where((d) => d.state.activity == Activity.error).toList();
 
     final anyOn = store.activeCount > 0;
     final pills = <Widget>[
@@ -282,6 +291,20 @@ class _StatusStrip extends StatelessWidget {
               actionIcon: Icons.lock_outline,
               action: (s, list) => Future.wait(list.map((d) => s.command(d, const DeviceCommand(locked: true))))),
         ),
+      if (alarms.isNotEmpty)
+        _Pill(
+          key: const Key('status-alarm'),
+          icon: sounding.isNotEmpty ? Icons.notifications_active : (armed.isEmpty ? Icons.shield_outlined : Icons.shield),
+          label: sounding.isNotEmpty
+              ? '${sounding.first.name}: ${activityLabel(DeviceKind.alarm, sounding.first.state.activity)}'
+              : armed.isEmpty
+                  ? 'Alarm off'
+                  : (alarms.length == 1 ? activityLabel(DeviceKind.alarm, armed.first.state.activity) : '${armed.length} armed'),
+          alert: sounding.isNotEmpty,
+          onTap: () => alarms.length == 1
+              ? showDeviceSheet(context, alarms.first)
+              : showDeviceListSheet(context, title: 'ALARM', select: (s) => s.devices.where((d) => d.kind == DeviceKind.alarm).toList()),
+        ),
       if (covers.isNotEmpty)
         _Pill(
           key: const Key('status-blinds'),
@@ -304,6 +327,25 @@ class _StatusStrip extends StatelessWidget {
               select: (s) => s.devices.where((d) => d.kind == DeviceKind.media).toList(),
               actionLabel: 'All off',
               action: (s, list) => s.setPower(list, false)),
+        ),
+      if (working.isNotEmpty)
+        _Pill(
+          key: const Key('status-robots'),
+          icon: deviceIcon(working.first.kind),
+          label: stuck.isNotEmpty
+              ? '${stuck.first.name} needs help'
+              : (working.length == 1
+                  ? '${working.first.name}: ${activityLabel(working.first.kind, working.first.state.activity).toLowerCase()}'
+                  : '${working.length} robots at work'),
+          alert: stuck.isNotEmpty,
+          onTap: () => showDeviceListSheet(context,
+              title: 'ROBOTS',
+              select: (s) => s.devices.where(isRobot).toList(),
+              actionLabel: 'All go home',
+              actionIcon: Icons.home_outlined,
+              action: (s, list) => Future.wait(list
+                  .where((d) => d.has(Capability.dock))
+                  .map((d) => s.command(d, const DeviceCommand(action: DeviceAction.dock))))),
         ),
       if (offline > 0)
         _Pill(
@@ -378,7 +420,7 @@ class _RoomCard extends StatelessWidget {
     final p = context.palette;
     final devices = store.devicesIn(room.id);
     final switchable = store.switchablesIn(room.id);
-    final on = devices.where((d) => d.state.isActive && d.kind != DeviceKind.lock).length;
+    final on = devices.where((d) => d.countsAsOn).length;
     final anyOn = switchable.any((d) => d.state.on == true);
     final temp = averageTemperature(devices);
     return NCard(

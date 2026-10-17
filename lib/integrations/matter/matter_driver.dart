@@ -357,6 +357,8 @@ class MatterDriver extends IntegrationDriver {
         return {Capability.onOff};
       case DeviceKind.camera || DeviceKind.other:
         return {};
+      default:
+        return defaultCapabilities(kind);
     }
   }
 

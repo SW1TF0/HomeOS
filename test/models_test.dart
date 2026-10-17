@@ -52,6 +52,35 @@ void main() {
     expect(hexToInt('#ff8800'), 0xff8800);
   });
 
+  test('robots, alarms and fans: actions, modes and speeds', () {
+    const docked = DeviceState(activity: Activity.docked, battery: 0.9);
+    expect(docked.isActive, isFalse);
+    final cleaning = docked.applyCommand(const DeviceCommand(action: DeviceAction.start, mode: 'Max'));
+    expect((cleaning.activity, cleaning.mode, cleaning.battery), (Activity.running, 'Max', 0.9));
+    expect(cleaning.isActive, isTrue);
+    expect(cleaning.applyCommand(const DeviceCommand(action: DeviceAction.dock)).activity, Activity.returning);
+    expect(cleaning.applyCommand(const DeviceCommand(action: DeviceAction.locate)).activity, Activity.running);
+
+    const alarm = DeviceState(activity: Activity.disarmed);
+    expect(alarm.applyCommand(const DeviceCommand(action: DeviceAction.armNight)).isActive, isTrue);
+    expect(alarm.applyCommand(const DeviceCommand(action: DeviceAction.armNight)).activity, Activity.armedNight);
+
+    const fan = DeviceState(on: false);
+    expect(fan.applyCommand(const DeviceCommand(speed: 0.5)).on, isTrue, reason: 'a speed switches a fan on');
+
+    final back = DeviceState.fromJson(jsonDecode(jsonEncode(const DeviceState(
+      activity: Activity.charging,
+      battery: 0.5,
+      mode: 'eco',
+      speed: 0.3,
+      targetHumidity: 45,
+      currentHumidity: 39,
+    ).toJson())) as Map<String, dynamic>);
+    expect((back.activity, back.battery, back.mode, back.speed, back.targetHumidity, back.currentHumidity),
+        (Activity.charging, 0.5, 'eco', 0.3, 45, 39));
+    expect('${const DeviceCommand(action: DeviceAction.disarm, code: '9876')}', isNot(contains('9876')));
+  });
+
   test('room contains points inside its rectangle', () {
     final r = Room(id: 'r', floorId: 'f', name: 'R', x: 2, y: 2, width: 4, height: 3);
     expect(r.contains(const Offset(3, 3)), isTrue);

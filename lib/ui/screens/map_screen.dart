@@ -828,7 +828,7 @@ class MapScreenState extends State<MapScreen> {
     final rect = _roomRect(r);
     final isSelected = editing && _selectedRoom == r.id;
     final inside = store.devicesIn(r.id);
-    final active = inside.where((d) => d.state.isActive && d.kind != DeviceKind.lock).length;
+    final active = inside.where((d) => d.countsAsOn).length;
     final temp = averageTemperature(inside);
     final dragging = _roomDrag.containsKey(r.id);
 
@@ -990,7 +990,7 @@ class MapScreenState extends State<MapScreen> {
         child: GestureDetector(
           key: Key('marker-${d.id}'),
           behavior: HitTestBehavior.opaque,
-          onTap: editing ? () => showDeviceSheet(context, d) : () => store.toggle(d),
+          onTap: editing || !HomeStore.tapControls(d) ? () => showDeviceSheet(context, d) : () => store.toggle(d),
           onLongPress: editing ? null : () => showDeviceSheet(context, d),
           onPanStart: editing ? (_) => setState(() => _deviceDrag[d.id] = d.mapPos!) : null,
           onPanUpdate: editing

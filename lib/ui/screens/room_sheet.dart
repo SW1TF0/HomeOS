@@ -34,7 +34,7 @@ class RoomSheet extends StatelessWidget {
     final dimmable = devices.where((d) => d.kind == DeviceKind.light && d.has(Capability.brightness)).toList();
     final lit = dimmable.where((d) => d.state.on == true).toList();
     final level = lit.isEmpty ? 0.0 : lit.map((d) => d.state.brightness ?? 1).reduce((a, b) => a + b) / lit.length;
-    final on = devices.where((d) => d.state.isActive && d.kind != DeviceKind.lock).length;
+    final on = devices.where((d) => d.countsAsOn).length;
     final temp = averageTemperature(devices);
     final nav = context.read<AppNav>();
 

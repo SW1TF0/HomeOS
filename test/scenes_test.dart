@@ -60,6 +60,51 @@ void main() {
     expect(fan.state.on, isTrue);
   });
 
+  test('scenes send robots out or home and arm alarms, but never disarm', () async {
+    final robot = named('Robot vacuum');
+    final alarm = named('Alarm');
+    expect(SceneAction.capture(robot).command.action, DeviceAction.dock);
+    expect(SceneAction.capture(alarm).command.action, isNull, reason: 'disarming needs a person');
+    await store.command(robot, const DeviceCommand(action: DeviceAction.start, mode: 'Turbo'));
+    await store.command(alarm, const DeviceCommand(action: DeviceAction.armAway));
+    final s = store.addScene('Leaving', [robot, alarm]);
+    expect(s.actions.map((a) => a.command.action), [DeviceAction.start, DeviceAction.armAway]);
+    expect(s.actions.first.command.mode, 'Turbo');
+
+    final back = HomeData.fromJson(jsonDecode(store.exportJson()) as Map<String, dynamic>).scenes.single;
+    expect(back.actions.map((a) => a.command.action), [DeviceAction.start, DeviceAction.armAway]);
+
+    await store.command(robot, const DeviceCommand(action: DeviceAction.dock));
+    await store.command(alarm, const DeviceCommand(action: DeviceAction.disarm));
+    await store.runScene(s);
+    expect((robot.state.activity, robot.state.mode, alarm.state.activity), (Activity.running, 'Turbo', Activity.armedAway));
+
+    alarm.props['codeArmRequired'] = true;
+    expect(SceneAction.capture(alarm).command.action, isNull, reason: 'its code is not saved');
+  });
+
+  test('all off leaves water valves, garage doors and heating alone', () async {
+    final valve = store.addVirtualDevice('demo', 'Main water', DeviceKind.valve);
+    final garage = store.addVirtualDevice('demo', 'Garage', DeviceKind.garage);
+    final siren = store.addVirtualDevice('demo', 'Siren', DeviceKind.siren);
+    await store.command(valve, const DeviceCommand(on: true));
+    await store.command(garage, const DeviceCommand(position: 1));
+    await store.command(siren, const DeviceCommand(on: true));
+    await store.allOff();
+    expect((valve.state.on, garage.state.position, siren.state.on), (true, 1, false));
+  });
+
+  test('a virtual device that changes kind gets the controls of its new kind', () {
+    final lamp = named('Desk lamp');
+    store.updateDevice(lamp, kind: DeviceKind.vacuum);
+    expect(lamp.capabilities, containsAll([Capability.run, Capability.dock]));
+    expect(lamp.state.activity, Activity.docked);
+    expect(lamp.modes, isNotEmpty);
+    expect(HomeStore.tapControls(lamp), isTrue);
+    store.updateDevice(lamp, kind: DeviceKind.alarm);
+    expect(HomeStore.tapControls(lamp), isFalse, reason: 'an alarm opens its controls');
+  });
+
   test('the sample home goes away once real devices are here', () async {
     expect(store.showSampleCleanup, isFalse, reason: 'nothing real yet');
     final cfg = store.addIntegration('shelly', settings: {'hosts': '10.0.0.5'});

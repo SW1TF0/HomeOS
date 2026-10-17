@@ -107,7 +107,7 @@ class HomeStore extends ChangeNotifier {
   List<Device> get unplaced => data.devices.where((d) => d.mapPos == null).toList();
   List<Device> get favorites => data.devices.where((d) => d.favorite).toList();
 
-  int get activeCount => data.devices.where((d) => d.state.isActive && d.kind != DeviceKind.lock).length;
+  int get activeCount => data.devices.where((d) => d.countsAsOn).length;
 
   // ---- Theme ------------------------------------------------------------------
 
@@ -310,6 +310,12 @@ class HomeStore extends ChangeNotifier {
 
   void updateDevice(Device d, {String? name, DeviceKind? kind, String? roomId, bool clearRoom = false, bool? favorite}) {
     if (name != null && name.trim().isNotEmpty) d.name = name.trim();
+    if (kind != null && kind != d.kind && integration(d.integrationId)?.type == 'demo') {
+      // A virtual device becomes a believable one of its new kind.
+      d.capabilities = defaultCapabilities(kind);
+      d.state = _initialState(kind);
+      d.props = _virtualProps(kind);
+    }
     if (kind != null) d.kind = kind;
     if (clearRoom || roomId != null) _checkpoint();
     if (clearRoom) {
@@ -458,7 +464,7 @@ class HomeStore extends ChangeNotifier {
       kind: kind,
       integrationId: integrationId,
       externalId: ext,
-      props: props,
+      props: props ?? (integration(integrationId)?.type == 'demo' ? _virtualProps(kind) : null),
       // Virtual devices start with a believable state; real ones wait for theirs.
       state: props?['component'] != null ? const DeviceState() : _initialState(kind),
     );
@@ -480,10 +486,25 @@ class HomeStore extends ChangeNotifier {
   static DeviceState _initialState(DeviceKind kind) => switch (kind) {
         DeviceKind.light => const DeviceState(on: false, brightness: 0.8, colorTempK: 3000),
         DeviceKind.climate => const DeviceState(on: true, targetTemp: 21, currentTemp: 20.5),
-        DeviceKind.cover => const DeviceState(position: 0),
+        DeviceKind.cover || DeviceKind.garage => const DeviceState(position: 0),
         DeviceKind.lock => const DeviceState(locked: true),
         DeviceKind.sensor => const DeviceState(readings: {'Temperature': '21.0 °C', 'Humidity': '45 %'}),
+        DeviceKind.vacuum => const DeviceState(activity: Activity.docked, battery: 1, mode: 'Balanced'),
+        DeviceKind.mower => const DeviceState(activity: Activity.docked, battery: 1),
+        DeviceKind.appliance => const DeviceState(activity: Activity.idle),
+        DeviceKind.alarm => const DeviceState(activity: Activity.disarmed),
+        DeviceKind.purifier => const DeviceState(on: false, speed: 0.5, mode: 'Auto'),
+        DeviceKind.humidifier => const DeviceState(on: false, targetHumidity: 50, currentHumidity: 42),
+        DeviceKind.button || DeviceKind.camera => const DeviceState(),
         _ => const DeviceState(on: false),
+      };
+
+  /// What a virtual device of [kind] offers to choose from.
+  static Map<String, dynamic> _virtualProps(DeviceKind kind) => switch (kind) {
+        DeviceKind.vacuum => {'modes': ['Quiet', 'Balanced', 'Turbo', 'Max']},
+        DeviceKind.purifier => {'modes': ['Auto', 'Sleep', 'Turbo']},
+        DeviceKind.alarm => {'arms': ['home', 'away', 'night']},
+        _ => {},
       };
 
   // ---- Control ----------------------------------------------------------------------
@@ -515,14 +536,49 @@ class HomeStore extends ChangeNotifier {
     }
   }
 
+  /// Whether a tap on [d] does something by itself (switches, opens, starts, presses). Other devices open their
+  /// controls instead: alarms want a choice and maybe a code, cameras show a picture.
+  static bool tapControls(Device d) =>
+      d.has(Capability.lock) ||
+      d.has(Capability.onOff) ||
+      d.has(Capability.position) ||
+      d.has(Capability.press) ||
+      (d.has(Capability.run) && (d.kind == DeviceKind.vacuum || d.kind == DeviceKind.mower));
+
   Future<void> toggle(Device d) {
     if (d.has(Capability.lock)) return command(d, DeviceCommand(locked: !(d.state.locked ?? false)));
     if (d.has(Capability.onOff)) return command(d, DeviceCommand(on: !(d.state.on ?? false)));
     if (d.has(Capability.position)) {
       return command(d, DeviceCommand(position: (d.state.position ?? 0) > 0.5 ? 0 : 1));
     }
+    if (d.has(Capability.press)) return press(d);
+    if (d.has(Capability.run)) {
+      return command(d, DeviceCommand(action: d.state.activity == Activity.running ? DeviceAction.pause : DeviceAction.start));
+    }
     return Future.value();
   }
+
+  /// Presses a button or runs a scene or script, and says so: nothing else shows that it worked.
+  Future<void> press(Device d) async {
+    if (await command(d, const DeviceCommand(action: DeviceAction.press))) toast('${d.name}: done.');
+  }
+
+  /// A still picture from a camera, or null when it cannot take one.
+  Future<Uint8List?> snapshot(Device d) async {
+    final driver = _drivers[d.integrationId];
+    if (driver == null) return null;
+    final picture = await driver.snapshot(d);
+    if (picture != null && !d.state.reachable) {
+      d.state = d.state.merge(const DeviceState(reachable: true));
+      _changed(save: false);
+    }
+    return picture;
+  }
+
+  /// Whether [d] is switched with everything else by "All off" and a room's power button. Heating, doors, blinds
+  /// and water valves are left alone: they move or matter on their own.
+  static bool switchedTogether(Device d) =>
+      d.has(Capability.onOff) && !const {DeviceKind.climate, DeviceKind.cover, DeviceKind.garage, DeviceKind.valve}.contains(d.kind);
 
   Future<void> setPower(Iterable<Device> devices, bool on) => Future.wait(
       devices.where((d) => d.has(Capability.onOff) && d.state.on != on).map((d) => command(d, DeviceCommand(on: on))));
@@ -532,9 +588,8 @@ class HomeStore extends ChangeNotifier {
       .where((d) => d.has(Capability.brightness))
       .map((d) => command(d, level <= 0.01 ? const DeviceCommand(on: false) : DeviceCommand(brightness: level))));
 
-  /// What a room's power button switches: everything with on/off except heating.
-  List<Device> switchablesIn(String roomId) =>
-      devicesIn(roomId).where((d) => d.has(Capability.onOff) && d.kind != DeviceKind.climate).toList();
+  /// What a room's power button switches: everything with on/off except heating, blinds, doors and valves.
+  List<Device> switchablesIn(String roomId) => devicesIn(roomId).where(switchedTogether).toList();
 
   /// Room power: off when anything is on, otherwise the lights come on.
   Future<void> toggleRoom(String roomId) {
@@ -544,7 +599,7 @@ class HomeStore extends ChangeNotifier {
     return setPower(lights.isEmpty ? all : lights, true);
   }
 
-  Future<void> allOff() => setPower(data.devices.where((d) => d.kind != DeviceKind.climate), false);
+  Future<void> allOff() => setPower(data.devices.where(switchedTogether), false);
 
   // ---- Integrations -------------------------------------------------------------------
 
@@ -826,6 +881,19 @@ class HomeStore extends ChangeNotifier {
   }
 
   /// Sets one of a device's own settings (MAC address, TV key...).
+  /// Sets the address a camera's picture is fetched from (any integration); empty removes it.
+  void setSnapshotUrl(Device d, String url) {
+    final u = url.trim();
+    if (u.isEmpty) {
+      d.props.remove('snapshotUrl');
+      d.capabilities = {...d.capabilities}..remove(Capability.snapshot);
+    } else {
+      d.props['snapshotUrl'] = u;
+      d.capabilities = {...d.capabilities, Capability.snapshot};
+    }
+    _changed();
+  }
+
   void setDeviceProp(Device d, String key, String? value) {
     if (value == null || value.trim().isEmpty) {
       d.props.remove(key);

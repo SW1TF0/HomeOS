@@ -9,18 +9,32 @@ Future<String?> promptText(
   String initial = '',
   String hint = '',
   String action = 'Save',
+  bool secret = false,
+  bool number = false,
 }) =>
     showDialog<String>(
       context: context,
-      builder: (context) => _TextPrompt(title: title, initial: initial, hint: hint, action: action),
+      builder: (context) =>
+          _TextPrompt(title: title, initial: initial, hint: hint, action: action, secret: secret, number: number),
     );
 
 class _TextPrompt extends StatefulWidget {
-  const _TextPrompt({required this.title, required this.initial, required this.hint, required this.action});
+  const _TextPrompt({
+    required this.title,
+    required this.initial,
+    required this.hint,
+    required this.action,
+    this.secret = false,
+    this.number = false,
+  });
   final String title;
   final String initial;
   final String hint;
   final String action;
+
+  /// Hides what is typed (codes and passwords).
+  final bool secret;
+  final bool number;
 
   @override
   State<_TextPrompt> createState() => _TextPromptState();
@@ -42,7 +56,11 @@ class _TextPromptState extends State<_TextPrompt> {
           controller: _controller,
           autofocus: true,
           decoration: InputDecoration(hintText: widget.hint),
-          textCapitalization: TextCapitalization.sentences,
+          obscureText: widget.secret,
+          enableSuggestions: !widget.secret,
+          autocorrect: !widget.secret,
+          keyboardType: widget.number ? TextInputType.number : null,
+          textCapitalization: widget.secret ? TextCapitalization.none : TextCapitalization.sentences,
           onSubmitted: (v) => Navigator.pop(context, v.trim()),
         ),
         actions: [
