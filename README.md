@@ -59,7 +59,8 @@ New device families are added by writing one driver class in `lib/integrations/`
 Builds are made for free by GitHub Actions (`.github/workflows/build.yml`):
 
 - Every push to `main` builds an Android APK, a Windows zip, a Linux tarball and a macOS app, attached to the workflow run under **Artifacts**.
-- Pushing a tag such as `v1.0.0` also publishes them on the **Releases** page.
+- Pushing a tag such as `v1.0.0`, or running the workflow by hand with a version, also publishes them on the **Releases** page.
+- Android builds are signed with the app's own key, which `tool/android_key.py` makes from the `ANDROID_SIGNING_SECRET` repository secret (any text of 16 or more characters), the same key every time. So each version installs over the last one and keeps your home. Without the secret they get a one-off debug key and do not install over other versions.
 
 The macOS app is not signed, so the first time you open it, right-click it and choose Open. iPhone builds need an Apple developer account to sign, so for now build them yourself with Xcode (`flutter build ios`).
 
