@@ -1,0 +1,80 @@
+# The SwiftUI app for iPhone and Mac. Make the Xcode project with `xcodegen` (brew install xcodegen), then open
+# SmartMenuKJ.xcodeproj. The homes, scenes and drivers come from the SmartMenuCore package one folder up.
+name: SmartMenuKJ
+options:
+  bundleIdPrefix: com.smartmenukj
+  deploymentTarget:
+    iOS: "16.0"
+    macOS: "13.0"
+packages:
+  SmartMenuCore:
+    path: ..
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+targets:
+  SmartMenuKJ-iOS:
+    type: application
+    platform: iOS
+    scheme: {}
+    sources:
+      - path: SmartMenuKJ
+    dependencies:
+      - package: SmartMenuCore
+    settings:
+      base:
+        PRODUCT_NAME: SmartMenuKJ
+        PRODUCT_BUNDLE_IDENTIFIER: com.smartmenukj.nativeapp
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+    info:
+      path: Generated/iOS-Info.plist
+      properties:
+        CFBundleDisplayName: SmartMenuKJ
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen:
+          UIColorName: ""
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        NSLocalNetworkUsageDescription: SmartMenuKJ finds and controls the smart devices on your home Wi-Fi.
+        NSBonjourServices: [_hue._tcp, _shelly._tcp, _wled._tcp, _esphomelib._tcp, _home-assistant._tcp, _http._tcp]
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+          NSAllowsLocalNetworking: true
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+  SmartMenuKJ-macOS:
+    type: application
+    platform: macOS
+    scheme: {}
+    sources:
+      - path: SmartMenuKJ
+    dependencies:
+      - package: SmartMenuCore
+    settings:
+      base:
+        PRODUCT_NAME: SmartMenuKJ
+        PRODUCT_BUNDLE_IDENTIFIER: com.smartmenukj.nativeapp
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIconMac
+        ENABLE_HARDENED_RUNTIME: NO
+        COMBINE_HIDPI_IMAGES: YES
+    info:
+      path: Generated/macOS-Info.plist
+      properties:
+        CFBundleDisplayName: SmartMenuKJ
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.utilities
+        NSHumanReadableCopyright: Free and open source.
+        NSLocalNetworkUsageDescription: SmartMenuKJ finds and controls the smart devices on your home network.
+        NSBonjourServices: [_hue._tcp, _shelly._tcp, _wled._tcp, _esphomelib._tcp, _home-assistant._tcp, _http._tcp]
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+          NSAllowsLocalNetworking: true
