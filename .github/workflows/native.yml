@@ -72,9 +72,54 @@ jobs:
           name: SmartMenuKJ-native-android
           path: SmartMenuKJ-native-android.apk
 
+  apple:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: native/apple
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test the Swift core
+        run: swift test
+      - name: Make the Xcode project
+        working-directory: native/apple/App
+        run: |
+          brew install xcodegen
+          version="${{ inputs.version }}"
+          version="${version#native-v}"
+          sed -i '' "s/MARKETING_VERSION: \"0.1.0\"/MARKETING_VERSION: \"${version:-0.1.0}\"/; s/CURRENT_PROJECT_VERSION: \"1\"/CURRENT_PROJECT_VERSION: \"${{ github.run_number }}\"/" project.yml
+          xcodegen
+      # Signed "to run locally" (ad hoc): free, no Apple account. macOS asks once, on first open, to confirm it.
+      - name: Build the Mac app
+        working-directory: native/apple/App
+        run: |
+          xcodebuild -project SmartMenuKJ.xcodeproj -scheme SmartMenuKJ-macOS -configuration Release \
+            -derivedDataPath build -destination 'generic/platform=macOS' ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= build > mac.log 2>&1 \
+            || { grep -E "error:" mac.log | sort -u | head -80; tail -n 30 mac.log; exit 1; }
+          test -d build/Build/Products/Release/SmartMenuKJ.app
+          ditto -c -k --keepParent build/Build/Products/Release/SmartMenuKJ.app ../../../SmartMenuKJ-native-macos.zip
+      # iPhone apps need a paid Apple developer account to install, so this only checks that the iPhone app builds, and
+      # keeps an unsigned copy for people who sign apps themselves.
+      - name: Build the iPhone app (unsigned)
+        working-directory: native/apple/App
+        run: |
+          xcodebuild -project SmartMenuKJ.xcodeproj -scheme SmartMenuKJ-iOS -configuration Release \
+            -derivedDataPath build-ios -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build > ios.log 2>&1 \
+            || { grep -E "error:" ios.log | sort -u | head -80; tail -n 30 ios.log; exit 1; }
+          mkdir -p Payload
+          cp -R build-ios/Build/Products/Release-iphoneos/SmartMenuKJ.app Payload/
+          zip -qr ../../../SmartMenuKJ-native-ios-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SmartMenuKJ-native-apple
+          path: |
+            SmartMenuKJ-native-macos.zip
+            SmartMenuKJ-native-ios-unsigned.ipa
+
   release:
     if: inputs.version != ''
-    needs: [android]
+    needs: [android, apple]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
