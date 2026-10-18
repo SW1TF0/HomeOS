@@ -259,15 +259,16 @@ struct ColorRing: View {
     var onPick: (Int) -> Void
     @State private var picked: Double?
 
+    static func hueAt(_ pt: CGPoint, _ c: CGPoint) -> Double {
+        let deg = atan2(Double(pt.y - c.y), Double(pt.x - c.x)) * 180 / .pi
+        return (deg + 450).truncatingRemainder(dividingBy: 360)
+    }
+
     var body: some View {
         let hue = picked ?? color.map { ColorMath.rgbToHsv($0).h }
         HStack(spacing: 16) {
             GeometryReader { g in
                 let c = CGPoint(x: g.size.width / 2, y: g.size.height / 2)
-                func hueAt(_ pt: CGPoint) -> Double {
-                    let deg = atan2(Double(pt.y - c.y), Double(pt.x - c.x)) * 180 / .pi
-                    return (deg + 450).truncatingRemainder(dividingBy: 360)
-                }
                 ZStack {
                     Circle().fill(AngularGradient(colors: (0...12).map { Color(hue: Double($0 % 12) / 12, saturation: 1, brightness: 1) },
                                                   center: .center, startAngle: .degrees(-90), endAngle: .degrees(270)))
@@ -277,7 +278,7 @@ struct ColorRing: View {
                 }
                 .contentShape(Circle())
                 .gesture(DragGesture(minimumDistance: 0)
-                    .onChanged { picked = hueAt($0.location) }
+                    .onChanged { picked = Self.hueAt($0.location, c) }
                     .onEnded { _ in if let h = picked { onPick(ColorMath.hsvToRgb(h, 1, 1)) } })
             }
             .frame(width: 180, height: 180)
