@@ -540,7 +540,6 @@ class HomeStore(
 
     /** Every home as one JSON text, in the same shape as the Flutter app's backup file. */
     fun exportAll(): String {
-        saveNow()
         val s = _state.value
         val homes = s.homes.mapNotNull { h ->
             val d = (if (h.id == s.homeId) s.data else readHome(h.id)) ?: return@mapNotNull null

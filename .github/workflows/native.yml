@@ -1,0 +1,105 @@
+name: Native apps
+
+# Builds the native SmartMenuKJ apps (Kotlin for Android, Swift for Apple) for free on GitHub's runners.
+# Running it by hand with a version (like native-v0.1.0) publishes them as a pre-release, so the Flutter app stays on
+# releases/latest. The newest native builds are also always at the native-latest release.
+on:
+  push:
+    branches: [main, 'claude/native-**']
+    paths: ['native/**', '.github/workflows/native.yml']
+  pull_request:
+    paths: ['native/**', '.github/workflows/native.yml']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Publish a pre-release with this tag (e.g. native-v0.1.0). Leave empty to only build.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: native/android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # The same signing key as the Flutter app, made from a secret, so every native version installs over the last.
+      - name: Make the signing key
+        env:
+          ANDROID_SIGNING_SECRET: ${{ secrets.ANDROID_SIGNING_SECRET }}
+        run: |
+          if [ -z "$ANDROID_SIGNING_SECRET" ]; then
+            echo "::warning::No ANDROID_SIGNING_SECRET, so this APK gets a one-off key and does not install over other versions."
+            ANDROID_SIGNING_SECRET=$(openssl rand -hex 32)
+          fi
+          pip install --quiet cryptography==50.0.1
+          ANDROID_SIGNING_SECRET="$ANDROID_SIGNING_SECRET" python ../../tool/android_key.py app/release-key.p12 >> "$GITHUB_ENV"
+      - name: Test the core and build the APK
+        run: |
+          version="${{ inputs.version }}"
+          version="${version#native-v}"
+          ./gradlew --no-daemon :core:test :app:assembleRelease \
+            -PversionCode=${{ github.run_number }} -PversionName="${version:-0.1.0-dev.${{ github.run_number }}}"
+      - run: mv app/build/outputs/apk/release/app-release.apk ../../SmartMenuKJ-native-android.apk
+      - name: Check which key signed the APK
+        working-directory: .
+        run: |
+          signer=$(python tool/android_key.py --signer SmartMenuKJ-native-android.apk)
+          echo "Signed by $signer"
+          if [ "$signer" != "$APP_KEY_SHA256" ]; then
+            echo "::error::The APK is not signed with the key made for it ($APP_KEY_SHA256)."
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: core-test-report
+          path: native/android/core/build/reports/tests
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SmartMenuKJ-native-android
+          path: SmartMenuKJ-native-android.apk
+
+  release:
+    if: inputs.version != ''
+    needs: [android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: SmartMenuKJ-native-*
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          tag_name: ${{ inputs.version }}
+          name: SmartMenuKJ native ${{ inputs.version }}
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          generate_release_notes: true
+      # A fixed address for the newest native builds: delete the old native-latest and make it again here.
+      - name: Move native-latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release delete native-latest --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          tag_name: native-latest
+          name: SmartMenuKJ native (newest)
+          body: The newest native build, ${{ inputs.version }}. The Flutter app stays on the main Latest release.
+          target_commitish: ${{ github.sha }}
+          prerelease: true
