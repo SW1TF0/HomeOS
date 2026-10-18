@@ -3,6 +3,7 @@ package com.smartmenukj.app.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.horizontalScroll
@@ -32,7 +33,7 @@ fun DevicesScreen(state: StoreState) {
         name to shown.filter { if (id == null) d.room(it.roomId) == null else it.roomId == id }
     }.filter { it.second.isNotEmpty() }
     val kinds = d.devices.map { it.kind }.distinct()
-    val span = { _: Any -> GridItemSpan(maxLineSpan) }
+    val span: LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(maxLineSpan) }
 
     Column(Modifier.fillMaxSize()) {
         ScreenTitle("Devices") { NChip("Add", icon = Icons.Outlined.Add) { adding = true } }

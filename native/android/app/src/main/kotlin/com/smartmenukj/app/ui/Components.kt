@@ -212,7 +212,7 @@ fun DeviceTile(
                 )
             }
             .then(if (level != null) Modifier.pointerInput(device.id, level) {
-                var v = level
+                var v: Double = level ?: 0.0
                 detectHorizontalDragGestures(
                     onDragStart = { v = Describe.level(device) ?: 0.0; dragging = v },
                     onDragEnd = { dragging?.let(onLevel); dragging = null },

@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
@@ -38,7 +39,7 @@ fun HomeScreen(state: StoreState) {
     val d = state.data
     val favorites = d.devices.filter { it.favorite }
     val active = d.devices.count { it.countsAsOn }
-    val span = { _: Any -> GridItemSpan(maxLineSpan) }
+    val span: LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(maxLineSpan) }
 
     LazyVerticalGrid(
         columns = GridCells.Adaptive(160.dp),

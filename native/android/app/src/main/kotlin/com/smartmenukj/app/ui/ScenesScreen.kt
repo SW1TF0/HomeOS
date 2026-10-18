@@ -61,7 +61,7 @@ fun SceneEditor(state: StoreState, id: String, onDismiss: () -> Unit) {
     val existing = d.scenes.firstOrNull { it.id == id }
     var name by remember { mutableStateOf(existing?.name ?: "") }
     var icon by remember { mutableStateOf(existing?.icon ?: "auto") }
-    var actions by remember { mutableStateOf(existing?.actions?.associateBy { it.deviceId } ?: emptyMap()) }
+    var actions by remember { mutableStateOf<Map<String, SceneAction>>(existing?.actions?.associateBy { it.deviceId } ?: emptyMap()) }
     var timed by remember { mutableStateOf(existing?.schedule != null) }
     var hour by remember { mutableIntStateOf(existing?.schedule?.hour ?: 7) }
     var minute by remember { mutableIntStateOf(existing?.schedule?.minute ?: 0) }
