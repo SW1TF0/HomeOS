@@ -5,10 +5,10 @@ import '../../models/device.dart';
 import '../../models/home.dart';
 import '../../state/home_store.dart';
 import '../../state/seed.dart';
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 import '../../util/text.dart';
 import '../widgets/dialogs.dart';
-import '../widgets/nothing_widgets.dart';
+import '../widgets/kj_widgets.dart';
 import 'connect_screen.dart';
 import 'matter_sheet.dart';
 import 'device_sheet.dart';
@@ -52,7 +52,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
           sliver: SliverList.list(children: [
             Row(children: [
-              const Expanded(child: DotText('DEVICES', size: 34)),
+              const Expanded(child: DisplayText('Devices', size: 34)),
               FilledButton.icon(
                 key: const Key('add-device'),
                 onPressed: () => _addDevice(context, store),
@@ -94,7 +94,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(32),
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  const DotText('NO DEVICES', size: 26),
+                  const DisplayText('No devices', size: 26),
                   const SizedBox(height: 8),
                   Text(store.devices.isEmpty ? 'Connect a hub or add a device to get started.' : 'Nothing matches that search.',
                       textAlign: TextAlign.center, style: NType.body(14, color: p.textDim)),
@@ -214,7 +214,7 @@ class _MqttDeviceFormState extends State<MqttDeviceForm> {
       padding: EdgeInsets.fromLTRB(24, 0, 24, MediaQuery.of(context).viewInsets.bottom + 24),
       child: SingleChildScrollView(
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-          const DotText('MQTT DEVICE', size: 26),
+          const DisplayText('MQTT device', size: 26),
           const SizedBox(height: 6),
           Text('On ${widget.integration.name}. Payloads are sent as plain text.',
               style: NType.body(13, color: context.palette.textDim)),

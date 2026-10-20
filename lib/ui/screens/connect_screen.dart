@@ -10,10 +10,10 @@ import '../../integrations/matter/matter_driver.dart';
 import '../../integrations/network_scan.dart';
 import '../../models/home.dart';
 import '../../state/home_store.dart';
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 import '../../util/text.dart';
 import '../widgets/dialogs.dart';
-import '../widgets/nothing_widgets.dart';
+import '../widgets/kj_widgets.dart';
 import 'camera_sheet.dart';
 import 'device_sheet.dart';
 import 'matter_sheet.dart';
@@ -33,7 +33,7 @@ class ConnectScreen extends StatelessWidget {
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
           sliver: SliverList.list(children: [
-            const Row(children: [Expanded(child: DotText('CONNECT', size: 34)), ProfileButton()]),
+            const Row(children: [Expanded(child: DisplayText('Connect', size: 34)), ProfileButton()]),
             const SizedBox(height: 4),
             Text('Find and connect your devices. Everything runs on your own network.', style: NType.body(14, color: p.textDim)),
             const SizedBox(height: 18),
@@ -141,14 +141,14 @@ class _IntegrationCard extends StatelessWidget {
               ok ? '${counted(count, 'device')}${st?.message != null && !st!.message!.endsWith('devices') ? ' · ${st.message}' : ''}' : st!.message ?? 'Error',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: NType.body(13, color: ok ? p.textDim : NothingPalette.red),
+              style: NType.body(13, color: ok ? p.textDim : KJPalette.danger),
             ),
           ]),
         ),
         Container(
           width: 8,
           height: 8,
-          decoration: BoxDecoration(shape: BoxShape.circle, color: ok ? p.text : NothingPalette.red),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: ok ? p.text : KJPalette.danger),
         ),
       ]),
     );
@@ -253,13 +253,13 @@ class _IntegrationSheetState extends State<IntegrationSheet> {
           Row(children: [
             Icon(spec.icon, size: 30),
             const SizedBox(width: 12),
-            Expanded(child: DotText(spec.name.toUpperCase(), size: 24, maxLines: 2)),
+            Expanded(child: DisplayText(spec.name, size: 24, maxLines: 2)),
           ]),
           const SizedBox(height: 10),
           Text(spec.description, style: NType.body(14, color: p.textDim)),
           if (st != null && !st.ok) ...[
             const SizedBox(height: 12),
-            Text(st.message ?? 'Not connected', style: NType.body(13, color: NothingPalette.red)),
+            Text(st.message ?? 'Not connected', style: NType.body(13, color: KJPalette.danger)),
           ],
           const SizedBox(height: 18),
           TextField(controller: _name, decoration: const InputDecoration(labelText: 'Name')),
@@ -336,7 +336,7 @@ class _IntegrationSheetState extends State<IntegrationSheet> {
             ),
             const SizedBox(height: 6),
             TextButton.icon(
-              style: TextButton.styleFrom(foregroundColor: NothingPalette.red),
+              style: TextButton.styleFrom(foregroundColor: KJPalette.accent),
               onPressed: () async {
                 if (await confirm(context,
                     title: 'Remove ${cfg.name}?', body: 'Its $count devices are removed from SmartMenuKJ too.')) {
@@ -537,7 +537,7 @@ class _ScanSheetState extends State<ScanSheet> {
         padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
         children: [
           Row(children: [
-            Expanded(child: DotText(_scanning ? 'SCANNING' : 'FOUND ${visible.length}', size: 28)),
+            Expanded(child: DisplayText(_scanning ? 'Scanning' : 'FOUND ${visible.length}', size: 28)),
             if (_scanning)
               const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
             else
@@ -578,7 +578,7 @@ class _ScanSheetState extends State<ScanSheet> {
             Padding(
               padding: const EdgeInsets.only(bottom: 14),
               child: Text('This phone is not on a Wi-Fi network. Connect it to the same Wi-Fi as your devices and scan again.',
-                  style: NType.body(14, color: NothingPalette.red)),
+                  style: NType.body(14, color: KJPalette.danger)),
             ),
           if (_scanning && visible.isEmpty)
             Padding(
@@ -614,7 +614,7 @@ class _ScanSheetState extends State<ScanSheet> {
                 else if (_isAdded(store, s))
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text('ADDED', style: NType.label(color: p.textDim)),
+                    child: Text('Added', style: NType.label(color: p.textDim)),
                   )
                 else
                   TextButton(onPressed: () => _add(s), child: Text(s.integrationType == null ? 'How?' : 'Add')),

@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
 
 import '../../integrations/integration.dart';
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 import '../../util/digest_auth.dart';
 
 /// Whether RTSP video plays here. Android plays it; Apple's player and the desktop apps have no RTSP, so there a
@@ -72,7 +72,7 @@ class _LiveCameraViewState extends State<LiveCameraView> {
           child: ColoredBox(
             color: Colors.black,
             child: Stack(fit: StackFit.expand, children: [
-              if (_away) const CameraMessage('PLAYING FULL SCREEN') else _player(BoxFit.cover, muted: _muted),
+              if (_away) const CameraMessage('Playing full screen') else _player(BoxFit.cover, muted: _muted),
               const Positioned(left: 14, top: 12, child: LiveBadge()),
               Positioned(
                 right: 4,
@@ -101,9 +101,9 @@ class _LiveCameraViewState extends State<LiveCameraView> {
       ),
       const SizedBox(height: 8),
       Row(children: [
-        Container(width: 6, height: 6, decoration: const BoxDecoration(color: NothingPalette.red, shape: BoxShape.circle)),
+        Container(width: 6, height: 6, decoration: const BoxDecoration(color: KJPalette.danger, shape: BoxShape.circle)),
         const SizedBox(width: 8),
-        Expanded(child: Text(_rtsp ? 'LIVE · ${_hd || widget.stream.rtspLow == null ? 'HD' : 'SD'}' : 'LIVE', style: NType.label(color: p.textDim))),
+        Expanded(child: Text(_rtsp ? 'LIVE · ${_hd || widget.stream.rtspLow == null ? 'HD' : 'SD'}' : 'Live', style: NType.label(color: p.textDim))),
         if (_rtsp && widget.stream.rtspLow != null)
           for (final (label, hd) in const [('SD', false), ('HD', true)])
             Padding(
@@ -155,9 +155,9 @@ class LiveBadge extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(8, 4, 10, 4),
         decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(999)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Container(width: 7, height: 7, decoration: const BoxDecoration(color: NothingPalette.red, shape: BoxShape.circle)),
+          Container(width: 7, height: 7, decoration: const BoxDecoration(color: KJPalette.danger, shape: BoxShape.circle)),
           const SizedBox(width: 6),
-          Text('LIVE', style: NType.dot(13, color: Colors.white)),
+          Text('Live', style: NType.display(13, color: Colors.white)),
         ]),
       );
 }
@@ -177,7 +177,7 @@ class CameraMessage extends StatelessWidget {
               const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54)),
               const SizedBox(height: 12),
             ],
-            Text(problem ? text : text.toUpperCase(),
+            Text(text,
                 textAlign: TextAlign.center,
                 style: problem ? NType.body(13.5, color: const Color(0xFFFF6B6B)) : NType.label(color: Colors.white70)),
           ]),
@@ -235,7 +235,7 @@ class _FullScreenCameraState extends State<FullScreenCamera> {
                 const SizedBox(width: 6),
                 Padding(
                   padding: const EdgeInsets.only(top: 12),
-                  child: Text(widget.name.toUpperCase(), style: NType.dot(16, color: Colors.white)),
+                  child: Text(widget.name, style: NType.display(16, color: Colors.white)),
                 ),
                 const Spacer(),
                 IconButton(

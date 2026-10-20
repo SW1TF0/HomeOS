@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import '../../app_info.dart';
 import '../../cloud/cloud_sync.dart';
 import '../../state/home_store.dart';
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 import 'account_sheet.dart';
 import 'help_sheet.dart';
 import 'homes_sheet.dart';
@@ -53,7 +53,7 @@ class ProfileAvatar extends StatelessWidget {
           ),
           child: letter == null
               ? Icon(Icons.person_outline, size: size * 0.55, color: p.text)
-              : Text(letter, style: NType.dot(size * 0.56, color: p.background)),
+              : Text(letter, style: NType.display(size * 0.56, color: p.background)),
         ),
         // Something to look at: the account could not sync.
         if (cloud.signedIn && cloud.problem != null)
@@ -64,7 +64,7 @@ class ProfileAvatar extends StatelessWidget {
               width: size * 0.26,
               height: size * 0.26,
               decoration: BoxDecoration(
-                  color: NothingPalette.red, shape: BoxShape.circle, border: Border.all(color: p.background, width: 1.5)),
+                  color: KJPalette.danger, shape: BoxShape.circle, border: Border.all(color: p.background, width: 1.5)),
             ),
           ),
       ]),
@@ -156,7 +156,7 @@ class ProfileMenu extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: NType.body(16, color: p.text, weight: 600)),
                             const SizedBox(height: 2),
-                            Text(subtitle, style: NType.body(13, color: warn ? NothingPalette.red : p.textDim)),
+                            Text(subtitle, style: NType.body(13, color: warn ? KJPalette.danger : p.textDim)),
                           ]),
                         ),
                       ),
@@ -185,7 +185,7 @@ class ProfileMenu extends StatelessWidget {
                   Divider(height: 24, color: p.border),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(24, 0, 24, 4),
-                    child: Text('HOMES', style: NType.label(color: p.textDim)),
+                    child: Text('Homes', style: NType.label(color: p.textDim)),
                   ),
                   for (final h in store.homes)
                     ListTile(
@@ -193,7 +193,7 @@ class ProfileMenu extends StatelessWidget {
                       dense: true,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 20),
                       leading: h.id == store.homeId
-                          ? const Icon(Icons.radio_button_checked, color: NothingPalette.red)
+                          ? const Icon(Icons.radio_button_checked, color: KJPalette.accent)
                           : Icon(Icons.radio_button_unchecked, color: p.textDim),
                       title: Text(h.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                       trailing: h.cloudId != null && cloud.signedIn

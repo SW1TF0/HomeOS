@@ -21,13 +21,11 @@ import 'package:smartmenukj/ui/screens/camera_playback.dart';
 import 'package:smartmenukj/ui/widgets/camera_live.dart';
 
 Future<void> _loadFonts() async {
-  Future<void> asset(String family, String path) async {
-    final loader = FontLoader(family)..addFont(rootBundle.load(path));
-    await loader.load();
+  final inter = FontLoader('Inter');
+  for (final w in [400, 500, 600, 700, 800]) {
+    inter.addFont(rootBundle.load('assets/fonts/Inter-$w.ttf'));
   }
-
-  await asset('Doto', 'assets/fonts/Doto.ttf');
-  await asset('SpaceGrotesk', 'assets/fonts/SpaceGrotesk.ttf');
+  await inter.load();
   final root = Platform.environment['FLUTTER_ROOT'] ?? '';
   final icons = File('$root/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
   if (icons.existsSync()) {
@@ -82,7 +80,7 @@ void main() {
     store.unplaceDevice(store.devices.firstWhere((d) => d.name == 'Bath fan'));
     await tester.tap(find.byKey(const Key('map-edit')));
     await tester.pumpAndSettle();
-    await tester.tapAt(tester.getTopLeft(find.textContaining('KITCHEN')) + const Offset(4, 4));
+    await tester.tapAt(tester.getTopLeft(find.textContaining('Kitchen').first) + const Offset(4, 4));
     await _shot(tester, 'phone-map-edit');
   });
 
@@ -367,7 +365,7 @@ void main() {
 
   testWidgets('desktop map', (tester) async {
     await _app(tester, desktop);
-    await tester.tap(find.text('MAP'));
+    await tester.tap(find.text('Map'));
     await _shot(tester, 'desktop-map');
   });
 

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 
 /// Asks for a line of text. Returns null when cancelled.
 Future<String?> promptText(
@@ -79,7 +79,7 @@ Future<bool> confirm(BuildContext context, {required String title, required Stri
       actions: [
         TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
         FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: NothingPalette.red, foregroundColor: Colors.white),
+          style: FilledButton.styleFrom(backgroundColor: KJPalette.danger, foregroundColor: Colors.white),
           onPressed: () => Navigator.pop(context, true),
           child: Text(action),
         ),
@@ -104,7 +104,7 @@ Future<T?> pickOne<T>(BuildContext context,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
-              child: Text(title, style: NType.dot(24, color: context.palette.text)),
+              child: Text(title, style: NType.display(24, color: context.palette.text)),
             ),
             Flexible(
               child: ListView(
@@ -182,7 +182,7 @@ class _PickManyState<T> extends State<_PickMany<T>> {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 12, 8),
               child: Row(children: [
-                Expanded(child: Text(widget.title, style: NType.dot(24, color: p.text))),
+                Expanded(child: Text(widget.title, style: NType.display(24, color: p.text))),
                 TextButton(
                   onPressed: () => setState(() =>
                       _picked.length == widget.options.length ? _picked.clear() : _picked.addAll(widget.options)),
@@ -202,7 +202,7 @@ class _PickManyState<T> extends State<_PickMany<T>> {
                       title: Text(widget.label(o)),
                       subtitle: widget.subtitle == null ? null : Text(widget.subtitle!(o)),
                       value: _picked.contains(o),
-                      activeColor: NothingPalette.red,
+                      activeColor: KJPalette.accent,
                       onChanged: (v) => setState(() => v == true ? _picked.add(o) : _picked.remove(o)),
                     ),
                 ],

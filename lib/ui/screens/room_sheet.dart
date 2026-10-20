@@ -3,11 +3,11 @@ import 'package:provider/provider.dart';
 
 import '../../models/device.dart';
 import '../../state/home_store.dart';
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 import '../nav.dart';
 import '../widgets/controls.dart';
 import '../widgets/dialogs.dart';
-import '../widgets/nothing_widgets.dart';
+import '../widgets/kj_widgets.dart';
 import 'device_sheet.dart';
 
 Future<void> showRoomSheet(BuildContext context, String roomId) => showModalBottomSheet(
@@ -52,7 +52,7 @@ class RoomSheet extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
         children: [
           Row(children: [
-            Expanded(child: DotText(room.name, size: 32, maxLines: 2)),
+            Expanded(child: DisplayText(room.name, size: 32, maxLines: 2)),
             IconButton(
               key: const Key('room-rename'),
               tooltip: 'Rename room',
@@ -66,10 +66,10 @@ class RoomSheet extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             [
-              devices.isEmpty ? 'NO DEVICES' : '$on OF ${devices.length} ON',
+              devices.isEmpty ? 'No devices' : '$on of ${devices.length} on',
               if (temp != null) '${temp.toStringAsFixed(1)}°',
               store.floors.length > 1 ? (store.floors.where((f) => f.id == room.floorId).firstOrNull?.name ?? '') : '',
-            ].where((t) => t.isNotEmpty).join(' · ').toUpperCase(),
+            ].where((t) => t.isNotEmpty).join(' · '),
             style: NType.label(color: p.textDim),
           ),
           const SizedBox(height: 16),
@@ -211,7 +211,7 @@ class _DeviceListSheet extends StatelessWidget {
         controller: scroll,
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
         children: [
-          DotText(title, size: 30, maxLines: 2),
+          DisplayText(title, size: 30, maxLines: 2),
           const SizedBox(height: 4),
           Text('${devices.length} DEVICE${devices.length == 1 ? '' : 'S'}', style: NType.label(color: p.textDim)),
           if (action != null && actionLabel != null && devices.isNotEmpty) ...[

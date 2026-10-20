@@ -5,10 +5,10 @@ import '../../models/device.dart';
 import '../../models/scene.dart';
 import '../../state/home_store.dart';
 import '../../state/scene_alarms.dart';
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 import '../widgets/controls.dart';
 import '../widgets/dialogs.dart';
-import '../widgets/nothing_widgets.dart';
+import '../widgets/kj_widgets.dart';
 import 'device_sheet.dart';
 
 const sceneIcons = <String, IconData>{
@@ -26,6 +26,20 @@ const sceneIcons = <String, IconData>{
 };
 
 IconData sceneIcon(String key) => sceneIcons[key] ?? Icons.auto_awesome_outlined;
+
+/// The round colour behind a scene's icon, like the scene buttons on smarthomekj.eu.
+Color sceneColor(String key) => switch (key) {
+      'morning' => KJPalette.orange,
+      'away' => KJPalette.green,
+      'night' => KJPalette.indigo,
+      'movie' => KJPalette.pink,
+      'off' => KJPalette.danger,
+      'dinner' => KJPalette.yellow,
+      'relax' => KJPalette.teal,
+      'party' => KJPalette.purple,
+      'home' => KJPalette.blue,
+      _ => KJPalette.accent,
+    };
 
 /// What a scene will do to one device, in a few words.
 String describeAction(Device d, DeviceCommand c) {
@@ -99,7 +113,7 @@ class _ScenesRowState extends State<ScenesRow> {
     final store = context.watch<HomeStore>();
     final p = context.palette;
     return SizedBox(
-      height: 120,
+      height: 132,
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
@@ -113,16 +127,21 @@ class _ScenesRowState extends State<ScenesRow> {
                 onTap: () => _run(store, s),
                 onLongPress: () => showSceneSheet(context, s),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Icon(sceneIcon(s.icon), color: _running == s.id ? p.background : p.text),
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(color: sceneColor(s.icon), shape: BoxShape.circle),
+                    child: Icon(sceneIcon(s.icon), size: 20, color: Colors.white),
+                  ),
                   const Spacer(),
                   Text(s.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: NType.body(15, color: _running == s.id ? p.background : p.text, weight: 600)),
+                      style: NType.body(15, color: _running == s.id ? p.onTileOn : p.text, weight: 600)),
                   Text(_sceneSubtitle(s),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: NType.body(12, color: _running == s.id ? p.background.withValues(alpha: 0.7) : p.textDim)),
+                      style: NType.body(12, color: _running == s.id ? p.onTileOn.withValues(alpha: 0.6) : p.textDim)),
                 ]),
               ),
             ),
@@ -135,7 +154,12 @@ class _ScenesRowState extends State<ScenesRow> {
               padding: const EdgeInsets.all(14),
               onTap: () => createScene(context),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Icon(Icons.add),
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(color: p.surfaceHigh, shape: BoxShape.circle),
+                  child: const Icon(Icons.add, size: 22, color: KJPalette.accent),
+                ),
                 const Spacer(),
                 Text('New scene', style: NType.body(15, color: p.text, weight: 600)),
                 Text('Turn things off or on', maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.body(12, color: p.textDim)),
@@ -253,7 +277,7 @@ class SceneSheet extends StatelessWidget {
           Row(children: [
             Icon(sceneIcon(s.icon), size: 30),
             const SizedBox(width: 12),
-            Expanded(child: DotText(s.name.toUpperCase(), size: 28, maxLines: 2)),
+            Expanded(child: DisplayText(s.name, size: 28, maxLines: 2)),
           ]),
           const SizedBox(height: 18),
           FilledButton.icon(
@@ -294,7 +318,7 @@ class SceneSheet extends StatelessWidget {
                       ? Switch(
                           key: Key('step-switch-${d.name}'),
                           value: !a.isOff,
-                          activeTrackColor: NothingPalette.red,
+                          activeTrackColor: KJPalette.accent,
                           onChanged: (on) => store.setSceneStep(s, SceneAction.turn(d, on)!),
                         )
                       : Icon(Icons.chevron_right, color: p.textDim),
@@ -379,8 +403,8 @@ class SceneSheet extends StatelessWidget {
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.delete_outline, color: NothingPalette.red),
-                title: const Text('Delete scene', style: TextStyle(color: NothingPalette.red)),
+                leading: const Icon(Icons.delete_outline, color: KJPalette.danger),
+                title: const Text('Delete scene', style: TextStyle(color: KJPalette.danger)),
                 onTap: () async {
                   if (await confirm(context, title: 'Delete ${s.name}?', body: 'Your devices are not changed.')) {
                     store.removeScene(s);
@@ -421,13 +445,13 @@ class _ScheduleCard extends StatelessWidget {
           Expanded(
             child: GestureDetector(
               onTap: pickTime,
-              child: DotText(sch?.time ?? '--:--', size: 44),
+              child: DisplayText(sch?.time ?? '--:--', size: 44),
             ),
           ),
           Switch(
             key: const Key('scene-schedule'),
             value: sch != null,
-            activeTrackColor: NothingPalette.red,
+            activeTrackColor: KJPalette.accent,
             onChanged: (on) => on ? pickTime() : store.updateScene(scene, clearSchedule: true),
           ),
         ]),
@@ -475,7 +499,7 @@ class SceneStepSheet extends StatelessWidget {
   final String deviceId;
 
   static String _pct(double v) => v <= 0.005 ? 'OFF' : '${(v * 100).round()}%';
-  static String _open(double v) => v <= 0.01 ? 'CLOSED' : (v >= 0.99 ? 'OPEN' : '${(v * 100).round()}%');
+  static String _open(double v) => v <= 0.01 ? 'Closed' : (v >= 0.99 ? 'Open' : '${(v * 100).round()}%');
 
   @override
   Widget build(BuildContext context) {
@@ -519,7 +543,7 @@ class SceneStepSheet extends StatelessWidget {
           Row(children: [
             Icon(deviceIcon(d.kind, active: !a.isOff), size: 30),
             const SizedBox(width: 12),
-            Expanded(child: DotText(d.name.toUpperCase(), size: 26, maxLines: 2)),
+            Expanded(child: DisplayText(d.name, size: 26, maxLines: 2)),
           ]),
           const SizedBox(height: 6),
           Text('In ${s.name}: ${describeAction(d, c)}', style: NType.body(14, color: p.textDim)),
@@ -543,7 +567,7 @@ class SceneStepSheet extends StatelessWidget {
                     ..addAll({if (d.has(Capability.onOff)) 'on': true})),
             ),
           if (lit && d.has(Capability.colorTemp)) ...[
-            SectionLabel('White', trailing: c.color != null ? Text('COLOUR', style: NType.dot(18, color: p.text)) : null),
+            SectionLabel('White', trailing: c.color != null ? Text('Colour', style: NType.display(18, color: p.text)) : null),
             Wrap(spacing: 8, runSpacing: 8, children: [
               for (final (label, k) in const [('Warm', 2700), ('Neutral', 4000), ('Cool', 5000), ('Daylight', 6500)])
                 chip('white-$k', label, c.color == null && c.colorTempK == k, () => edit((j) {
@@ -570,7 +594,7 @@ class SceneStepSheet extends StatelessWidget {
           if (lit && d.has(Capability.targetTemp)) ...[
             SectionLabel('Temperature',
                 trailing: Text('${(c.targetTemp ?? d.state.targetTemp ?? 21).toStringAsFixed(1)}°',
-                    style: NType.dot(18, color: p.text))),
+                    style: NType.display(18, color: p.text))),
             Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
               for (final (label, t) in const [('Eco', 18.0), ('Comfort', 21.0), ('Warm', 23.0)])
                 chip('temp-${t.round()}', '$label ${t.round()}°', c.targetTemp == t, () => edit((j) {
@@ -688,8 +712,8 @@ class SceneStepSheet extends StatelessWidget {
               store.removeSceneStep(s, d.id);
               Navigator.pop(context);
             },
-            icon: const Icon(Icons.remove_circle_outline, color: NothingPalette.red),
-            label: const Text('Take out of this scene', style: TextStyle(color: NothingPalette.red)),
+            icon: const Icon(Icons.remove_circle_outline, color: KJPalette.danger),
+            label: const Text('Take out of this scene', style: TextStyle(color: KJPalette.danger)),
           ),
         ],
       ),

@@ -5,9 +5,9 @@ import '../../cloud/cloud_sync.dart';
 import '../../cloud/firebase.dart';
 import '../../state/home_store.dart';
 import '../../state/repository.dart';
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 import '../widgets/dialogs.dart';
-import '../widgets/nothing_widgets.dart';
+import '../widgets/kj_widgets.dart';
 
 Future<void> showHomesSheet(BuildContext context) => showModalBottomSheet(
       context: context,
@@ -60,7 +60,7 @@ class HomesSheet extends StatelessWidget {
         controller: scroll,
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
         children: [
-          const DotText('HOMES', size: 30),
+          const DisplayText('Homes', size: 30),
           const SizedBox(height: 6),
           Text('Each home has its own floor plan, devices, connections and scenes. Tap one to open it.',
               style: NType.body(14, color: p.textDim)),
@@ -81,7 +81,7 @@ class HomesSheet extends StatelessWidget {
                     contentPadding: const EdgeInsets.only(left: 16, right: 4),
                     onTap: () => open(homes[i]),
                     leading: homes[i].id == store.homeId
-                        ? const Icon(Icons.radio_button_checked, color: NothingPalette.red)
+                        ? const Icon(Icons.radio_button_checked, color: KJPalette.accent)
                         : Icon(Icons.radio_button_unchecked, color: p.textDim),
                     title: Row(children: [
                       Flexible(child: Text(homes[i].name, overflow: TextOverflow.ellipsis)),

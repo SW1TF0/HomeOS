@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../integrations/network_scan.dart';
 import '../../state/home_store.dart';
-import '../../theme/nothing_theme.dart';
-import '../widgets/nothing_widgets.dart';
+import '../../theme/app_theme.dart';
+import '../widgets/kj_widgets.dart';
 
 Future<void> openMatterSheet(BuildContext context, {String? name}) => showModalBottomSheet(
       context: context,
@@ -74,7 +74,7 @@ class _MatterSheetState extends State<MatterSheet> {
     Widget step(String n, String text) => Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(width: 22, child: Text(n, style: NType.label(color: NothingPalette.red))),
+            SizedBox(width: 22, child: Text(n, style: NType.label(color: KJPalette.accent))),
             Expanded(child: Text(text, style: NType.body(14, color: p.textDim))),
           ]),
         );
@@ -86,7 +86,7 @@ class _MatterSheetState extends State<MatterSheet> {
           Row(children: [
             const Icon(Icons.join_inner, size: 30),
             const SizedBox(width: 12),
-            Expanded(child: DotText(widget.name == null ? 'ADD MATTER' : widget.name!.toUpperCase(), size: 24, maxLines: 2)),
+            Expanded(child: DisplayText(widget.name == null ? 'Add Matter' : widget.name!, size: 24, maxLines: 2)),
           ]),
           const SizedBox(height: 10),
           Text('Matter devices join SmartMenuKJ directly, with no hub or account. The device needs to be on your Wi-Fi.',
@@ -129,7 +129,7 @@ class _MatterSheetState extends State<MatterSheet> {
           ],
           if (_error != null) ...[
             const SizedBox(height: 12),
-            Text(_error!, style: NType.body(14, color: NothingPalette.red)),
+            Text(_error!, style: NType.body(14, color: KJPalette.danger)),
           ],
           const SizedBox(height: 18),
           FilledButton.icon(

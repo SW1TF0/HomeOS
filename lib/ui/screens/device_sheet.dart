@@ -12,7 +12,7 @@ import '../../integrations/matter/matter_driver.dart';
 import '../../integrations/network_scan.dart';
 import '../../models/device.dart';
 import '../../state/home_store.dart';
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 import '../../util/color_math.dart';
 import '../nav.dart';
 import '../../integrations/camera/playback.dart';
@@ -21,7 +21,7 @@ import 'camera_sheet.dart';
 import '../widgets/camera_live.dart';
 import '../widgets/controls.dart';
 import '../widgets/dialogs.dart';
-import '../widgets/nothing_widgets.dart';
+import '../widgets/kj_widgets.dart';
 import '../widgets/remote_pad.dart';
 
 Future<void> showDeviceSheet(BuildContext context, Device device) => showModalBottomSheet(
@@ -110,10 +110,10 @@ class DeviceSheet extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    DotText(d.name, size: 30, maxLines: 2),
+                    DisplayText(d.name, size: 30, maxLines: 2),
                     const SizedBox(height: 6),
                     Text(
-                      [room?.name ?? 'No room', d.kind.label, spec?.name ?? 'Unknown'].join(' · ').toUpperCase(),
+                      [room?.name ?? 'No room', d.kind.label, spec?.name ?? 'Unknown'].join(' · '),
                       style: NType.label(color: p.textDim),
                     ),
                   ],
@@ -122,7 +122,7 @@ class DeviceSheet extends StatelessWidget {
               IconButton(
                 tooltip: d.favorite ? 'Remove from favourites' : 'Add to favourites',
                 onPressed: () => store.updateDevice(d, favorite: !d.favorite),
-                icon: Icon(d.favorite ? Icons.star : Icons.star_border, color: d.favorite ? NothingPalette.red : p.text),
+                icon: Icon(d.favorite ? Icons.star : Icons.star_border, color: d.favorite ? KJPalette.accent : p.text),
               ),
             ],
           ),
@@ -132,7 +132,7 @@ class DeviceSheet extends StatelessWidget {
             const SizedBox(height: 10),
             Center(
               child: Text(describeState(d),
-                  style: NType.body(15, color: s.reachable ? p.textDim : NothingPalette.red, weight: 500)),
+                  style: NType.body(15, color: s.reachable ? p.textDim : KJPalette.danger, weight: 500)),
             ),
           ],
           if (dial) ...[
@@ -220,7 +220,7 @@ class DeviceSheet extends StatelessWidget {
           ],
           if (d.has(Capability.mode) && d.modes.isNotEmpty) ...[
             SectionLabel(modeTitle(d),
-                trailing: s.mode == null ? null : Text(modeLabel(s.mode!).toUpperCase(), style: NType.dot(18, color: p.text))),
+                trailing: s.mode == null ? null : Text(modeLabel(s.mode!), style: NType.display(18, color: p.text))),
             Wrap(spacing: 8, runSpacing: 8, children: [
               for (final m in d.modes)
                 PresetChip(key: Key('mode-$m'), label: modeLabel(m), selected: s.mode == m, onTap: () => send(DeviceCommand(mode: m))),
@@ -247,7 +247,7 @@ class DeviceSheet extends StatelessWidget {
             LevelControl(
               label: 'White',
               value: _kelvinT(s.colorTempK ?? 3500).clamp(0.0, 1.0),
-              display: (v) => s.color != null && v == _kelvinT(s.colorTempK ?? 3500).clamp(0.0, 1.0) ? 'COLOUR' : '${_tKelvin(v)} K',
+              display: (v) => s.color != null && v == _kelvinT(s.colorTempK ?? 3500).clamp(0.0, 1.0) ? 'Colour' : '${_tKelvin(v)} K',
               colorAt: (t) => Color(0xFF000000 | kelvinToRgb(_tKelvin(t))),
               presets: whitePresets,
               onLive: (v) => send(DeviceCommand(colorTempK: _tKelvin(v))),
@@ -275,7 +275,7 @@ class DeviceSheet extends StatelessWidget {
           ],
           if (d.has(Capability.position)) ...[
             SectionLabel('Position',
-                trailing: Text(_openLabel(s.position ?? 0), style: NType.dot(18, color: p.text))),
+                trailing: Text(_openLabel(s.position ?? 0), style: NType.display(18, color: p.text))),
             Row(children: [
               Expanded(
                   child: OutlinedButton.icon(
@@ -303,19 +303,19 @@ class DeviceSheet extends StatelessWidget {
           ],
           if (d.has(Capability.volume)) ...[
             SectionLabel('Volume',
-                trailing: Text(s.muted == true ? 'MUTED' : '${((s.volume ?? 0) * 100).round()}',
-                    style: NType.dot(18, color: s.muted == true ? NothingPalette.red : p.text))),
+                trailing: Text(s.muted == true ? 'Muted' : '${((s.volume ?? 0) * 100).round()}',
+                    style: NType.display(18, color: s.muted == true ? KJPalette.danger : p.text))),
             Row(children: [
               IconButton(
                 key: const Key('mute-toggle'),
                 tooltip: s.muted == true ? 'Unmute' : 'Mute',
                 onPressed: () => send(DeviceCommand(muted: !(s.muted ?? false))),
                 icon: Icon(s.muted == true ? Icons.volume_off : Icons.volume_up_outlined,
-                    color: s.muted == true ? NothingPalette.red : p.text),
+                    color: s.muted == true ? KJPalette.danger : p.text),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: DotSlider(
+                child: LevelSlider(
                   semanticLabel: 'Volume',
                   value: s.volume ?? 0,
                   onChangeEnd: (v) => send(DeviceCommand(volume: v)),
@@ -339,10 +339,10 @@ class DeviceSheet extends StatelessWidget {
                       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                       radius: 20,
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(e.key.toUpperCase(),
+                        Text(e.key,
                             maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.label(color: p.textDim)),
                         const SizedBox(height: 8),
-                        Text(e.value, maxLines: 2, overflow: TextOverflow.ellipsis, style: NType.dot(22, color: p.text)),
+                        Text(e.value, maxLines: 2, overflow: TextOverflow.ellipsis, style: NType.display(22, color: p.text)),
                       ]),
                     ),
                   ),
@@ -428,8 +428,8 @@ class DeviceSheet extends StatelessWidget {
                     onTap: () => store.unplaceDevice(d),
                   ),
                 ListTile(
-                  leading: const Icon(Icons.delete_outline, color: NothingPalette.red),
-                  title: const Text('Remove device', style: TextStyle(color: NothingPalette.red)),
+                  leading: const Icon(Icons.delete_outline, color: KJPalette.danger),
+                  title: const Text('Remove device', style: TextStyle(color: KJPalette.danger)),
                   onTap: () async {
                     final lastMatterPart = integration?.type == matterType &&
                         !store.devices.any((o) => o.id != d.id && o.integrationId == d.integrationId && o.props['node'] == d.props['node']);
@@ -452,7 +452,7 @@ class DeviceSheet extends StatelessWidget {
   }
 }
 
-String _openLabel(double pos) => pos <= 0.01 ? 'CLOSED' : (pos >= 0.99 ? 'OPEN' : '${(pos * 100).round()}%');
+String _openLabel(double pos) => pos <= 0.01 ? 'Closed' : (pos >= 0.99 ? 'Open' : '${(pos * 100).round()}%');
 
 /// The humidity a humidifier can be set to, in percent.
 (double, double) humidityRange(Device d) =>
@@ -640,9 +640,9 @@ class _Hero extends StatelessWidget {
     if (d.kind == DeviceKind.sensor && s.readings.isNotEmpty) {
       final first = s.readings.entries.first;
       return Column(children: [
-        Text(first.key.toUpperCase(), style: NType.label(color: context.palette.textDim)),
+        Text(first.key, style: NType.label(color: context.palette.textDim)),
         const SizedBox(height: 6),
-        DotText(first.value, size: 56),
+        DisplayText(first.value, size: 56),
       ]);
     }
     return Icon(deviceIcon(d.kind), size: 72, color: context.palette.textDim);
@@ -683,7 +683,7 @@ class _ActionButton extends StatelessWidget {
               child: Icon(icon, color: selected ? p.background : p.text),
             ),
             const SizedBox(height: 6),
-            Text(label.toUpperCase(), style: NType.label(color: p.textDim)),
+            Text(label, style: NType.label(color: p.textDim)),
           ]),
         ),
       ),
@@ -846,8 +846,8 @@ class _CameraViewState extends State<CameraView> {
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.all(20),
-                      child: Text((_problem ?? 'Loading').toUpperCase(),
-                          textAlign: TextAlign.center, style: NType.label(color: _problem == null ? p.textDim : NothingPalette.red)),
+                      child: Text((_problem ?? 'Loading'),
+                          textAlign: TextAlign.center, style: NType.label(color: _problem == null ? p.textDim : KJPalette.danger)),
                     ),
                   )
                 : Image.memory(_picture!, fit: BoxFit.cover, gaplessPlayback: true, width: double.infinity),
@@ -859,11 +859,11 @@ class _CameraViewState extends State<CameraView> {
         Container(
           width: 6,
           height: 6,
-          decoration: BoxDecoration(color: _problem == null && at != null ? NothingPalette.red : p.textDim, shape: BoxShape.circle),
+          decoration: BoxDecoration(color: _problem == null && at != null ? KJPalette.danger : p.textDim, shape: BoxShape.circle),
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(at == null ? 'NO PICTURE YET' : 'TAKEN ${two(at.hour)}:${two(at.minute)}:${two(at.second)}',
+          child: Text(at == null ? 'No picture yet' : 'TAKEN ${two(at.hour)}:${two(at.minute)}:${two(at.second)}',
               style: NType.label(color: p.textDim)),
         ),
         IconButton(key: const Key('camera-refresh'), tooltip: 'New picture', onPressed: _load, icon: const Icon(Icons.refresh)),

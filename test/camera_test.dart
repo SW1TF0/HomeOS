@@ -17,7 +17,7 @@ import 'package:smartmenukj/models/home.dart';
 import 'package:smartmenukj/state/home_store.dart';
 import 'package:smartmenukj/state/repository.dart';
 import 'package:smartmenukj/ui/widgets/camera_live.dart';
-import 'package:smartmenukj/ui/widgets/nothing_widgets.dart';
+import 'package:smartmenukj/ui/widgets/kj_widgets.dart';
 import 'package:smartmenukj/util/digest_auth.dart';
 
 /// A camera's RTSP side: answers DESCRIBE for [paths], asking for a Digest login first.

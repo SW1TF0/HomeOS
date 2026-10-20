@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/device.dart';
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 import '../../util/haptics.dart';
 
 /// Remote keys a device supports, from what its connection reported.
@@ -50,7 +50,7 @@ class RemotePad extends StatelessWidget {
                 onKey: onKey,
                 size: 84,
                 filled: true,
-                child: Text('OK', style: NType.dot(26, color: p.background)),
+                child: Text('OK', style: NType.display(26, color: p.background)),
               ),
           ]),
         ),

@@ -3,12 +3,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../models/device.dart';
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 import '../../util/color_math.dart';
 import '../../util/haptics.dart';
 import 'controls.dart';
 
-/// The dotted grid that sits behind Nothing-style surfaces and the floor plan.
+/// The faint dotted grid behind the floor plan.
 class DotGridPainter extends CustomPainter {
   DotGridPainter({required this.color, this.spacing = 16, this.radius = 1.1, this.origin = Offset.zero});
 
@@ -47,7 +47,7 @@ class DotGrid extends StatelessWidget {
       );
 }
 
-/// A rounded card with a hairline border.
+/// A rounded card: white on the light theme with a soft shadow, dark grey on the dark one.
 class NCard extends StatelessWidget {
   const NCard({
     super.key,
@@ -56,7 +56,7 @@ class NCard extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.inverted = false,
-    this.radius = 24,
+    this.radius = 22,
   });
 
   final Widget child;
@@ -73,9 +73,9 @@ class NCard extends StatelessWidget {
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOut,
       decoration: BoxDecoration(
-        color: inverted ? p.text : p.surface,
+        color: inverted ? p.tileOn : p.surface,
         borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: inverted ? p.text : p.border),
+        boxShadow: p.cardShadow,
       ),
       child: Material(
         type: MaterialType.transparency,
@@ -90,7 +90,7 @@ class NCard extends StatelessWidget {
   }
 }
 
-/// "● LABEL" section header.
+/// Section header, like the room names in the site's phone demo.
 class SectionLabel extends StatelessWidget {
   const SectionLabel(this.text, {super.key, this.trailing, this.accent = false});
   final String text;
@@ -101,22 +101,29 @@ class SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 22, 4, 10),
+      padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
       child: Row(
         children: [
-          Container(
-            width: 6,
-            height: 6,
-            decoration: BoxDecoration(color: accent ? NothingPalette.red : p.textDim, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 8),
-          Expanded(child: Text(text.toUpperCase(), style: NType.label(color: p.textDim))),
+          Expanded(child: Text(text, style: NType.body(17, color: p.text, weight: 600))),
           ?trailing,
         ],
       ),
     );
   }
 }
+
+/// The colour of a device kind's icon when it is on, as in the site's phone demo.
+Color kindColor(DeviceKind kind) => switch (kind) {
+      DeviceKind.light => KJPalette.yellow,
+      DeviceKind.climate || DeviceKind.humidifier => KJPalette.orange,
+      DeviceKind.media => KJPalette.purple,
+      DeviceKind.lock || DeviceKind.alarm || DeviceKind.camera || DeviceKind.garage => KJPalette.blue,
+      DeviceKind.outlet || DeviceKind.toggle || DeviceKind.button => KJPalette.green,
+      DeviceKind.cover || DeviceKind.fan || DeviceKind.purifier || DeviceKind.valve => KJPalette.teal,
+      DeviceKind.vacuum || DeviceKind.mower || DeviceKind.appliance => KJPalette.indigo,
+      DeviceKind.siren => KJPalette.danger,
+      DeviceKind.sensor || DeviceKind.other => KJPalette.blue,
+    };
 
 IconData deviceIcon(DeviceKind kind, {bool active = false}) => switch (kind) {
       DeviceKind.light => active ? Icons.lightbulb : Icons.lightbulb_outline,
@@ -165,7 +172,7 @@ String activityLabel(DeviceKind kind, String? activity) => switch (activity) {
       Activity.arming => 'Arming',
       Activity.pending => 'Entry delay',
       Activity.disarming => 'Disarming',
-      Activity.triggered => 'ALARM',
+      Activity.triggered => 'Alarm',
       final String other => modeLabel(other),
     };
 
@@ -268,7 +275,8 @@ Color? lightColor(Device d) {
   return null;
 }
 
-/// Square device tile. Active devices invert to white, like Nothing widgets.
+/// Square device tile. Devices that are on turn white with a coloured icon,
+/// like the tiles in the site's phone demo.
 /// Tap switches it; a sideways drag sets its level (brightness, blind,
 /// volume) when [onLevelEnd] is given; the arrow opens all its controls.
 class DeviceTile extends StatefulWidget {
@@ -344,14 +352,26 @@ class _DeviceTileState extends State<DeviceTile> {
     final d = widget.device;
     final level = _drag ?? _level;
     final active = d.state.isActive && d.state.reachable;
-    final fg = active ? p.background : p.text;
-    final dim = active ? p.background.withValues(alpha: 0.6) : p.textDim;
+    final fg = active ? p.onTileOn : p.text;
+    final dim = active ? p.onTileOn.withValues(alpha: 0.55) : p.textDim;
     final glow = lightColor(d);
-    final tile = NCard(
-      inverted: active,
-      onTap: widget.onTap,
-      onLongPress: widget.onLongPress,
-      padding: const EdgeInsets.fromLTRB(16, 14, 10, 14),
+    final iconBg = active ? (glow ?? kindColor(d.kind)) : (p.isDark ? p.surfaceHigh : Colors.white);
+    final tile = AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      decoration: BoxDecoration(
+        color: active ? p.tileOn : p.tileOff,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: active ? p.cardShadow : const [],
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: widget.onTap,
+          onLongPress: widget.onLongPress,
+          child: Padding(
+      padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -360,17 +380,19 @@ class _DeviceTileState extends State<DeviceTile> {
             children: [
               Stack(clipBehavior: Clip.none, children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: 38,
+                  height: 38,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: glow ?? (active ? p.background.withValues(alpha: 0.06) : p.surfaceHigh),
-                    border: glow == null ? null : Border.all(color: p.background.withValues(alpha: 0.15)),
+                    color: iconBg,
+                    border: active && glow != null && glow.computeLuminance() > 0.8
+                        ? Border.all(color: Colors.black.withValues(alpha: 0.1))
+                        : null,
                   ),
                   child: Icon(
                     deviceIcon(d.kind, active: active),
-                    size: 21,
-                    color: glow == null ? fg : (glow.computeLuminance() > 0.4 ? Colors.black : Colors.white),
+                    size: 20,
+                    color: active ? (iconBg.computeLuminance() > 0.6 ? p.onTileOn : Colors.white) : p.textDim,
                   ),
                 ),
                 if (!d.state.reachable)
@@ -381,7 +403,7 @@ class _DeviceTileState extends State<DeviceTile> {
                       width: 12,
                       height: 12,
                       decoration: BoxDecoration(
-                        color: NothingPalette.red,
+                        color: KJPalette.danger,
                         shape: BoxShape.circle,
                         border: Border.all(color: p.surface, width: 2),
                       ),
@@ -407,9 +429,9 @@ class _DeviceTileState extends State<DeviceTile> {
                           height: 30,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: active ? p.background.withValues(alpha: 0.2) : p.border),
+                            color: active ? Colors.black.withValues(alpha: 0.05) : p.text.withValues(alpha: 0.06),
                           ),
-                          child: Icon(Icons.arrow_outward, size: 15, color: fg),
+                          child: Icon(Icons.chevron_right, size: 18, color: dim),
                         ),
                       ),
                     ),
@@ -421,7 +443,7 @@ class _DeviceTileState extends State<DeviceTile> {
           Padding(
             padding: const EdgeInsets.only(right: 6),
             child: Text(d.name,
-                maxLines: 2, overflow: TextOverflow.ellipsis, style: NType.body(15, color: fg, weight: 500, height: 1.15)),
+                maxLines: 2, overflow: TextOverflow.ellipsis, style: NType.body(15, color: fg, weight: 600, height: 1.15)),
           ),
           const SizedBox(height: 3),
           Text(_drag != null ? levelLabel(d, _drag!) : (widget.subtitle ?? describeState(d)),
@@ -432,12 +454,15 @@ class _DeviceTileState extends State<DeviceTile> {
               padding: const EdgeInsets.only(right: 6),
               child: LevelBar(
                 value: level,
-                color: fg,
-                track: active ? p.background.withValues(alpha: 0.22) : p.border,
+                color: active ? (glow ?? kindColor(d.kind)) : p.textDim,
+                track: active ? Colors.black.withValues(alpha: 0.08) : p.text.withValues(alpha: 0.1),
               ),
             ),
           ],
         ],
+      ),
+          ),
+        ),
       ),
     );
     if (level == null) return tile;
@@ -459,10 +484,10 @@ class _DeviceTileState extends State<DeviceTile> {
   }
 }
 
-/// A slider drawn as a row of dots. [onChanged] fires while dragging,
+/// A slider with a round white knob on a thick track. [onChanged] fires while dragging,
 /// [onChangeEnd] once when the finger lifts (send that to the device).
-class DotSlider extends StatefulWidget {
-  const DotSlider({
+class LevelSlider extends StatefulWidget {
+  const LevelSlider({
     super.key,
     required this.value,
     required this.onChangeEnd,
@@ -482,10 +507,10 @@ class DotSlider extends StatefulWidget {
   final String? semanticLabel;
 
   @override
-  State<DotSlider> createState() => _DotSliderState();
+  State<LevelSlider> createState() => _LevelSliderState();
 }
 
-class _DotSliderState extends State<DotSlider> {
+class _LevelSliderState extends State<LevelSlider> {
   double? _drag;
 
   double get _value => (_drag ?? widget.value).clamp(0.0, 1.0);
@@ -522,11 +547,11 @@ class _DotSliderState extends State<DotSlider> {
             height: 44,
             width: w,
             child: CustomPaint(
-              painter: _DotSliderPainter(
+              painter: _LevelSliderPainter(
                 value: _value,
-                on: p.text,
-                off: p.border,
-                knob: NothingPalette.red,
+                on: KJPalette.accent,
+                off: p.surfaceHigh,
+                knob: Colors.white,
                 background: p.background,
                 colorAt: widget.colorAt,
               ),
@@ -538,8 +563,8 @@ class _DotSliderState extends State<DotSlider> {
   }
 }
 
-class _DotSliderPainter extends CustomPainter {
-  _DotSliderPainter({
+class _LevelSliderPainter extends CustomPainter {
+  _LevelSliderPainter({
     required this.value,
     required this.on,
     required this.off,
@@ -557,33 +582,39 @@ class _DotSliderPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const gap = 11.0;
-    final count = math.max(2, (size.width / gap).floor());
-    final step = size.width / (count - 1);
+    const h = 8.0;
     final cy = size.height / 2;
-    final paint = Paint();
-    // Colours close to the background (cool white on the light theme) get a thin ring so they still show.
-    final ring = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1
-      ..color = off;
-    final backLum = background.computeLuminance();
-    for (var i = 0; i < count; i++) {
-      final t = i / (count - 1);
-      final filled = t <= value + 1e-6;
-      final c = colorAt?.call(t);
-      final at = Offset(i * step, cy);
-      final r = filled ? 3.2 : 2.4;
-      paint.color = c != null ? c.withValues(alpha: filled ? 1 : 0.5) : (filled ? on : off);
-      canvas.drawCircle(at, r, paint);
-      if (c != null && (c.computeLuminance() - backLum).abs() < 0.3) canvas.drawCircle(at, r, ring);
-    }
+    final track = RRect.fromLTRBR(0, cy - h / 2, size.width, cy + h / 2, const Radius.circular(h / 2));
     final kx = value * size.width;
-    canvas.drawCircle(Offset(kx, cy), 9, Paint()..color = knob);
+    if (colorAt != null) {
+      // Colour temperature or hue: the whole track shows the colours.
+      final stops = [for (var i = 0; i <= 12; i++) i / 12];
+      final shader = LinearGradient(colors: [for (final t in stops) colorAt!(t)], stops: stops)
+          .createShader(Offset.zero & size);
+      canvas.drawRRect(track, Paint()..shader = shader);
+      if ((colorAt!(1).computeLuminance() - background.computeLuminance()).abs() < 0.3) {
+        canvas.drawRRect(track, Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1
+          ..color = off);
+      }
+    } else {
+      canvas.drawRRect(track, Paint()..color = off);
+      if (value > 0.001) {
+        canvas.drawRRect(
+            RRect.fromLTRBR(0, cy - h / 2, math.max(h, kx), cy + h / 2, const Radius.circular(h / 2)), Paint()..color = on);
+      }
+    }
+    final at = Offset(kx.clamp(11.0, math.max(11.0, size.width - 11)), cy);
+    canvas.drawCircle(at + const Offset(0, 1), 12,
+        Paint()
+          ..color = const Color(0x40000000)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+    canvas.drawCircle(at, 11, Paint()..color = knob);
   }
 
   @override
-  bool shouldRepaint(_DotSliderPainter old) =>
+  bool shouldRepaint(_LevelSliderPainter old) =>
       old.value != value || old.on != on || old.off != off || old.background != background || old.colorAt != colorAt;
 }
 
@@ -612,19 +643,19 @@ class PowerOrb extends StatelessWidget {
           height: size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: on ? p.text : Colors.transparent,
-            border: Border.all(color: on ? p.text : p.border, width: 1.5),
+            color: on ? KJPalette.accent : p.surfaceHigh,
+            boxShadow: on ? [BoxShadow(color: KJPalette.accent.withValues(alpha: 0.35), blurRadius: 24, offset: const Offset(0, 8))] : const [],
           ),
-          child: Icon(icon, size: size * 0.36, color: on ? p.background : p.text),
+          child: Icon(icon, size: size * 0.36, color: on ? Colors.white : p.text),
         ),
       ),
     );
   }
 }
 
-/// Text in the dot-matrix font.
-class DotText extends StatelessWidget {
-  const DotText(this.text, {super.key, this.size = 32, this.color, this.weight = 800, this.maxLines});
+/// Heading text: big, bold and tightly spaced.
+class DisplayText extends StatelessWidget {
+  const DisplayText(this.text, {super.key, this.size = 32, this.color, this.weight = 700, this.maxLines});
   final String text;
   final double size;
   final Color? color;
@@ -636,7 +667,7 @@ class DotText extends StatelessWidget {
         text,
         maxLines: maxLines,
         overflow: maxLines == null ? null : TextOverflow.ellipsis,
-        style: NType.dot(size, color: color ?? context.palette.text, weight: weight),
+        style: NType.display(size, color: color ?? context.palette.text, weight: weight),
       );
 }
 
@@ -667,9 +698,8 @@ class NChip extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         decoration: BoxDecoration(
-          color: selected ? p.text : Colors.transparent,
+          color: selected ? p.text : p.surfaceHigh,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: selected ? p.text : p.border),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

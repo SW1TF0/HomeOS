@@ -9,11 +9,11 @@ import '../../models/home.dart';
 import '../../state/app_settings.dart';
 import '../../state/backup_files.dart';
 import '../../state/home_store.dart';
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 import '../../util/text.dart';
 import '../nav.dart';
 import '../widgets/dialogs.dart';
-import '../widgets/nothing_widgets.dart';
+import '../widgets/kj_widgets.dart';
 import 'account_sheet.dart';
 import 'automations.dart';
 import 'backup_restore.dart';
@@ -43,50 +43,49 @@ class HomeScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
             sliver: SliverList.list(children: [
               Row(children: [
-                Expanded(
-                  child: Row(children: [
-                    Flexible(
-                      child: InkWell(
-                        key: const Key('home-switch'),
-                        onTap: () => showHomesSheet(context),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Flexible(
-                              child: Text(store.homeName.toUpperCase(),
-                                  maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.label(color: p.text)),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                                width: 6,
-                                height: 6,
-                                decoration: const BoxDecoration(color: NothingPalette.red, shape: BoxShape.circle)),
-                            const SizedBox(width: 4),
-                            Icon(Icons.unfold_more, size: 16, color: p.textDim),
-                          ]),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    TextButton.icon(
-                      key: const Key('home-edit'),
-                      onPressed: () => showHomeEditor(context),
-                      style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12)),
-                      icon: const Icon(Icons.tune, size: 18),
-                      label: const Text('Edit home'),
-                    ),
-                  ]),
+                const Expanded(child: _Clock()),
+                IconButton(
+                  key: const Key('home-edit'),
+                  tooltip: 'Edit home',
+                  onPressed: () => showHomeEditor(context),
+                  style: IconButton.styleFrom(backgroundColor: p.surfaceHigh, foregroundColor: p.text),
+                  icon: const Icon(Icons.tune, size: 20),
                 ),
+                const SizedBox(width: 8),
                 const ProfileButton(),
               ]),
-              const SizedBox(height: 8),
-              const _Clock(),
-              const SizedBox(height: 8),
-              Text(
-                active == 0 ? 'Everything is off.' : '$active of ${store.devices.length} devices active.',
-                style: NType.body(16, color: p.textDim),
+              const SizedBox(height: 6),
+              InkWell(
+                key: const Key('home-switch'),
+                onTap: () => showHomesSheet(context),
+                borderRadius: BorderRadius.circular(10),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Flexible(
+                    child: Text(store.homeName,
+                        maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.display(34, color: p.text)),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(Icons.keyboard_arrow_down_rounded, size: 28, color: p.textDim),
+                ]),
               ),
+              const SizedBox(height: 6),
+              Row(children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: store.devices.any((d) => !d.state.reachable) ? KJPalette.orange : KJPalette.green,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    active == 0 ? 'Everything is off.' : '$active of ${store.devices.length} devices active.',
+                    style: NType.body(15, color: p.textDim),
+                  ),
+                ),
+              ]),
               const SizedBox(height: 14),
               const _StatusStrip(),
               const _AwayCard(),
@@ -251,11 +250,11 @@ class _AwayCard extends StatelessWidget {
         key: const Key('away-card'),
         padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
         child: Row(children: [
-          const Icon(Icons.wifi_off, color: NothingPalette.red),
+          const Icon(Icons.wifi_off, color: KJPalette.danger),
           const SizedBox(width: 14),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('AWAY FROM HOME', style: NType.label(color: p.text)),
+              Text('Away from home', style: NType.label(color: p.text)),
               const SizedBox(height: 4),
               Text(text, style: NType.body(14, color: p.textDim)),
             ]),
@@ -279,7 +278,7 @@ class _HeaderAction extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          child: Text(label.toUpperCase(), style: NType.label(color: context.palette.text)),
+          child: Text(label, style: NType.body(15, color: KJPalette.accent, weight: 500)),
         ),
       );
 }
@@ -309,17 +308,21 @@ class _ClockState extends State<_Clock> {
   @override
   Widget build(BuildContext context) {
     String two(int v) => v.toString().padLeft(2, '0');
-    const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     final p = context.palette;
     final clock24 = context.select<AppSettings, bool>((s) => s.clock24);
     final hour = clock24 ? _now.hour : (_now.hour % 12 == 0 ? 12 : _now.hour % 12);
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      DotText('${two(hour)}:${two(_now.minute)}', key: const Key('home-clock'), size: 76),
-      const SizedBox(height: 4),
-      Text(
-          '${days[_now.weekday - 1]} ${_now.day} ${months[_now.month - 1]}${clock24 ? '' : ' · ${_now.hour < 12 ? 'AM' : 'PM'}'}',
-          style: NType.label(color: p.textDim)),
+    return Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+      Text('${two(hour)}:${two(_now.minute)}',
+          key: const Key('home-clock'), style: NType.body(15, color: p.text, weight: 600)),
+      Flexible(
+        child: Text(
+            '${clock24 ? '' : ' ${_now.hour < 12 ? 'AM' : 'PM'}'}  ${days[_now.weekday - 1]} ${_now.day} ${months[_now.month - 1]}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: NType.body(15, color: p.textDim)),
+      ),
     ]);
   }
 }
@@ -369,7 +372,7 @@ class _StatusStrip extends StatelessWidget {
           alert: true,
           onTap: () => danger.length == 1
               ? showDeviceSheet(context, danger.first)
-              : showDeviceListSheet(context, title: 'WARNINGS', select: (s) => s.devices.where(alarming).toList()),
+              : showDeviceListSheet(context, title: 'Warnings', select: (s) => s.devices.where(alarming).toList()),
         ),
       if (cloud.away)
         _Pill(
@@ -391,7 +394,7 @@ class _StatusStrip extends StatelessWidget {
           icon: litCount > 0 ? Icons.lightbulb : Icons.lightbulb_outline,
           label: litCount == 0 ? 'Lights off' : '$litCount light${litCount == 1 ? '' : 's'} on',
           onTap: () => showDeviceListSheet(context,
-              title: 'LIGHTS',
+              title: 'Lights',
               select: (s) => s.devices.where((d) => d.kind == DeviceKind.light).toList()
                 ..sort((a, b) => (b.state.on == true ? 1 : 0).compareTo(a.state.on == true ? 1 : 0)),
               actionLabel: 'All lights off',
@@ -403,7 +406,7 @@ class _StatusStrip extends StatelessWidget {
           icon: Icons.device_thermostat,
           label: '${temp.toStringAsFixed(1)}° inside',
           onTap: () => showDeviceListSheet(context,
-              title: 'CLIMATE', select: (s) => s.devices.where((d) => temperatureOf(d) != null || d.kind == DeviceKind.climate).toList()),
+              title: 'Climate', select: (s) => s.devices.where((d) => temperatureOf(d) != null || d.kind == DeviceKind.climate).toList()),
         ),
       if (locks.isNotEmpty)
         _Pill(
@@ -412,7 +415,7 @@ class _StatusStrip extends StatelessWidget {
           label: unlocked == 0 ? (locks.length == 1 ? 'Locked' : 'All locked') : '$unlocked unlocked',
           alert: unlocked > 0,
           onTap: () => showDeviceListSheet(context,
-              title: 'LOCKS',
+              title: 'Locks',
               select: (s) => s.devices.where((d) => d.kind == DeviceKind.lock).toList(),
               actionLabel: 'Lock all',
               actionIcon: Icons.lock_outline,
@@ -430,7 +433,7 @@ class _StatusStrip extends StatelessWidget {
           alert: sounding.isNotEmpty,
           onTap: () => alarms.length == 1
               ? showDeviceSheet(context, alarms.first)
-              : showDeviceListSheet(context, title: 'ALARM', select: (s) => s.devices.where((d) => d.kind == DeviceKind.alarm).toList()),
+              : showDeviceListSheet(context, title: 'Alarm', select: (s) => s.devices.where((d) => d.kind == DeviceKind.alarm).toList()),
         ),
       if (covers.isNotEmpty)
         _Pill(
@@ -438,7 +441,7 @@ class _StatusStrip extends StatelessWidget {
           icon: open > 0 ? Icons.blinds : Icons.blinds_closed,
           label: open == 0 ? 'Blinds closed' : '$open blind${open == 1 ? '' : 's'} open',
           onTap: () => showDeviceListSheet(context,
-              title: 'BLINDS',
+              title: 'Blinds',
               select: (s) => s.devices.where((d) => d.kind == DeviceKind.cover).toList(),
               actionLabel: 'Close all',
               actionIcon: Icons.blinds_closed,
@@ -450,7 +453,7 @@ class _StatusStrip extends StatelessWidget {
           icon: Icons.tv,
           label: playing.length == 1 ? '${playing.first.name} on' : '${playing.length} playing',
           onTap: () => showDeviceListSheet(context,
-              title: 'MEDIA',
+              title: 'Media',
               select: (s) => s.devices.where((d) => d.kind == DeviceKind.media).toList(),
               actionLabel: 'All off',
               action: (s, list) => s.setPower(list, false)),
@@ -466,7 +469,7 @@ class _StatusStrip extends StatelessWidget {
                   : '${working.length} robots at work'),
           alert: stuck.isNotEmpty,
           onTap: () => showDeviceListSheet(context,
-              title: 'ROBOTS',
+              title: 'Robots',
               select: (s) => s.devices.where(isRobot).toList(),
               actionLabel: 'All go home',
               actionIcon: Icons.home_outlined,
@@ -481,7 +484,7 @@ class _StatusStrip extends StatelessWidget {
           label: '$offline not responding',
           alert: true,
           onTap: () => showDeviceListSheet(context,
-              title: 'NOT RESPONDING',
+              title: 'Not responding',
               select: (s) => s.devices.where((d) => !d.state.reachable).toList(),
               empty: 'Everything is answering again.'),
         ),
@@ -512,7 +515,7 @@ class _Pill extends StatelessWidget {
     final p = context.palette;
     final color = filled
         ? p.background
-        : (alert ? NothingPalette.red : (onTap == null ? p.textDim : p.text));
+        : (alert ? KJPalette.danger : (onTap == null ? p.textDim : p.text));
     return Semantics(
       button: true,
       enabled: onTap != null,
@@ -524,7 +527,7 @@ class _Pill extends StatelessWidget {
           decoration: BoxDecoration(
             color: filled ? p.text : p.surface,
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: filled ? p.text : (alert ? NothingPalette.red : p.border)),
+            border: Border.all(color: filled ? p.text : (alert ? KJPalette.danger : p.border)),
           ),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Icon(icon, size: 16, color: color),
@@ -559,7 +562,7 @@ class _RoomCard extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: DotText(room.name, size: 22, maxLines: 1),
+              child: DisplayText(room.name, size: 22, maxLines: 1),
             ),
           ),
           if (switchable.isNotEmpty)
@@ -598,7 +601,7 @@ class _RoomCard extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: !devices[i].state.reachable
-                    ? NothingPalette.red
+                    ? KJPalette.danger
                     : (devices[i].state.isActive ? p.text : p.border),
               ),
             ),
@@ -681,7 +684,7 @@ class HomeEditor extends StatelessWidget {
         controller: scroll,
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
         children: [
-          const DotText('EDIT HOME', size: 30),
+          const DisplayText('Edit home', size: 30),
           const SizedBox(height: 6),
           Text('Change what the home screen shows, and in which order. Drag the handles to reorder.',
               style: NType.body(14, color: p.textDim)),
