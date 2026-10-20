@@ -476,8 +476,8 @@ class _ScheduleCard extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
             SceneAlarms.supported
-                ? 'Runs at this time even when SmartMenuKJ is closed.'
-                : 'Runs at this time while SmartMenuKJ is open.',
+                ? 'Runs at this time even when SmartHomeKJ is closed.'
+                : 'Runs at this time while SmartHomeKJ is open.',
             style: NType.body(12.5, color: p.textDim)),
       ]),
     );

@@ -229,7 +229,7 @@ class _AccountSheetState extends State<AccountSheet> {
       const SectionLabel('Control from anywhere', accent: true),
       Text(
           'Your devices only answer on your home Wi-Fi, so on mobile data your phone cannot reach them by itself. '
-          'A second phone, tablet or computer that stays at home passes your commands on: install SmartMenuKJ on it, '
+          'A second phone, tablet or computer that stays at home passes your commands on: install SmartHomeKJ on it, '
           'sign in with this account, keep it plugged in, and turn this on there. Not on the phone you carry: it '
           'leaves home with you.',
           style: NType.body(14, color: p.textDim)),
@@ -265,7 +265,7 @@ class _AccountSheetState extends State<AccountSheet> {
               ? 'Right now ${cloud.hubName ?? 'a device at home'} passes commands on for $home.'
               : cloud.hubSeen != null
                   ? '${cloud.hubName ?? 'The device at home'} has not checked in for a while. Check that it is on, '
-                      'plugged in and on the Wi-Fi, with SmartMenuKJ open.'
+                      'plugged in and on the Wi-Fi, with SmartHomeKJ open.'
                   : 'No device at home is doing this yet, so away from home nothing can be switched.',
           key: const Key('account-hub-status'),
           style: NType.body(13, color: cloud.online ? p.textDim : KJPalette.danger),

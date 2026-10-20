@@ -27,14 +27,14 @@ targets:
       - package: SmartMenuCore
     settings:
       base:
-        PRODUCT_NAME: SmartMenuKJ
+        PRODUCT_NAME: SmartHomeKJ
         PRODUCT_BUNDLE_IDENTIFIER: com.smartmenukj.nativeapp
         TARGETED_DEVICE_FAMILY: "1,2"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
     info:
       path: Generated/iOS-Info.plist
       properties:
-        CFBundleDisplayName: SmartMenuKJ
+        CFBundleDisplayName: SmartHomeKJ
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         UILaunchScreen:
@@ -43,7 +43,7 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
         UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
-        NSLocalNetworkUsageDescription: SmartMenuKJ finds and controls the smart devices on your home Wi-Fi.
+        NSLocalNetworkUsageDescription: SmartHomeKJ finds and controls the smart devices on your home Wi-Fi.
         NSBonjourServices: [_hue._tcp, _shelly._tcp, _wled._tcp, _esphomelib._tcp, _home-assistant._tcp, _http._tcp]
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
@@ -60,7 +60,7 @@ targets:
       - package: SmartMenuCore
     settings:
       base:
-        PRODUCT_NAME: SmartMenuKJ
+        PRODUCT_NAME: SmartHomeKJ
         PRODUCT_BUNDLE_IDENTIFIER: com.smartmenukj.nativeapp
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIconMac
         ENABLE_HARDENED_RUNTIME: NO
@@ -68,12 +68,12 @@ targets:
     info:
       path: Generated/macOS-Info.plist
       properties:
-        CFBundleDisplayName: SmartMenuKJ
+        CFBundleDisplayName: SmartHomeKJ
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.utilities
         NSHumanReadableCopyright: Free and open source.
-        NSLocalNetworkUsageDescription: SmartMenuKJ finds and controls the smart devices on your home network.
+        NSLocalNetworkUsageDescription: SmartHomeKJ finds and controls the smart devices on your home network.
         NSBonjourServices: [_hue._tcp, _shelly._tcp, _wled._tcp, _esphomelib._tcp, _home-assistant._tcp, _http._tcp]
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true

@@ -36,7 +36,7 @@ fun SettingsScreen(state: StoreState) {
             if (text == null) "Could not read that file."
             else store.importAll(text).let { n -> if (n == 1) "Your home is back." else "$n homes are back." }
         } catch (e: Exception) {
-            e.message ?: "That is not a SmartMenuKJ backup."
+            e.message ?: "That is not a SmartHomeKJ backup."
         }
         app.messages.tryEmit(msg)
     }
@@ -67,18 +67,18 @@ fun SettingsScreen(state: StoreState) {
             }
         }
         SectionLabel("Your homes")
-        SettingRow("Bring your home from the other app", "Open SmartMenuKJ-backup.json from Downloads/SmartMenuKJ, or any SmartMenuKJ backup",
+        SettingRow("Bring your home from the other app", "Open SmartHomeKJ-backup.json from Downloads/SmartHomeKJ (SmartHomeKJ before), or any backup",
             Icons.Outlined.FileOpen, onClick = { open.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) })
-        SettingRow("Save a copy", "Every home in one file", Icons.Outlined.SaveAlt, onClick = { save.launch("SmartMenuKJ-backup.json") })
+        SettingRow("Save a copy", "Every home in one file", Icons.Outlined.SaveAlt, onClick = { save.launch("SmartHomeKJ-backup.json") })
         SettingRow(
             "Keep a backup in Downloads",
             if (app.backup.savedAt > 0) "Last saved ${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(app.backup.savedAt))}"
-            else "Downloads/SmartMenuKJ, so a new install can take your homes back",
+            else "Downloads/SmartHomeKJ, so a new install can take your homes back",
             Icons.Outlined.Backup,
         ) { NSwitch(settings.autoBackup) { v -> app.prefs.update { it.copy(autoBackup = v) }; if (v) app.backup.soon() } }
         SettingRow("Homes", "${state.homes.size} · ${state.home?.name ?: ""}", Icons.Outlined.Home, onClick = { nav.homes = true })
         SectionLabel("About")
-        SettingRow("SmartMenuKJ native ${BuildConfig.VERSION_NAME}", "Kotlin and Jetpack Compose. Free, and everything stays on your phone.", Icons.Outlined.Info)
+        SettingRow("SmartHomeKJ native ${BuildConfig.VERSION_NAME}", "Kotlin and Jetpack Compose. Free, and everything stays on your phone.", Icons.Outlined.Info)
         Spacer(Modifier.height(8.dp))
         Text("How it works: tap a device to switch it, hold it for all its controls, drag sideways across a tile to dim. " +
             "On the map, tap Edit to draw rooms, drag them, and resize them from the corner.",

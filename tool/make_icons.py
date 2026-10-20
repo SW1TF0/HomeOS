@@ -1,4 +1,4 @@
-"""Draws the SmartMenuKJ app icon, the house from the smarthomekj.eu logo on black, for every platform.
+"""Draws the SmartHomeKJ app icon, the house from the smarthomekj.eu logo on black, for every platform.
 
     python3 tool/make_icons.py
 

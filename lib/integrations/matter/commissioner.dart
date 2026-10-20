@@ -25,7 +25,7 @@ class CommissioningStep {
   static const looking = 'Looking for the device';
   static const checkingCode = 'Checking the code';
   static const securing = 'Securing the connection';
-  static const adding = 'Adding it to SmartMenuKJ';
+  static const adding = 'Adding it to SmartHomeKJ';
   static const reading = 'Reading what it can do';
 }
 
@@ -290,7 +290,7 @@ class Commissioner {
       case 5:
         throw CommissioningException.of(CommissioningFailure.tableFull);
       case 9:
-        throw MatterException('The device is already part of SmartMenuKJ.');
+        throw MatterException('The device is already part of SmartHomeKJ.');
       default:
         const names = {
           1: 'invalid public key',

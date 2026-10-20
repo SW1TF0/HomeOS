@@ -80,7 +80,7 @@ fun HomeScreen(state: StoreState) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Outlined.BlurOn, null, tint = p.text)
                             Spacer(Modifier.width(14.dp))
-                            Text("This is a sample home to try. Connect your devices, or bring your home from the other SmartMenuKJ app in Settings.",
+                            Text("This is a sample home to try. Connect your devices, or bring your home from the other SmartHomeKJ app in Settings.",
                                 style = NType.body(14.sp, p.text), modifier = Modifier.weight(1f))
                         }
                         Spacer(Modifier.height(10.dp))

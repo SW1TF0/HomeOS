@@ -283,7 +283,7 @@ class _SsapSession {
     return _registered!.future.timeout(Duration(seconds: firstTime ? 60 : 10), onTimeout: () {
       close();
       throw IntegrationException(firstTime
-          ? 'The LG TV did not confirm. Accept SmartMenuKJ on the TV screen and try again.'
+          ? 'The LG TV did not confirm. Accept SmartHomeKJ on the TV screen and try again.'
           : 'The LG TV did not answer.');
     });
   }

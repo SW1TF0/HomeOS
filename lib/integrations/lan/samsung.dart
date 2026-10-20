@@ -7,7 +7,7 @@ import '../integration.dart';
 import 'lan_protocol.dart';
 
 /// Samsung Tizen TVs (2016 and newer) over their local remote-control websocket.
-/// The first time, the TV asks whether to allow SmartMenuKJ; the token it hands
+/// The first time, the TV asks whether to allow SmartHomeKJ; the token it hands
 /// out is saved on the device.
 class SamsungProtocol extends LanProtocol {
   SamsungProtocol();
@@ -39,7 +39,7 @@ class SamsungProtocol extends LanProtocol {
     RemoteKey.source: 'KEY_SOURCE',
   };
 
-  static const appName = 'SmartMenuKJ';
+  static const appName = 'SmartHomeKJ';
 
   final Map<String, _Session> _sessions = {};
 
@@ -109,13 +109,13 @@ class SamsungProtocol extends LanProtocol {
     // The first message says whether the TV let us in.
     final first = await s.next.timeout(const Duration(seconds: 30), onTimeout: () {
       ws.close();
-      throw IntegrationException('${d.name} did not answer. Allow SmartMenuKJ on the TV screen and try again.');
+      throw IntegrationException('${d.name} did not answer. Allow SmartHomeKJ on the TV screen and try again.');
     });
     final event = first['event'];
     if (event == 'ms.channel.unauthorized') {
       await ws.close();
       throw IntegrationException('${d.name} said no. On the TV open Settings > General > External Device Manager > '
-          'Device Connection Manager, allow SmartMenuKJ, then try again.');
+          'Device Connection Manager, allow SmartHomeKJ, then try again.');
     }
     if (event != 'ms.channel.connect') {
       await ws.close();

@@ -122,7 +122,7 @@ class HomeData {
   String themeMode;
 
   Map<String, dynamic> toJson() => {
-        'app': 'SmartMenuKJ',
+        'app': 'SmartHomeKJ',
         'version': schemaVersion,
         'themeMode': themeMode,
         'floors': floors.map((e) => e.toJson()).toList(),

@@ -339,7 +339,7 @@ class _IntegrationSheetState extends State<IntegrationSheet> {
               style: TextButton.styleFrom(foregroundColor: KJPalette.accent),
               onPressed: () async {
                 if (await confirm(context,
-                    title: 'Remove ${cfg.name}?', body: 'Its $count devices are removed from SmartMenuKJ too.')) {
+                    title: 'Remove ${cfg.name}?', body: 'Its $count devices are removed from SmartHomeKJ too.')) {
                   await store.removeIntegration(cfg);
                   if (context.mounted) Navigator.pop(context);
                 }
@@ -419,7 +419,7 @@ class _ScanSheetState extends State<ScanSheet> {
   List<FoundService> get _visible {
     final store = context.read<HomeStore>();
     final family = _found.values.where((s) => !s.isLan && s.integrationType != null).map((s) => s.host).toSet();
-    // A Matter device on SmartMenuKJ and in other apps announces itself once per app: show it once, as added.
+    // A Matter device on SmartHomeKJ and in other apps announces itself once per app: show it once, as added.
     final ownMatter = _found.values.where((s) => s.integrationType == matterType && _isAdded(store, s)).map((s) => s.host).toSet();
     final list = _found.values
         .where((s) => !s.isLan || !family.contains(s.host))
@@ -519,7 +519,9 @@ class _ScanSheetState extends State<ScanSheet> {
       'kasa' || 'wemo' => Icons.power_outlined,
       'yeelight' => Icons.lightbulb_outline,
       'camera' => Icons.videocam_outlined,
-      _ => Icons.devices_other,
+      'roomba' || 'valetudo' => Icons.cleaning_services_outlined,
+      'mikrotik' => Icons.router_outlined,
+      _ => s.name.contains('router') ? Icons.router_outlined : Icons.devices_other,
     };
   }
 
@@ -544,8 +546,8 @@ class _ScanSheetState extends State<ScanSheet> {
               TextButton(onPressed: _scan, child: const Text('Scan again')),
           ]),
           const SizedBox(height: 6),
-          Text('Everything on this Wi-Fi that answers: TVs, speakers, plugs, lights, hubs, printers and more. '
-              'Tap Add on anything you want in SmartMenuKJ.',
+          Text('Everything on this Wi-Fi that answers: TVs, speakers, plugs, lights, robots, routers, hubs, printers and more. '
+              'Tap Add on anything you want in SmartHomeKJ.',
               style: NType.body(13, color: p.textDim)),
           if (_addable(store).length > 1 && _adding.isEmpty) ...[
             const SizedBox(height: 14),

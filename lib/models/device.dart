@@ -22,6 +22,7 @@ enum DeviceKind {
   siren,
   garage,
   button,
+  router,
   other;
 
   String get label => switch (this) {
@@ -45,6 +46,7 @@ enum DeviceKind {
         DeviceKind.siren => 'Siren',
         DeviceKind.garage => 'Garage door',
         DeviceKind.button => 'Button',
+        DeviceKind.router => 'Router',
         DeviceKind.other => 'Other',
       };
 
@@ -185,7 +187,7 @@ Set<Capability> defaultCapabilities(DeviceKind kind) => switch (kind) {
       DeviceKind.light => {Capability.onOff, Capability.brightness, Capability.colorTemp, Capability.color},
       DeviceKind.outlet || DeviceKind.toggle || DeviceKind.fan || DeviceKind.valve || DeviceKind.siren => {Capability.onOff},
       DeviceKind.media => {Capability.onOff, Capability.volume, Capability.remote},
-      DeviceKind.sensor => {Capability.readings},
+      DeviceKind.sensor || DeviceKind.router => {Capability.readings},
       DeviceKind.climate => {Capability.onOff, Capability.targetTemp},
       DeviceKind.cover || DeviceKind.garage => {Capability.position},
       DeviceKind.lock => {Capability.lock},

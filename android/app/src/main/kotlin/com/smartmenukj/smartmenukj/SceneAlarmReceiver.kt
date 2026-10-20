@@ -48,7 +48,7 @@ class SceneAlarmReceiver : BroadcastReceiver() {
     private fun runDart(app: Context, args: List<String>, result: PendingResult) {
         // Keep the phone awake until the scene has been sent, then let go.
         val wakeLock = (app.getSystemService(Context.POWER_SERVICE) as PowerManager)
-            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "SmartMenuKJ:scene")
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "SmartHomeKJ:scene")
         wakeLock.acquire(LIMIT_MS + 1_000)
         val main = Handler(Looper.getMainLooper())
         var engine: FlutterEngine? = null

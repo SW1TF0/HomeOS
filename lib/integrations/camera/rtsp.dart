@@ -38,7 +38,7 @@ Future<RtspResult> rtspDescribe(Uri url, {Duration timeout = const Duration(seco
   Future<_RtspResponse> describe([String? auth]) {
     seq++;
     socket.add(utf8.encode('DESCRIBE $bare RTSP/1.0\r\nCSeq: $seq\r\nAccept: application/sdp\r\n'
-        'User-Agent: SmartMenuKJ\r\n${auth == null ? '' : 'Authorization: $auth\r\n'}\r\n'));
+        'User-Agent: SmartHomeKJ\r\n${auth == null ? '' : 'Authorization: $auth\r\n'}\r\n'));
     return reader.next().timeout(timeout);
   }
 

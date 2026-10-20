@@ -138,7 +138,7 @@ fun ConnectScreen(state: StoreState) {
                 }
             }
             item {
-                Text("Coming to the native app next: Matter, MQTT and Zigbee2MQTT, TVs and other network devices, cameras, and control from anywhere. The other SmartMenuKJ app has them today.",
+                Text("Coming to the native app next: Matter, MQTT and Zigbee2MQTT, TVs and other network devices, cameras, and control from anywhere. The other SmartHomeKJ app has them today.",
                     style = NType.body(12.sp, p.textDim), modifier = Modifier.padding(top = 8.dp))
             }
         }

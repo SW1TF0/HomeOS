@@ -122,7 +122,7 @@ void main() {
       await tester.pump(const Duration(seconds: 11));
       expect(backups.writes.length, 1, reason: 'the first copy, right after the app starts');
       final first = jsonDecode(backups.writes.single) as Map<String, dynamic>;
-      expect((first['app'], first['backup']), ('SmartMenuKJ', 'homes'));
+      expect((first['app'], first['backup']), ('SmartHomeKJ', 'homes'));
       expect(first['saved'], isA<String>());
       expect(backups.savedAt, isNotNull);
 
@@ -165,7 +165,7 @@ void main() {
       await tester.pumpWidget(SmartMenuApp(store: store, poll: false, settings: settings, backups: backups));
       await tester.pump();
       expect(find.byKey(const Key('restore-backup')), findsOneWidget);
-      expect(find.text('Had SmartMenuKJ before?'), findsOneWidget);
+      expect(find.text('Had this app before?'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('restore-pick')));
       await tester.pumpAndSettle();
@@ -197,7 +197,7 @@ void main() {
       await tester.scrollUntilVisible(find.byKey(const Key('settings-restore-file')), 200,
           scrollable: find.byType(Scrollable).last);
       await tester.pumpAndSettle();
-      expect(find.textContaining('Downloads/SmartMenuKJ'), findsOneWidget);
+      expect(find.textContaining('Downloads/SmartHomeKJ'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('settings-backup-file')));
       await tester.pumpAndSettle();

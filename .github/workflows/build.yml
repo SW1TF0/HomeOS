@@ -103,7 +103,7 @@ jobs:
           channel: stable
           cache: true
       - run: flutter build macos --release
-      - run: cd build/macos/Build/Products/Release && ditto -c -k --keepParent SmartMenuKJ.app ../../../../../SmartMenuKJ-macos.zip
+      - run: cd build/macos/Build/Products/Release && ditto -c -k --keepParent SmartHomeKJ.app ../../../../../SmartMenuKJ-macos.zip
       - uses: actions/upload-artifact@v4
         with:
           name: SmartMenuKJ-macos
@@ -122,6 +122,6 @@ jobs:
         with:
           files: dist/*
           tag_name: ${{ inputs.version || github.ref_name }}
-          name: SmartMenuKJ ${{ inputs.version || github.ref_name }}
+          name: SmartHomeKJ ${{ inputs.version || github.ref_name }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true

@@ -595,14 +595,14 @@ public final class HomeStore: StoreObject {
             guard let d = h.id == homeId ? data : readHome(h.id) else { return nil }
             return ["id": .string(h.id), "name": .string(h.name), "home": d.json(withState: false)]
         }
-        let j: JSON = ["app": "SmartMenuKJ", "backup": "homes", "current": .string(homeId), "homes": .array(list)]
+        let j: JSON = ["app": "SmartHomeKJ", "backup": "homes", "current": .string(homeId), "homes": .array(list)]
         return j.text(pretty: true)
     }
 
     /// Takes back the homes in a backup: a backup of every home replaces the homes here, a backup of one home replaces
     /// the open home. Returns how many homes came back.
     public func importAll(_ raw: String) throws -> Int {
-        guard let j = try? JSON.parse(raw), j.object != nil else { throw IntegrationError("That is not a SmartMenuKJ backup.") }
+        guard let j = try? JSON.parse(raw), j.object != nil else { throw IntegrationError("That is not a SmartHomeKJ backup.") }
         guard j["backup"]?.string == "homes", let list = j["homes"]?.array else {
             let d = HomeData(json: j)
             if d.floors.isEmpty { throw IntegrationError("That backup has no home in it.") }

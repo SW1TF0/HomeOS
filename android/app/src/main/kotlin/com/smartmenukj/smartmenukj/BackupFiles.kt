@@ -16,7 +16,7 @@ import io.flutter.plugin.common.MethodChannel
 import kotlin.concurrent.thread
 
 /**
- * Keeps a copy of every home in Downloads/SmartMenuKJ/SmartMenuKJ-backup.json (backup_files.dart). Files in Downloads
+ * Keeps a copy of every home in Downloads/SmartHomeKJ/SmartHomeKJ-backup.json (backup_files.dart). Files in Downloads
  * stay when the app is uninstalled, so a new install can open the file again and take the homes back. Writing needs
  * Android 10 or later; opening a file works everywhere.
  */
@@ -24,8 +24,8 @@ object BackupFiles {
     const val CHANNEL = "smartmenukj/backup"
     private const val TAG = "BackupFiles"
     private const val REQUEST_OPEN = 7301
-    private const val NAME = "SmartMenuKJ-backup.json"
-    private const val FOLDER = "SmartMenuKJ"
+    private const val NAME = "SmartHomeKJ-backup.json"
+    private const val FOLDER = "SmartHomeKJ"
     private const val PREFS = "smartmenukj.backup"
     private const val KEY_URI = "uri"
 
@@ -57,7 +57,7 @@ object BackupFiles {
         }
     }
 
-    /** Writes into the file used last time, or makes a new one in Downloads/SmartMenuKJ. */
+    /** Writes into the file used last time, or makes a new one in Downloads/SmartHomeKJ. */
     private fun save(app: Context, bytes: ByteArray): Boolean {
         val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         prefs.getString(KEY_URI, null)?.let { if (write(app, Uri.parse(it), bytes)) return true }

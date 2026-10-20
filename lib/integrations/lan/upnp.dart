@@ -52,7 +52,7 @@ Stream<SsdpReply> ssdpSearch({Duration timeout = const Duration(seconds: 3), Str
       out.add(SsdpReply(host: d.address.address, headers: parseSsdpHeaders(text)));
     });
     final msg = utf8.encode('M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: "ssdp:discover"\r\n'
-        'MX: 2\r\nST: $target\r\nUSER-AGENT: SmartMenuKJ/1.1 UPnP/1.1\r\n\r\n');
+        'MX: 2\r\nST: $target\r\nUSER-AGENT: SmartHomeKJ/1.1 UPnP/1.1\r\n\r\n');
     final roku = utf8.encode(utf8.decode(msg).replaceFirst('ST: $target', 'ST: roku:ecp'));
     for (var i = 0; i < 2; i++) {
       trySend(socket, msg, InternetAddress('239.255.255.250'), 1900);
@@ -303,11 +303,21 @@ class GenericProtocol extends LanProtocol {
     return DeviceKind.other;
   }
 
+  /// The address of a device's own web page, when it has one.
+  static String? webPage(String host, Iterable<int> open) => switch (open) {
+        final o when o.contains(80) => 'http://$host/',
+        final o when o.contains(443) => 'https://$host/',
+        final o when o.contains(8080) => 'http://$host:8080/',
+        final o when o.contains(8443) => 'https://$host:8443/',
+        _ => null,
+      };
+
   @override
   Future<List<Device>?> identify(LanContext ctx, String host, Map<String, String> hints) async {
-    final candidates = [?int.tryParse(hints['port'] ?? ''), ...ports];
-    final answers = await Future.wait(candidates.map((p) => ctx.tcpOpen(host, p, within: const Duration(milliseconds: 900))));
-    final open = answers.contains(true) ? candidates[answers.indexOf(true)] : null;
+    final candidates = {?int.tryParse(hints['port'] ?? ''), ...ports}.toList();
+    final answers = await Future.wait(candidates.map((p) => ctx.knock(host, p, within: const Duration(milliseconds: 900))));
+    final open = [for (var i = 0; i < candidates.length; i++) if (answers[i] == true) candidates[i]];
+    final web = webPage(host, open);
     return [
       ctx.make(
         externalId: '$id:$host',
@@ -317,11 +327,13 @@ class GenericProtocol extends LanProtocol {
         props: {
           'host': host,
           'protocol': id,
-          'port': ?open,
+          'port': ?open.firstOrNull,
+          'web': ?web,
+          'mac': ?hints['mac'],
           'model': [hints['manufacturer'], hints['model']].where((s) => s != null && s.isNotEmpty).join(' '),
           if (hints['service'] != null) 'service': hints['service'],
         },
-        state: _state(host, open != null),
+        state: _state(host, answers.any((a) => a != null)),
       ),
     ];
   }
@@ -334,9 +346,10 @@ class GenericProtocol extends LanProtocol {
   Future<DeviceState?> read(LanContext ctx, Device device) async {
     final host = device.props['host'] as String;
     final port = device.props['port'] as int?;
+    // A device that turns a knock down is there too: phones and many gadgets have no open port.
     final answers =
-        await Future.wait([?port, ...ports.take(5)].map((p) => ctx.tcpOpen(host, p, within: const Duration(milliseconds: 900))));
-    return _state(host, answers.contains(true));
+        await Future.wait({?port, ...ports.take(5)}.map((p) => ctx.knock(host, p, within: const Duration(milliseconds: 900))));
+    return _state(host, answers.any((a) => a != null));
   }
 
   @override

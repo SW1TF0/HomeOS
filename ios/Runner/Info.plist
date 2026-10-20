@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>SmartMenuKJ</string>
+	<string>SmartHomeKJ</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>SmartMenuKJ finds and controls smart devices on your home network.</string>
+	<string>SmartHomeKJ finds and controls smart devices on your home network.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_hue._tcp</string>

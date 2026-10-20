@@ -9,7 +9,7 @@ import '../models/device.dart';
 import '../models/scene.dart';
 import 'home_store.dart';
 
-/// The SmartMenuKJ widget on the Android home screen (ScenesWidget.kt): the open home's first scenes and All off.
+/// The SmartHomeKJ widget on the Android home screen (ScenesWidget.kt): the open home's first scenes and All off.
 /// The All off tile in Quick Settings (AllOffTile.kt) comes through here too.
 class ScenesWidget {
   const ScenesWidget([this.channel = const MethodChannel('smartmenukj/widget')]);
@@ -78,7 +78,7 @@ Future<String> runTapped(HomeStore store, String? sceneId, {bool anyHome = false
   }
   final scene = store.data.scenes.where(isIt).firstOrNull;
   if (scene == null) {
-    return store.allScenes.any(isIt) ? 'That scene is in another home. Open it in SmartMenuKJ first.' : 'That scene is gone.';
+    return store.allScenes.any(isIt) ? 'That scene is in another home. Open it in SmartHomeKJ first.' : 'That scene is gone.';
   }
   final ok = await store.runScene(scene, quiet: true);
   final total = scene.actions.where((a) => store.device(a.deviceId) != null).length;

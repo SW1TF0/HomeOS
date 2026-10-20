@@ -328,7 +328,7 @@ class _CameraPlaybackScreenState extends State<CameraPlaybackScreen> {
     return ListView(key: const Key('playback-list'), padding: const EdgeInsets.fromLTRB(20, 0, 20, 40), children: [
       SectionLabel(found == null || found.isEmpty ? 'Recorded' : 'Recorded · ${found.length}'),
       if (_playback == null)
-        message('Dahua, Imou, Amcrest, Hikvision and Ezviz cameras let SmartMenuKJ play what they recorded. '
+        message('Dahua, Imou, Amcrest, Hikvision and Ezviz cameras let SmartHomeKJ play what they recorded. '
             'This camera\'s recordings play in its own app.')
       else if (_problem != null)
         message('$_problem You can still tap a time on the line above to watch it. $cardNote')

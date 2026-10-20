@@ -71,7 +71,7 @@ struct ConnectView: View {
                             }
                         }
                     }
-                    Text("Coming to the native app next: Matter, MQTT and Zigbee2MQTT, TVs and other network devices, cameras, and control from anywhere. The other SmartMenuKJ app has them today.")
+                    Text("Coming to the native app next: Matter, MQTT and Zigbee2MQTT, TVs and other network devices, cameras, and control from anywhere. The other SmartHomeKJ app has them today.")
                         .font(NType.body(12)).foregroundStyle(p.textDim).padding(.top, 8)
                 }
                 .padding(.horizontal, 20).padding(.bottom, 28)

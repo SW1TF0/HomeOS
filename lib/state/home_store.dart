@@ -11,6 +11,7 @@ import '../integrations/camera/camera_setup.dart';
 import '../integrations/catalog.dart';
 import '../integrations/integration.dart';
 import '../integrations/lan/lan_driver.dart';
+import '../integrations/lan/routeros.dart';
 import '../integrations/matter/matter_driver.dart';
 import '../models/automation.dart';
 import '../models/device.dart';
@@ -1215,7 +1216,7 @@ class HomeStore extends ChangeNotifier {
   }
 
   /// When the last part of a Matter device leaves the app, the device forgets
-  /// SmartMenuKJ too, so it is not added back on sync and frees its place.
+  /// SmartHomeKJ too, so it is not added back on sync and frees its place.
   void _forgetMatter(Device d) {
     final driver = _drivers[d.integrationId];
     final node = matterNodeIdOf(d);
@@ -1269,14 +1270,27 @@ class HomeStore extends ChangeNotifier {
     }
     final pairs = added.where((d) => const {'samsung', 'webos'}.contains(d.props['protocol'])).toList();
     final cameras = added.where((d) => d.kind == DeviceKind.camera).toList();
+    final robots = added.where((d) => d.props['protocol'] == 'roomba' && d.props['password'] == null).toList();
+    final routers = added.where((d) => d.props['protocol'] == 'mikrotik' && d.state.readings['Status'] != 'Online').toList();
     if (added.isEmpty) {
       toast('${match.devices.first.name} is already added.');
     } else if (cameras.length == added.length) {
       toast('Added ${cameras.first.name}. Open it and enter its login to watch it live.');
     } else if (pairs.isNotEmpty) {
-      toast('Added ${pairs.first.name}. Look at the TV and allow SmartMenuKJ.');
+      toast('Added ${pairs.first.name}. Look at the TV and allow SmartHomeKJ.');
+    } else if (robots.isNotEmpty) {
+      toast('Added ${robots.first.name}. Open it and tap Get password to control it.');
+    } else if (routers.isNotEmpty) {
+      toast('Added ${routers.first.name}. Open it and enter the router\'s login to see and change its settings.');
     } else {
       toast('Added ${added.map((d) => d.name).join(', ')}.');
+    }
+    // A robot whose HOME button was just held hands out its password right away.
+    for (final d in robots) {
+      driver.setUp(d).then((problem) {
+        if (problem == null) toast('${d.name} is ready.');
+        _changed();
+      });
     }
     for (final d in pairs) {
       driver.setUp(d).then((problem) {
@@ -1334,7 +1348,7 @@ class HomeStore extends ChangeNotifier {
       ..remove('token')
       ..remove('clientKey');
     await driver.protocolOf(d).close();
-    toast('Look at ${d.name} and allow SmartMenuKJ.');
+    toast('Look at ${d.name} and allow SmartHomeKJ.');
     final problem = await driver.setUp(d);
     toast(problem ?? 'Paired with ${d.name}.');
     _changed();
@@ -1360,6 +1374,43 @@ class HomeStore extends ChangeNotifier {
     } else {
       d.props[key] = value.trim();
     }
+    _changed();
+    // A new login or password shows at once whether it works.
+    if (const {'password', 'username', 'blid'}.contains(key)) refreshDevice(d);
+  }
+
+  /// Asks [d] what it is doing now.
+  Future<void> refreshDevice(Device d) async {
+    final driver = _drivers[d.integrationId];
+    if (driver == null) return;
+    try {
+      d.state = d.state.merge(await driver.refresh(d) ?? const DeviceState());
+    } catch (_) {
+      d.state = d.state.merge(DeviceState.unreachable);
+    }
+    _changed(save: false);
+  }
+
+  /// Gets what a network device needs before it can be controlled (a Roomba's password).
+  Future<void> setUpNetworkDevice(Device d) async {
+    final driver = _drivers[d.integrationId];
+    if (driver is! LanDriver) return;
+    final problem = await driver.setUp(d);
+    toast(problem ?? '${d.name} is ready.');
+    _changed();
+  }
+
+  /// Logs in to a MikroTik router, for its settings screen.
+  Future<MikroTik> openRouter(Device d) async {
+    final driver = _drivers[d.integrationId];
+    if (driver is! LanDriver) throw IntegrationException('${d.name} is not a network device.');
+    return openMikroTik(driver.ctx, d);
+  }
+
+  /// Stores a router's login once it worked.
+  void setRouterLogin(Device d, String user, String password) {
+    d.props['username'] = user.trim().isEmpty ? 'admin' : user.trim();
+    password.isEmpty ? d.props.remove('password') : d.props['password'] = password;
     _changed();
   }
 
@@ -1447,7 +1498,7 @@ class HomeStore extends ChangeNotifier {
       }
       list.add({'id': h.id, 'name': h.name, 'home': j});
     }
-    return {'app': 'SmartMenuKJ', 'backup': 'homes', 'current': homeId, 'homes': list};
+    return {'app': 'SmartHomeKJ', 'backup': 'homes', 'current': homeId, 'homes': list};
   }
 
   /// Whether [raw] is a backup of every home ([exportAll]) rather than of one home ([exportJson]).

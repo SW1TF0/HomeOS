@@ -190,7 +190,7 @@ class SettingsScreen extends StatelessWidget {
                             subtitle: const Text('Your first four scenes and All off, without opening the app'),
                             onTap: () async {
                               if (!await const ScenesWidget().pin().catchError((_) => false)) {
-                                store.toast('Hold an empty spot on your home screen, tap Widgets and pick SmartMenuKJ.');
+                                store.toast('Hold an empty spot on your home screen, tap Widgets and pick SmartHomeKJ.');
                               }
                             },
                           ),
@@ -222,9 +222,9 @@ class SettingsScreen extends StatelessWidget {
                                     (true, _) => 'Could not be saved just now.',
                                     (_, final at?) => 'Saved at ${clockText(at, settings.clock24)}.',
                                     _ => 'Saved after every change.',
-                                  }} Every home, in Downloads/SmartMenuKJ. It stays when the app is uninstalled, and '
+                                  }} Every home, in Downloads/SmartHomeKJ. It stays when the app is uninstalled, and '
                                     'includes your connection passwords.'
-                                : 'Every home, in Downloads/SmartMenuKJ, so a new install can take them back'),
+                                : 'Every home, in Downloads/SmartHomeKJ, so a new install can take them back'),
                             value: settings.autoBackup,
                             onChanged: (v) => settings.autoBackup = v,
                           ),
@@ -284,14 +284,14 @@ class SettingsScreen extends StatelessWidget {
                         ListTile(
                           leading: const Icon(Icons.description_outlined),
                           title: const Text('Licences'),
-                          subtitle: const Text('The open-source parts SmartMenuKJ is built with'),
+                          subtitle: const Text('The open-source parts SmartHomeKJ is built with'),
                           onTap: () =>
-                              showLicensePage(context: context, applicationName: 'SmartMenuKJ', applicationVersion: appVersion),
+                              showLicensePage(context: context, applicationName: 'SmartHomeKJ', applicationVersion: appVersion),
                         ),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
                           child:
-                              Text('SMARTMENUKJ $appVersion · FREE · LOCAL-FIRST', style: NType.label(color: p.textDim)),
+                              Text('SMARTHOMEKJ $appVersion · FREE · LOCAL-FIRST', style: NType.label(color: p.textDim)),
                         ),
                       ]),
                     ),

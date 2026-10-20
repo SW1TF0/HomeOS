@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Keeps a copy of every home in Downloads/SmartMenuKJ/SmartMenuKJ-native-backup.json. Files in Downloads stay when the
+ * Keeps a copy of every home in Downloads/SmartHomeKJ/SmartHomeKJ-native-backup.json. Files in Downloads stay when the
  * app is uninstalled, so a new install can open the file again and take the homes back. Writing needs Android 10.
  */
 class BackupFile(
@@ -56,7 +56,7 @@ class BackupFile(
             context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, NAME)
                 put(MediaStore.MediaColumns.MIME_TYPE, "application/json")
-                put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/SmartMenuKJ")
+                put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/SmartHomeKJ")
             })
         } catch (e: Exception) {
             Log.w(TAG, "Could not make the backup file", e)
@@ -86,6 +86,6 @@ class BackupFile(
 
     companion object {
         private const val TAG = "BackupFile"
-        const val NAME = "SmartMenuKJ-native-backup.json"
+        const val NAME = "SmartHomeKJ-native-backup.json"
     }
 }

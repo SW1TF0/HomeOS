@@ -147,7 +147,7 @@ class _CameraSetupSheetState extends State<CameraSetupSheet> {
           DisplayText(d == null ? 'Add camera' : 'Live video', size: 30),
           const SizedBox(height: 6),
           Text(
-              'SmartMenuKJ plays the camera\'s own video straight over your Wi-Fi. Nothing goes through a cloud, '
+              'SmartHomeKJ plays the camera\'s own video straight over your Wi-Fi. Nothing goes through a cloud, '
               'so it is quick and free.',
               style: NType.body(14, color: p.textDim)),
           if (d == null) ...[

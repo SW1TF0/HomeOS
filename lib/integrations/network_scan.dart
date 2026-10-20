@@ -8,6 +8,7 @@ import 'camera/onvif.dart';
 import 'lan/mdns.dart';
 import 'lan/net.dart';
 import 'lan/plugs.dart';
+import 'lan/roomba.dart';
 import 'lan/sweep.dart';
 import 'lan/upnp.dart';
 
@@ -61,6 +62,9 @@ class FoundService {
     'kasa': 'TP-Link Kasa',
     'yeelight': 'Yeelight',
     'wemo': 'Belkin WeMo',
+    'roomba': 'iRobot Roomba',
+    'valetudo': 'Robot vacuum',
+    'mikrotik': 'MikroTik router',
     'upnp': 'Media player',
     'camera': 'Camera',
     'generic': 'Network device',
@@ -131,13 +135,13 @@ class NetworkScanner {
 
   static const _lock = MethodChannel('smartmenukj/multicast');
 
-  /// Guesses the integration for a generic `_http._tcp` service from its name.
-  static String? guessFromName(String name) {
+  /// Guesses the integration for a generic `_http._tcp` service from its name. Anything else is a network device.
+  static String guessFromName(String name) {
     final n = name.toLowerCase();
     if (n.startsWith('shelly')) return 'shelly';
     if (n.contains('tasmota')) return 'tasmota';
     if (n.startsWith('wled')) return 'wled';
-    return 'skip';
+    return 'lan';
   }
 
   Stream<FoundService> scan({Duration timeout = const Duration(seconds: 4)}) {
@@ -184,6 +188,14 @@ class NetworkScanner {
               hints: {'protocol': 'yeelight', 'model': h['model'] ?? '', if ((h['name'] ?? '').isNotEmpty) 'name': h['name']!},
             ))),
         _onvif(emit, timeout),
+        roombaSearch((info) => emit(FoundService(
+              name: info.name,
+              host: info.host,
+              port: 8883,
+              service: 'iRobot',
+              integrationType: 'lan',
+              hints: info.hints,
+            ))),
         if (sweep) _sweep(emit),
       ]);
       try {
@@ -284,14 +296,17 @@ class NetworkScanner {
       // Types learned only by asking "what is out there" are network devices.
       final known = types.containsKey(svc.type);
       final value = known ? types[svc.type] : 'generic';
-      final isLan = value == 'generic' || lanServices.containsKey(svc.type);
+      var isLan = value == 'generic' || lanServices.containsKey(svc.type);
       var type = isLan ? 'lan' : value;
+      var protocol = value;
       if (type == 'http') {
+        // A web page that is not a known family is still a device on the network.
         type = guessFromName(svc.instance);
-        if (type == 'skip') return;
+        isLan = type == 'lan';
+        protocol = 'generic';
       }
       var name = svc.instance;
-      final hints = <String, String>{if (isLan) 'protocol': value!, 'service': svc.type};
+      final hints = <String, String>{if (isLan) 'protocol': protocol!, 'service': svc.type};
       if (svc.type == '_googlecast._tcp') {
         name = svc.txt['fn'] ?? name;
         if (svc.txt['md'] != null) hints['model'] = svc.txt['md']!;

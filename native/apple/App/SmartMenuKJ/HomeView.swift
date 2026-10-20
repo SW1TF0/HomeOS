@@ -39,7 +39,7 @@ struct HomeView: View {
                     NCard(padding: 16) {
                         HStack(spacing: 14) {
                             Image(systemName: "circle.hexagongrid").foregroundStyle(p.text)
-                            Text("This is a sample home to try. Connect your devices, or bring your home from the other SmartMenuKJ app in Settings.")
+                            Text("This is a sample home to try. Connect your devices, or bring your home from the other SmartHomeKJ app in Settings.")
                                 .font(NType.body(14)).foregroundStyle(p.text)
                         }
                         HStack(spacing: 8) {

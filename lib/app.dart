@@ -37,7 +37,7 @@ class SmartMenuApp extends StatelessWidget {
       ],
       child: Consumer<HomeStore>(
         builder: (context, store, _) => MaterialApp(
-          title: 'SmartMenuKJ',
+          title: 'SmartHomeKJ',
           debugShowCheckedModeBanner: false,
           theme: buildAppTheme(Brightness.light),
           darkTheme: buildAppTheme(Brightness.dark),

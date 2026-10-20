@@ -122,7 +122,7 @@ Color kindColor(DeviceKind kind) => switch (kind) {
       DeviceKind.cover || DeviceKind.fan || DeviceKind.purifier || DeviceKind.valve => KJPalette.teal,
       DeviceKind.vacuum || DeviceKind.mower || DeviceKind.appliance => KJPalette.indigo,
       DeviceKind.siren => KJPalette.danger,
-      DeviceKind.sensor || DeviceKind.other => KJPalette.blue,
+      DeviceKind.sensor || DeviceKind.router || DeviceKind.other => KJPalette.blue,
     };
 
 IconData deviceIcon(DeviceKind kind, {bool active = false}) => switch (kind) {
@@ -146,6 +146,7 @@ IconData deviceIcon(DeviceKind kind, {bool active = false}) => switch (kind) {
       DeviceKind.siren => active ? Icons.campaign : Icons.campaign_outlined,
       DeviceKind.garage => active ? Icons.garage : Icons.garage_outlined,
       DeviceKind.button => active ? Icons.touch_app : Icons.touch_app_outlined,
+      DeviceKind.router => Icons.router_outlined,
       DeviceKind.other => Icons.devices_other_outlined,
     };
 

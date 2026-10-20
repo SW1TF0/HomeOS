@@ -93,7 +93,7 @@ class ImStatus {
   static String describe(int status) => switch (status) {
         success => 'success',
         failure => 'the device reported a failure',
-        unsupportedAccess => 'SmartMenuKJ is not allowed to do that on this device',
+        unsupportedAccess => 'SmartHomeKJ is not allowed to do that on this device',
         unsupportedEndpoint => 'the device has no such part',
         invalidAction => 'the device did not accept the request',
         unsupportedCommand => 'the device does not support that command',

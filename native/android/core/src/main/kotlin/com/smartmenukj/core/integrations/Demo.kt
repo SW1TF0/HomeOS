@@ -4,7 +4,7 @@ import com.smartmenukj.core.model.*
 import com.smartmenukj.core.net.Http
 
 /**
- * Virtual devices that live only in the app. Handy for trying SmartMenuKJ, planning a home before buying hardware, or
+ * Virtual devices that live only in the app. Handy for trying SmartHomeKJ, planning a home before buying hardware, or
  * as placeholders on the map.
  */
 class DemoDriver(config: IntegrationConfig, http: Http) : IntegrationDriver(config, http) {

@@ -11,10 +11,10 @@ class SweepHit {
   final Set<int> openPorts;
 }
 
-/// Ports worth knocking on: TVs, speakers, plugs, cameras, printers, PCs, phones.
+/// Ports worth knocking on: TVs, speakers, plugs, cameras, printers, PCs, phones, robots, routers.
 const sweepPorts = [
   80, 443, 8080, 53, 22, 445, 139, 554, 631, 9100, 1400, 7000, 8008, 8009, 8060, 8001, 8002, 3000, 3001, //
-  9999, 55443, 6668, 1883, 8123, 5000, 62078, 49152, 49153, 5555, 8443,
+  9999, 55443, 6668, 1883, 8123, 5000, 62078, 49152, 49153, 5555, 8443, 8883, 8291, 8728,
 ];
 
 // "Connection refused" on Linux / Android, macOS / iOS and Windows.
@@ -70,6 +70,7 @@ Future<String?> reverseName(String host) async {
 
 /// Guesses a device from the ports it opened.
 String? guessFromPorts(Set<int> open) {
+  if (open.contains(8291) || open.contains(8728)) return 'mikrotik';
   if (open.contains(8060)) return 'roku';
   if (open.contains(8001) || open.contains(8002)) return 'samsung';
   if (open.contains(3000) || open.contains(3001)) return 'webos';
@@ -83,6 +84,7 @@ String? guessFromPorts(Set<int> open) {
 
 /// A readable label when a device has no name of its own.
 String labelFromPorts(Set<int> open) {
+  if (open.contains(8291) || open.contains(8728)) return 'MikroTik router';
   if (open.contains(53) && (open.contains(80) || open.contains(443))) return 'Wi-Fi router';
   if (open.contains(62078)) return 'iPhone or iPad';
   if (open.contains(9100) || open.contains(631)) return 'Printer';

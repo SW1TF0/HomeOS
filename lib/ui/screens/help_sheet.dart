@@ -15,10 +15,27 @@ const _topics = [
   (
     Icons.wifi_tethering,
     'Add your devices',
-    'Open Connect and tap Scan network. Everything on your Wi-Fi that answers shows up: tap Add, or Add all. '
-        'This phone has to be on the same Wi-Fi as the devices. If one is missing, tap Add by IP address and type the '
+    'Open Connect and tap Scan network. Everything on your Wi-Fi that answers shows up and can be added: tap Add, or '
+        'Add all. Devices the app has no controls for still show whether they are online, and open their own web page '
+        'when they have one. This phone has to be on the same Wi-Fi as the devices. If one is missing, tap Add by IP '
+        'address and type the '
         'address your router lists for it. Hubs such as Home Assistant, Hue or an MQTT broker are added under Connect '
         'with their address.',
+  ),
+  (
+    Icons.cleaning_services_outlined,
+    'iRobot Roomba',
+    'Scan the network and add the Roomba. Then put it on its dock, hold its HOME button for about 2 seconds until it '
+        'plays a tone (on j and s series robots, until the light ring turns blue), open it in the app and tap Get '
+        'password within a minute. After that it cleans, pauses, goes home and beeps from the app, on your Wi-Fi.',
+  ),
+  (
+    Icons.router_outlined,
+    'MikroTik router',
+    'Scan the network and add the router, or add it by its address (often 192.168.88.1). Open it, tap Router settings '
+        'and log in with the user and password you use in WinBox. You see who is connected and can switch Wi-Fi and '
+        'ports, change the Wi-Fi name and password, keep a device on the same address, rename and restart the router. '
+        'Every other setting opens the router\'s own settings page.',
   ),
   (
     Icons.hub_outlined,
@@ -63,7 +80,7 @@ const _topics = [
   (
     Icons.settings_backup_restore,
     'Keep your home when you reinstall',
-    'On Android the app keeps a backup file of every home in Downloads/SmartMenuKJ, and the file stays when the app '
+    'On Android the app keeps a backup file of every home in Downloads/SmartHomeKJ, and the file stays when the app '
         'is uninstalled. After installing again, tap Restore on the home screen, or Settings, Restore from a file, and '
         'pick it.',
   ),

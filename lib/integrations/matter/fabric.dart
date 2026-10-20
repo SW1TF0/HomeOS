@@ -21,11 +21,11 @@ class MatterFabric {
     required this.ipkEpochKey,
     required this.nextNodeId,
     this.vendorId = 0xFFF1,
-    this.label = 'SmartMenuKJ',
+    this.label = 'SmartHomeKJ',
   });
 
   /// A new fabric with fresh keys.
-  factory MatterFabric.create({String label = 'SmartMenuKJ', int vendorId = 0xFFF1}) {
+  factory MatterFabric.create({String label = 'SmartHomeKJ', int vendorId = 0xFFF1}) {
     final rootKey = EcKeyPair.generate();
     final root = issueRootCertificate(rootKey, rcacId: randomOperationalNodeId());
     final fabricId = randomOperationalNodeId();
@@ -127,7 +127,7 @@ class MatterFabric {
         ipkEpochKey: hexBytes(j['ipk'] as String),
         nextNodeId: parseHex64(j['nextNodeId'] as String),
         vendorId: (j['vendorId'] as num?)?.toInt() ?? 0xFFF1,
-        label: j['label'] as String? ?? 'SmartMenuKJ',
+        label: j['label'] as String? ?? 'SmartHomeKJ',
       );
     } on Object catch (e) {
       if (e is MatterException) rethrow;

@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../integrations/catalog.dart';
 import '../../integrations/integration.dart';
 import '../../integrations/lan/lan_driver.dart';
+import '../../integrations/lan/roomba.dart';
 import '../../integrations/lan/wol.dart';
 import '../../integrations/matter/matter_driver.dart';
 import '../../integrations/network_scan.dart';
@@ -18,6 +19,7 @@ import '../nav.dart';
 import '../../integrations/camera/playback.dart';
 import 'camera_playback.dart';
 import 'camera_sheet.dart';
+import 'router_screen.dart';
 import '../widgets/camera_live.dart';
 import '../widgets/controls.dart';
 import '../widgets/dialogs.dart';
@@ -436,8 +438,8 @@ class DeviceSheet extends StatelessWidget {
                     if (await confirm(context,
                         title: 'Remove ${d.name}?',
                         body: lastMatterPart
-                            ? 'It disappears from SmartMenuKJ and the device forgets SmartMenuKJ. To add it again you need a new pairing code.'
-                            : 'It disappears from SmartMenuKJ. The device itself is not changed, and syncing its connection brings it back.')) {
+                            ? 'It disappears from SmartHomeKJ and the device forgets SmartHomeKJ. To add it again you need a new pairing code.'
+                            : 'It disappears from SmartHomeKJ. The device itself is not changed, and syncing its connection brings it back.')) {
                       store.removeDevice(d);
                       if (context.mounted) Navigator.pop(context);
                     }
@@ -513,6 +515,9 @@ List<Widget> _networkTiles(BuildContext context, HomeStore store, Device d) {
   final mac = normalizeMac(d.props['mac'] as String?);
   final protocol = '${d.props['protocol'] ?? 'generic'}';
   final model = '${d.props['model'] ?? ''}';
+  final web = d.props['web'] as String?;
+  // Robots and routers are never switched on over the network.
+  final wakes = !const {'roomba', 'valetudo', 'mikrotik'}.contains(protocol);
   return [
     ListTile(
       leading: const Icon(Icons.lan_outlined),
@@ -523,21 +528,46 @@ List<Widget> _networkTiles(BuildContext context, HomeStore store, Device d) {
         if (model.isNotEmpty) model,
       ].join(' · ')),
     ),
-    ListTile(
-      key: const Key('device-mac'),
-      leading: const Icon(Icons.power_settings_new),
-      title: const Text('Wake-on-LAN'),
-      subtitle: Text(mac ?? 'Add the MAC address so the app can switch it on'),
-      onTap: () async {
-        final raw = await promptText(context,
-            title: 'MAC address', initial: mac ?? '', hint: 'AA:BB:CC:DD:EE:FF (in the device\'s network settings)');
-        if (raw == null) return;
-        if (raw.isEmpty) return store.setDeviceProp(d, 'mac', null);
-        final m = normalizeMac(raw);
-        m == null ? store.toast('That is not a MAC address.') : store.setDeviceProp(d, 'mac', m);
-      },
-    ),
-    if (mac != null)
+    if (protocol == 'mikrotik')
+      ListTile(
+        key: const Key('router-settings'),
+        leading: const Icon(Icons.router_outlined),
+        title: const Text('Router settings'),
+        subtitle: const Text('Wi-Fi, connected devices, ports, restart'),
+        onTap: () => openRouterScreen(context, d),
+      ),
+    if (protocol == 'roomba')
+      ListTile(
+        key: const Key('roomba-password'),
+        leading: const Icon(Icons.key_outlined),
+        title: Text(d.props['password'] == null ? 'Get password' : 'Get the password again'),
+        subtitle: const Text(RoombaProtocol.howToPair),
+        onTap: () => store.setUpNetworkDevice(d),
+      ),
+    if (web != null)
+      ListTile(
+        key: const Key('device-web'),
+        leading: const Icon(Icons.open_in_browser),
+        title: const Text('Open its web page'),
+        subtitle: Text(web),
+        onTap: () => openWebPage(store, web),
+      ),
+    if (wakes)
+      ListTile(
+        key: const Key('device-mac'),
+        leading: const Icon(Icons.power_settings_new),
+        title: const Text('Wake-on-LAN'),
+        subtitle: Text(mac ?? 'Add the MAC address so the app can switch it on'),
+        onTap: () async {
+          final raw = await promptText(context,
+              title: 'MAC address', initial: mac ?? '', hint: 'AA:BB:CC:DD:EE:FF (in the device\'s network settings)');
+          if (raw == null) return;
+          if (raw.isEmpty) return store.setDeviceProp(d, 'mac', null);
+          final m = normalizeMac(raw);
+          m == null ? store.toast('That is not a MAC address.') : store.setDeviceProp(d, 'mac', m);
+        },
+      ),
+    if (mac != null && wakes)
       ListTile(
         leading: const Icon(Icons.bolt_outlined),
         title: const Text('Wake up now'),
@@ -550,7 +580,8 @@ List<Widget> _networkTiles(BuildContext context, HomeStore store, Device d) {
           title: Text(f.label),
           subtitle: Text(d.props[f.key] == null ? (f.defaultValue ?? 'Not set') : (f.secret ? '••••' : '${d.props[f.key]}')),
           onTap: () async {
-            final v = await promptText(context, title: f.label, initial: '${d.props[f.key] ?? ''}', hint: f.hint);
+            final v = await promptText(context,
+                title: f.label, initial: '${d.props[f.key] ?? ''}', hint: f.hint, secret: f.secret);
             if (v != null) store.setDeviceProp(d, f.key, v);
           },
         ),

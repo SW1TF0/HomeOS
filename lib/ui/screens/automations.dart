@@ -178,7 +178,7 @@ class AutomationsScreen extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(4, 4, 4, 16),
                       child: Text(
-                          'When something happens at home, SmartMenuKJ does something. Automations run while the app '
+                          'When something happens at home, SmartHomeKJ does something. Automations run while the app '
                           'is open, and all the time on a phone or tablet that keeps your home online.',
                           style: NType.body(13.5, color: p.textDim)),
                     ),

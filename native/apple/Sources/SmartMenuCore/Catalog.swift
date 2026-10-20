@@ -60,7 +60,7 @@ public enum Catalog {
             icon: "chip", fields: [hostsField], driver: EspHomeDriver.self),
         IntegrationSpec(
             type: "demo", name: "Virtual devices", tagline: "Try the app, plan before you buy",
-            description: "Devices that live only in SmartMenuKJ. Use them to try the app or to plan a room before the hardware arrives.",
+            description: "Devices that live only in SmartHomeKJ. Use them to try the app or to plan a room before the hardware arrives.",
             icon: "virtual", fields: [], driver: DemoDriver.self, manualDevices: true, polls: false),
     ]
 

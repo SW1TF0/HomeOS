@@ -70,7 +70,7 @@ final List<IntegrationSpec> integrationCatalog = [
     type: matterType,
     name: 'Matter',
     tagline: 'Lights, plugs, sensors, blinds, no hub',
-    description: 'Adds Matter devices straight to SmartMenuKJ with their pairing code, with no hub, cloud or account. '
+    description: 'Adds Matter devices straight to SmartHomeKJ with their pairing code, with no hub, cloud or account. '
         'The device must already be on your network: share it from Google Home, Apple Home, SmartThings, Alexa or '
         'another Matter app (look for "Linked Matter apps" or "Turn on pairing mode") to get a new code. '
         'Bridges such as Hue, IKEA and Aqara bring all their devices.',
@@ -167,7 +167,7 @@ final List<IntegrationSpec> integrationCatalog = [
     type: 'demo',
     name: 'Virtual devices',
     tagline: 'Try the app, plan before you buy',
-    description: 'Devices that live only in SmartMenuKJ. Use them to try the app or to plan a room before the hardware arrives.',
+    description: 'Devices that live only in SmartHomeKJ. Use them to try the app or to plan a room before the hardware arrives.',
     icon: Icons.blur_on,
     fields: const [],
     manualDevices: true,

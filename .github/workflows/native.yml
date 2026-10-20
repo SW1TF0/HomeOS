@@ -1,6 +1,6 @@
 name: Native apps
 
-# Builds the native SmartMenuKJ apps (Kotlin for Android, Swift for Apple) for free on GitHub's runners.
+# Builds the native SmartHomeKJ apps (Kotlin for Android, Swift for Apple) for free on GitHub's runners.
 # Running it by hand with a version (like native-v0.1.0) publishes them as a pre-release, so the Flutter app stays on
 # releases/latest. The newest native builds are also always at the native-latest release.
 on:
@@ -97,8 +97,8 @@ jobs:
             -derivedDataPath build -destination 'generic/platform=macOS' ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO \
             CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= build > mac.log 2>&1 \
             || { grep -E "error:" mac.log | sort -u | head -80; tail -n 30 mac.log; exit 1; }
-          test -d build/Build/Products/Release/SmartMenuKJ.app
-          ditto -c -k --keepParent build/Build/Products/Release/SmartMenuKJ.app ../../../SmartMenuKJ-native-macos.zip
+          test -d build/Build/Products/Release/SmartHomeKJ.app
+          ditto -c -k --keepParent build/Build/Products/Release/SmartHomeKJ.app ../../../SmartMenuKJ-native-macos.zip
       # iPhone apps need a paid Apple developer account to install, so this only checks that the iPhone app builds, and
       # keeps an unsigned copy for people who sign apps themselves.
       - name: Build the iPhone app (unsigned)
@@ -108,7 +108,7 @@ jobs:
             -derivedDataPath build-ios -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build > ios.log 2>&1 \
             || { grep -E "error:" ios.log | sort -u | head -80; tail -n 30 ios.log; exit 1; }
           mkdir -p Payload
-          cp -R build-ios/Build/Products/Release-iphoneos/SmartMenuKJ.app Payload/
+          cp -R build-ios/Build/Products/Release-iphoneos/SmartHomeKJ.app Payload/
           zip -qr ../../../SmartMenuKJ-native-ios-unsigned.ipa Payload
       - uses: actions/upload-artifact@v4
         with:
@@ -131,7 +131,7 @@ jobs:
         with:
           files: dist/*
           tag_name: ${{ inputs.version }}
-          name: SmartMenuKJ native ${{ inputs.version }}
+          name: SmartHomeKJ native ${{ inputs.version }}
           target_commitish: ${{ github.sha }}
           prerelease: true
           generate_release_notes: true
@@ -144,7 +144,7 @@ jobs:
         with:
           files: dist/*
           tag_name: native-latest
-          name: SmartMenuKJ native (newest)
+          name: SmartHomeKJ native (newest)
           body: The newest native build, ${{ inputs.version }}. The Flutter app stays on the main Latest release.
           target_commitish: ${{ github.sha }}
           prerelease: true

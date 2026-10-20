@@ -8,6 +8,8 @@ import 'cast.dart';
 import 'lan_protocol.dart';
 import 'plugs.dart';
 import 'roku.dart';
+import 'roomba.dart';
+import 'routeros.dart';
 import 'samsung.dart';
 import 'sony.dart';
 import 'upnp.dart';
@@ -27,12 +29,14 @@ class LanMatch {
 
 /// "Network devices": anything on the home network, added from a scan or by
 /// its address. Speaks the local protocols of TVs (Samsung, LG, Sony, Roku,
-/// Google Cast), UPnP / DLNA players, Kasa, Yeelight, WeMo and Valetudo robot vacuums, and keeps
+/// Google Cast), UPnP / DLNA players, Kasa, Yeelight, WeMo, iRobot Roomba and Valetudo robot vacuums and
+/// MikroTik routers, and keeps
 /// everything else as an online / offline device that can be woken with
 /// Wake-on-LAN.
 class LanDriver extends IntegrationDriver {
   LanDriver(super.config, super.client, {Map<int, int> portMap = const {}, bool allowTls = true}) {
-    ctx = LanContext(client: client, make: makeDevice, portMap: portMap, allowTls: allowTls);
+    ctx = LanContext(client: client, make: makeDevice, portMap: portMap, allowTls: allowTls)
+      ..push = (id, state) => onPush?.call(id, state);
   }
 
   late final LanContext ctx;
@@ -40,6 +44,8 @@ class LanDriver extends IntegrationDriver {
   /// In order of preference when several answer (a Samsung TV is also a UPnP renderer).
   final List<LanProtocol> protocols = [
     const ValetudoProtocol(),
+    RoombaProtocol(),
+    const MikroTikProtocol(),
     const RokuProtocol(),
     SamsungProtocol(),
     SonyProtocol(),
@@ -99,7 +105,7 @@ class LanDriver extends IntegrationDriver {
     }
   }
 
-  /// Device families that have their own connection in SmartMenuKJ.
+  /// Device families that have their own connection in SmartHomeKJ.
   Future<String?> detectFamily(String host) async {
     Future<String?> probe(String path, String type, bool Function(dynamic j) test) async {
       try {

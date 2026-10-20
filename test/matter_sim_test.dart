@@ -265,7 +265,7 @@ void main() {
       final off = await again.send(kettle, const DeviceCommand(on: false));
       expect(off?.on, isFalse);
 
-      // Removing the device takes SmartMenuKJ off it.
+      // Removing the device takes SmartHomeKJ off it.
       await again.removeNode(matterNodeIdOf(kettle)!);
       expect(again.controller.nodes, isEmpty);
       await expectLater(again.refreshAll([kettle]).then((m) => m[kettle.id]?.reachable), completion(isFalse));
@@ -389,7 +389,7 @@ void main() {
       expect(await again.command(back, const DeviceCommand(on: false)), isTrue);
       await sim.waitFor('STATE onOff=false', after: mark);
 
-      // Removing its last part takes SmartMenuKJ off the device.
+      // Removing its last part takes SmartHomeKJ off the device.
       again.removeDevice(back);
       final cfg = again.integrations.firstWhere((i) => i.type == matterType);
       for (var i = 0; i < 100 && (cfg.settings['nodes'] as List).isNotEmpty; i++) {

@@ -30,6 +30,9 @@ class LanContext {
   final http.Client client;
   final DeviceFactory make;
 
+  /// Hands on a state a device reported by itself (a robot's live updates).
+  StatePush? push;
+
   /// Replaces standard ports (tests run fake devices on free local ports).
   final Map<int, int> portMap;
 
@@ -77,15 +80,24 @@ class LanContext {
   }
 
   /// Whether something listens on [port] of [host].
-  Future<bool> tcpOpen(String host, int port, {Duration? within}) async {
+  Future<bool> tcpOpen(String host, int port, {Duration? within}) async => await knock(host, port, within: within) == true;
+
+  /// Knocks on [port] of [host]: true when it listens, false when the device turned the knock down (so it is
+  /// there), null when nothing answered.
+  Future<bool?> knock(String host, int port, {Duration? within}) async {
     try {
       final s = await Socket.connect(host, this.port(port), timeout: within ?? const Duration(milliseconds: 1200));
       s.destroy();
       return true;
+    } on SocketException catch (e) {
+      return refusedCodes.contains(e.osError?.errorCode) ? false : null;
     } catch (_) {
-      return false;
+      return null;
     }
   }
+
+  /// "Connection refused" on Linux / Android, macOS / iOS and Windows.
+  static const refusedCodes = {111, 61, 10061};
 }
 
 /// One way of talking to devices on the local network (a TV brand, a plug family...).

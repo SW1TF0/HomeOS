@@ -86,7 +86,7 @@ void main() {
     final fan = named('Bath fan');
     final scene = store.addScene('Fan', [fan], turnOn: true);
     await store.addHome('Office');
-    expect(await runTapped(store, scene.id), 'That scene is in another home. Open it in SmartMenuKJ first.');
+    expect(await runTapped(store, scene.id), 'That scene is in another home. Open it in SmartHomeKJ first.');
     expect(await runTapped(store, scene.id, anyHome: true), 'Fan: done.');
     expect(store.homeName, 'My home');
     expect(named('Bath fan').state.on, isTrue);

@@ -85,7 +85,7 @@ class ScenesWidget : AppWidgetProvider() {
             } catch (e: Exception) {
                 JSONObject()
             }
-            val home = content.optString("home", "").ifBlank { "SmartMenuKJ" }
+            val home = content.optString("home", "").ifBlank { "SmartHomeKJ" }
             val scenes = content.optJSONArray("scenes") ?: JSONArray()
             for (id in ids) {
                 val views = RemoteViews(context.packageName, R.layout.widget_scenes)

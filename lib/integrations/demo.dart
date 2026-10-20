@@ -1,7 +1,7 @@
 import '../models/device.dart';
 import 'integration.dart';
 
-/// Virtual devices that live only in the app. Handy for trying SmartMenuKJ,
+/// Virtual devices that live only in the app. Handy for trying SmartHomeKJ,
 /// planning a home before buying hardware, or as placeholders on the map.
 class DemoDriver extends IntegrationDriver {
   DemoDriver(super.config, super.client);

@@ -235,7 +235,7 @@ class ProfileMenu extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(24, 4, 12, 10),
                     child: Row(children: [
-                      Expanded(child: Text('SMARTMENUKJ $appVersion · FREE', style: NType.label(color: p.textDim))),
+                      Expanded(child: Text('SMARTHOMEKJ $appVersion · FREE', style: NType.label(color: p.textDim))),
                       if (cloud.signedIn)
                         TextButton.icon(
                           key: const Key('profile-sign-out'),

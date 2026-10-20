@@ -18,6 +18,7 @@ import 'package:smartmenukj/state/backup_files.dart';
 import 'package:smartmenukj/state/home_store.dart';
 import 'package:smartmenukj/state/repository.dart';
 import 'package:smartmenukj/ui/screens/camera_playback.dart';
+import 'package:smartmenukj/ui/screens/router_screen.dart';
 import 'package:smartmenukj/ui/widgets/camera_live.dart';
 
 Future<void> _loadFonts() async {
@@ -322,6 +323,37 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('playback-clip-0')));
     await _shot(tester, 'phone-camera-playback');
+  });
+
+  testWidgets('phone router', (tester) async {
+    String rest(String path) => switch (path) {
+          '/rest/system/resource' => '{"uptime":"6d4h12m","cpu-load":"3","board-name":"hAP ax3","version":"7.16.1 (stable)",'
+              '"free-memory":"702000000","total-memory":"1073741824"}',
+          '/rest/system/identity' => '{"name":"Home router"}',
+          '/rest/interface/wifi' => '[{".id":"*1","name":"wifi1","configuration.ssid":"Home","channel.band":"5ghz-ax",'
+              '"disabled":"false","running":"true"},{".id":"*2","name":"wifi2","configuration.ssid":"Home","channel.band":'
+              '"2ghz-ax","disabled":"false","running":"true"},{".id":"*3","name":"wifi3","configuration.ssid":"Guests",'
+              '"channel.band":"2ghz-ax","disabled":"true"}]',
+          '/rest/ip/dhcp-server/lease' => '[{".id":"*a","address":"192.168.88.12","host-name":"Roomba-3145C","mac-address":'
+              '"50:14:79:12:AB:01","status":"bound","dynamic":"true"},{".id":"*b","address":"192.168.88.20","comment":'
+              '"Living room TV","mac-address":"A8:23:FE:01:22:33","status":"bound","dynamic":"false"},{".id":"*c",'
+              '"address":"192.168.88.31","host-name":"Pixel-8","mac-address":"3C:28:6D:44:55:66","status":"bound",'
+              '"dynamic":"true"}]',
+          '/rest/interface' => '[{".id":"*1","name":"ether1","type":"ether","running":"true","disabled":"false","comment":'
+              '"Internet"},{".id":"*2","name":"ether2","type":"ether","running":"true","disabled":"false"},{".id":"*3",'
+              '"name":"ether3","type":"ether","running":"false","disabled":"false"}]',
+          _ => '[]',
+        };
+    final store = await _app(tester, phone, theme: 'light', client: MockClient((req) async => http.Response(rest(req.url.path), 200)));
+    await tester.runAsync(() => store.addNetworkDevice('192.168.88.1', hints: {'protocol': 'mikrotik', 'password': 'pw'}));
+    final router = store.devices.firstWhere((d) => d.kind == DeviceKind.router);
+    tester.state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger)).clearSnackBars(); // the "Added" message
+    await tester.pumpAndSettle();
+    final nav = tester.state<NavigatorState>(find.byType(Navigator).first);
+    nav.push(MaterialPageRoute<void>(builder: (_) => RouterScreen(deviceId: router.id)));
+    await tester.pump();
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
+    await _shot(tester, 'phone-router');
   });
 
   testWidgets('phone automations', (tester) async {

@@ -18,7 +18,7 @@ import 'tlv.dart';
 /// The device does not have our fabric (it was reset or removed from the app).
 class NotOnFabricException extends MatterException {
   NotOnFabricException(
-      [super.message = 'The device no longer knows SmartMenuKJ. It may have been reset; add it again.']);
+      [super.message = 'The device no longer knows SmartHomeKJ. It may have been reset; add it again.']);
 }
 
 final _sigma2Nonce = Uint8List.fromList('NCASE_Sigma2N'.codeUnits);
@@ -167,7 +167,7 @@ void _checkPeer(MatterFabric fabric, int nodeId, Uint8List nocBytes, Uint8List? 
       throw CertificateException('NOC does not match');
     }
   } on CertificateException {
-    throw MatterException('The device at this address is not the one SmartMenuKJ added.');
+    throw MatterException('The device at this address is not the one SmartHomeKJ added.');
   }
 }
 

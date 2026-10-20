@@ -546,7 +546,7 @@ class HomeStore(
             jsonObjectOf("id" to h.id, "name" to h.name, "home" to d.toJson(withState = false))
         }
         return prettyJson.encodeToString(JsonObject.serializer(),
-            jsonObjectOf("app" to "SmartMenuKJ", "backup" to "homes", "current" to s.homeId, "homes" to homes))
+            jsonObjectOf("app" to "SmartHomeKJ", "backup" to "homes", "current" to s.homeId, "homes" to homes))
     }
 
     /**
@@ -554,7 +554,7 @@ class HomeStore(
      * the open home. Returns how many homes came back.
      */
     fun importAll(raw: String): Int {
-        val j = runCatching { parseJson(raw).asObj() }.getOrNull() ?: throw IllegalArgumentException("That is not a SmartMenuKJ backup.")
+        val j = runCatching { parseJson(raw).asObj() }.getOrNull() ?: throw IllegalArgumentException("That is not a SmartHomeKJ backup.")
         val list = j.list("homes")
         if (j.string("backup") != "homes" || list == null) {
             val d = HomeData.fromJson(j)

@@ -18,7 +18,7 @@ Future<void> restoreFromFile(BuildContext context, {bool ask = true}) async {
   if (ask &&
       !await confirm(context,
           title: 'Restore from a file?',
-          body: 'Pick a SmartMenuKJ backup, usually in Downloads/SmartMenuKJ. '
+          body: 'Pick a backup file, usually in Downloads/SmartHomeKJ (Downloads/SmartMenuKJ before version 1.13). '
               '${store.homes.length == 1 ? store.homeName : 'Every home on this device'} is replaced by the homes in it.',
           action: 'Pick file')) {
     return;
@@ -29,7 +29,7 @@ Future<void> restoreFromFile(BuildContext context, {bool ask = true}) async {
     settings.restoreAsked = true;
     store.toast(count == 1 ? 'Home restored.' : '$count homes restored.');
   } on FormatException {
-    store.toast('That file is not a SmartMenuKJ backup.');
+    store.toast('That file is not a SmartHomeKJ backup.');
   } catch (e) {
     store.toast('The file could not be opened.');
   }
@@ -39,7 +39,7 @@ Future<void> restoreFromFile(BuildContext context, {bool ask = true}) async {
 bool offerRestore(HomeStore store, AppSettings settings, BackupFiles backups) =>
     backups.available && !settings.restoreAsked && store.homes.length == 1 && isSampleHome(store.data);
 
-/// On a new install: "Had SmartMenuKJ before?", with the way back to the homes in the backup file.
+/// On a new install: "Had this app before?", with the way back to the homes in the backup file.
 class RestoreCard extends StatelessWidget {
   const RestoreCard({super.key});
 
@@ -55,9 +55,9 @@ class RestoreCard extends StatelessWidget {
           const SizedBox(width: 14),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('Had SmartMenuKJ before?', style: NType.body(14, color: p.text, weight: 500)),
+              Text('Had this app before?', style: NType.body(14, color: p.text, weight: 500)),
               const SizedBox(height: 2),
-              Text('Take your home back from its backup file in Downloads/SmartMenuKJ.',
+              Text('Take your home back from its backup file in Downloads/SmartHomeKJ, or Downloads/SmartMenuKJ from before.',
                   style: NType.body(13, color: p.textDim)),
             ]),
           ),

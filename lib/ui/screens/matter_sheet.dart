@@ -58,7 +58,7 @@ class _MatterSheetState extends State<MatterSheet> {
           address: address.isEmpty ? null : address, onProgress: (s) => mounted ? setState(() => _step = s) : null));
       if (!mounted) return;
       store.toast(added.isEmpty
-          ? 'Added. It has nothing SmartMenuKJ can control yet.'
+          ? 'Added. It has nothing SmartHomeKJ can control yet.'
           : 'Added ${added.map((d) => d.name).join(', ')}. Place it on the map in Edit mode.');
       Navigator.pop(context);
     } catch (e) {
@@ -89,7 +89,7 @@ class _MatterSheetState extends State<MatterSheet> {
             Expanded(child: DisplayText(widget.name == null ? 'Add Matter' : widget.name!, size: 24, maxLines: 2)),
           ]),
           const SizedBox(height: 10),
-          Text('Matter devices join SmartMenuKJ directly, with no hub or account. The device needs to be on your Wi-Fi.',
+          Text('Matter devices join SmartHomeKJ directly, with no hub or account. The device needs to be on your Wi-Fi.',
               style: NType.body(14, color: p.textDim)),
           const SizedBox(height: 14),
           step('1', 'If it is set up in Google Home, Apple Home, SmartThings or Alexa, open it there and choose '
@@ -139,7 +139,7 @@ class _MatterSheetState extends State<MatterSheet> {
             label: const Text('Add device'),
           ),
           const SizedBox(height: 14),
-          Text('A brand-new device that has never been set up joins Wi-Fi over Bluetooth, which SmartMenuKJ cannot do yet: '
+          Text('A brand-new device that has never been set up joins Wi-Fi over Bluetooth, which SmartHomeKJ cannot do yet: '
               'set it up once in another Matter app, then share it here.',
               style: NType.body(12.5, color: p.textDim)),
         ]),

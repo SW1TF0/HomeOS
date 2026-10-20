@@ -95,7 +95,7 @@ class MatterDriver extends IntegrationDriver {
     return devices;
   }
 
-  /// Takes the device off SmartMenuKJ's fabric and forgets it.
+  /// Takes the device off SmartHomeKJ's fabric and forgets it.
   Future<void> removeNode(int nodeId) async {
     final c = controller;
     try {

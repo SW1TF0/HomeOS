@@ -134,7 +134,7 @@ class MatterController {
 
   Future<SecureSession> _connect(int nodeId) async {
     final node = nodes[nodeId];
-    if (node == null) throw MatterException('This device is not part of SmartMenuKJ.');
+    if (node == null) throw MatterException('This device is not part of SmartHomeKJ.');
     final t = await _net();
     final tried = <String>{};
     Object? lastError;
@@ -302,7 +302,7 @@ class MatterController {
   /// Reads the device's description again and remembers its endpoints and name.
   Future<MatterNode> updateNode(int nodeId) async {
     final node = nodes[nodeId];
-    if (node == null) throw MatterException('This device is not part of SmartMenuKJ.');
+    if (node == null) throw MatterException('This device is not part of SmartHomeKJ.');
     final d = await describe(nodeId);
     node.label = d.label;
     node.vendorId ??= d.vendorId;
@@ -378,7 +378,7 @@ class MatterController {
     return LightState.fromRead(r, endpoint);
   }
 
-  /// Takes the device off our fabric (it forgets SmartMenuKJ) and forgets it here.
+  /// Takes the device off our fabric (it forgets SmartHomeKJ) and forgets it here.
   Future<void> removeNode(int nodeId) async {
     try {
       await run(nodeId, (im) async {
@@ -387,7 +387,7 @@ class MatterController {
         final r = await im.invoke(0, Cluster.operationalCredentials, OperationalCredentials.removeFabric,
             fields: (w) => w.uint(0, index));
         final status = r?.fields.integer(0) ?? 0;
-        if (status != 0) throw MatterException('The device refused to remove SmartMenuKJ (error $status).');
+        if (status != 0) throw MatterException('The device refused to remove SmartHomeKJ (error $status).');
       });
     } on SessionClosedException {
       // The device drops the session as soon as the fabric is gone.

@@ -236,7 +236,7 @@ class _AwayCard extends StatelessWidget {
                 : cloud.hubSeen != null
                     ? (
                         '${cloud.hubName ?? 'The device at home'} is not answering, so $home cannot be reached from '
-                            'here. Check that it is on, plugged in and on the Wi-Fi, with SmartMenuKJ open.',
+                            'here. Check that it is on, plugged in and on the Wi-Fi, with SmartHomeKJ open.',
                         'Details'
                       )
                     : (

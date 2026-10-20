@@ -37,7 +37,7 @@ struct SettingsView: View {
                 SectionLabel("Your homes")
                 Button { importing = true } label: {
                     SettingRow(title: "Bring your home from the other app",
-                               subtitle: "Open a SmartMenuKJ backup file from the Android, Flutter or Mac app") {
+                               subtitle: "Open a SmartHomeKJ backup file from the Android, Flutter or Mac app") {
                         Image(systemName: "doc.badge.arrow.up").foregroundStyle(p.textDim)
                     }
                     .contentShape(Rectangle())
@@ -58,7 +58,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
                 SectionLabel("About")
-                SettingRow(title: "SmartMenuKJ native \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")",
+                SettingRow(title: "SmartHomeKJ native \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")",
                            subtitle: "Swift and SwiftUI. Free, and everything stays on your device.") { EmptyView() }
                 Text("How it works: tap a device to switch it, hold it for all its controls, drag sideways across a tile to dim. "
                      + "On the map, tap Edit to draw rooms, drag them, and resize them from the corner.")
@@ -78,7 +78,7 @@ struct SettingsView: View {
                 toasts.show("\(error)")
             }
         }
-        .fileExporter(isPresented: $exporting, document: backup, contentType: .json, defaultFilename: "SmartMenuKJ-backup.json") { result in
+        .fileExporter(isPresented: $exporting, document: backup, contentType: .json, defaultFilename: "SmartHomeKJ-backup.json") { result in
             if case .success = result { toasts.show("Saved a copy of every home.") }
         }
     }

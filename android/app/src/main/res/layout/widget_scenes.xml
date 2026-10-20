@@ -31,7 +31,7 @@
             android:fontFamily="monospace"
             android:letterSpacing="0.14"
             android:singleLine="true"
-            android:text="SMARTMENUKJ"
+            android:text="SMARTHOMEKJ"
             android:textColor="#FFFFFF"
             android:textSize="12sp" />
 
@@ -59,7 +59,7 @@
         android:layout_weight="1"
         android:gravity="center_vertical"
         android:paddingStart="4dp"
-        android:text="Make a scene in SmartMenuKJ to have it here."
+        android:text="Make a scene in SmartHomeKJ to have it here."
         android:textColor="#99FFFFFF"
         android:textSize="13sp"
         android:visibility="gone" />

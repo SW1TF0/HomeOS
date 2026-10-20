@@ -11,7 +11,7 @@ import 'app_settings.dart';
 import 'home_store.dart';
 import 'repository.dart';
 
-/// A copy of every home kept in a file on the phone, in Downloads/SmartMenuKJ. The file stays when the app is
+/// A copy of every home kept in a file on the phone, in Downloads/SmartHomeKJ. The file stays when the app is
 /// uninstalled, so a new install can take the homes back from it. Android only (BackupFiles.kt); elsewhere the
 /// backup is copied and pasted as text.
 class BackupFiles extends ChangeNotifier {
