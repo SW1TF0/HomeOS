@@ -85,7 +85,7 @@ fun SceneEditor(state: StoreState, id: String, onDismiss: () -> Unit) {
         Spacer(Modifier.height(12.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             for (k in sceneIconKeys) {
-                IconButton(onClick = { icon = k }) { Icon(sceneIcon(k), k, tint = if (icon == k) Palette.Red else p.textDim) }
+                IconButton(onClick = { icon = k }) { Icon(sceneIcon(k), k, tint = if (icon == k) Palette.Accent else p.textDim) }
             }
         }
         SectionLabel("Devices · ${actions.size}", trailing = {

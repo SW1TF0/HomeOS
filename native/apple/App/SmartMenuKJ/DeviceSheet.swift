@@ -19,7 +19,7 @@ struct DeviceSheet: View {
                     }
                     Spacer()
                     Button { store.setFavorite(d.id, !d.favorite) } label: {
-                        Image(systemName: d.favorite ? "star.fill" : "star").foregroundStyle(d.favorite ? Palette.red : p.text).padding(8)
+                        Image(systemName: d.favorite ? "star.fill" : "star").foregroundStyle(d.favorite ? Palette.accent : p.text).padding(8)
                     }.buttonStyle(.plain)
                     Button { editing.toggle() } label: { Image(systemName: "pencil").foregroundStyle(p.text).padding(8) }.buttonStyle(.plain)
                 }
@@ -49,7 +49,7 @@ struct Labeled<Content: View>: View {
     init(_ label: String, @ViewBuilder content: @escaping () -> Content) { self.label = label; self.content = content }
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(label.uppercased()).font(NType.label).tracking(1.8).foregroundStyle(p.textDim)
+            Text(label).font(NType.label).foregroundStyle(p.textDim)
             content()
         }
     }
@@ -92,7 +92,7 @@ struct PowerOrb: View {
             Image(systemName: icon).font(.system(size: 30, weight: .medium)).foregroundStyle(on ? p.background : p.text)
                 .frame(width: 96, height: 96)
                 .background(Circle().fill(on ? p.text : p.surfaceHigh))
-                .overlay(alignment: .topTrailing) { if on { Circle().fill(Palette.red).frame(width: 10, height: 10).offset(x: -10, y: 10) } }
+                .overlay(alignment: .topTrailing) { if on { Circle().fill(Palette.accent).frame(width: 10, height: 10).offset(x: -10, y: 10) } }
         }
         .buttonStyle(.plain)
         .animation(.easeOut(duration: 0.2), value: on)
@@ -199,7 +199,7 @@ struct DeviceControls: View {
                     HStack {
                         Button { send(DeviceCommand(muted: s.muted != true)) } label: {
                             Image(systemName: s.muted == true ? "speaker.slash" : "speaker.wave.2")
-                                .foregroundStyle(s.muted == true ? Palette.red : p.text).frame(width: 40, height: 40)
+                                .foregroundStyle(s.muted == true ? Palette.accent : p.text).frame(width: 40, height: 40)
                         }.buttonStyle(.plain)
                         LevelBar(value: s.volume ?? 0) { send(DeviceCommand(volume: $0)) }
                     }
@@ -237,7 +237,7 @@ struct DeviceControls: View {
                     FlowRow(spacing: 10) {
                         ForEach(s.readings.sorted { $0.key < $1.key }, id: \.key) { k, v in
                             NCard(radius: 18, padding: 14) {
-                                Text(k.uppercased()).font(NType.label).tracking(1.5).foregroundStyle(p.textDim)
+                                Text(k).font(NType.label).foregroundStyle(p.textDim)
                                 DotText(v, 22).padding(.top, 4)
                             }
                             .fixedSize()
@@ -362,7 +362,7 @@ struct AlarmControls: View {
         let arms = device.props["arms"]?.array?.map(\.description) ?? ["home", "away"]
         VStack(alignment: .leading, spacing: 10) {
             DotText(Describe.activity(device.kind, s.activity), 28,
-                    color: s.activity.map { Activity.busy.contains($0) } == true ? Palette.red : nil)
+                    color: s.activity.map { Activity.busy.contains($0) } == true ? Palette.accent : nil)
             if device.props["codeFormat"] != nil { NTextField(label: "Code", text: $code, secret: true) }
             FlowRow {
                 ForEach(arms, id: \.self) { a in

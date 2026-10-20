@@ -5,10 +5,10 @@ import '../../integrations/camera/playback.dart';
 import '../../models/device.dart';
 import '../../state/app_settings.dart';
 import '../../state/home_store.dart';
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 import '../../util/clock_text.dart';
 import '../widgets/camera_live.dart';
-import '../widgets/nothing_widgets.dart';
+import '../widgets/kj_widgets.dart';
 
 /// Tests set this to a fixed time. Always null in the app.
 DateTime Function()? debugPlaybackClock;
@@ -174,7 +174,7 @@ class _CameraPlaybackScreenState extends State<CameraPlaybackScreen> {
                     icon: const Icon(Icons.arrow_back),
                   ),
                   const SizedBox(width: 6),
-                  const Expanded(child: DotText('RECORDINGS', size: 30)),
+                  const Expanded(child: DisplayText('Recordings', size: 30)),
                 ]),
               ),
               Padding(
@@ -184,7 +184,7 @@ class _CameraPlaybackScreenState extends State<CameraPlaybackScreen> {
                     alignment: Alignment.centerLeft,
                     child: Padding(
                       padding: const EdgeInsets.only(left: 4, bottom: 10),
-                      child: Text(widget.device.name.toUpperCase(), style: NType.label(color: p.textDim)),
+                      child: Text(widget.device.name, style: NType.label(color: p.textDim)),
                     ),
                   ),
                   AspectRatio(
@@ -201,7 +201,7 @@ class _CameraPlaybackScreenState extends State<CameraPlaybackScreen> {
                           else if (_start == null)
                             const _VideoNote('Tap the line below or a recording to watch it.')
                           else if (_away)
-                            const CameraMessage('PLAYING FULL SCREEN')
+                            const CameraMessage('Playing full screen')
                           else
                             _player(BoxFit.cover),
                           if (now != null)
@@ -305,12 +305,12 @@ class _CameraPlaybackScreenState extends State<CameraPlaybackScreen> {
     );
   }
 
-  static const _days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  static const _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   static String _dayName(DateTime day, DateTime today) {
     final ago = today.difference(day).inHours ~/ 24;
-    if (ago == 0) return 'TODAY';
-    if (ago == 1) return 'YESTERDAY';
+    if (ago == 0) return 'Today';
+    if (ago == 1) return 'Yesterday';
     return '${_days[day.weekday - 1]} ${day.day}';
   }
 
@@ -350,11 +350,11 @@ class _CameraPlaybackScreenState extends State<CameraPlaybackScreen> {
             key: Key('playback-clip-$i'),
             contentPadding: const EdgeInsets.symmetric(horizontal: 4),
             leading: Icon(r.motion ? Icons.directions_run : Icons.videocam_outlined,
-                color: r.motion ? NothingPalette.red : p.textDim),
+                color: r.motion ? KJPalette.danger : p.textDim),
             title: Text('${clockText(r.start, h24)} – ${clockText(r.end, h24)}'),
             subtitle: Text('${r.motion ? 'Motion' : 'Recording'} · ${_length(r.end.difference(r.start))}'),
             trailing: now != null && !now.isBefore(r.start) && now.isBefore(r.end)
-                ? const Icon(Icons.play_arrow, color: NothingPalette.red)
+                ? const Icon(Icons.play_arrow, color: KJPalette.accent)
                 : null,
             onTap: () => _play(r.start),
           ),
@@ -397,7 +397,7 @@ class _TimeBadge extends StatelessWidget {
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           const Icon(Icons.history, size: 14, color: Colors.white),
           const SizedBox(width: 6),
-          Text(text, style: NType.dot(13, color: Colors.white)),
+          Text(text, style: NType.display(13, color: Colors.white)),
         ]),
       );
 }
@@ -449,7 +449,7 @@ class _PlaybackTimelineState extends State<PlaybackTimeline> {
           height: 18,
           child: _sliding == null
               ? null
-              : Text(clockText(_sliding!, widget.h24), textAlign: TextAlign.center, style: NType.dot(15, color: NothingPalette.red)),
+              : Text(clockText(_sliding!, widget.h24), textAlign: TextAlign.center, style: NType.display(15, color: KJPalette.accent)),
         ),
         GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -519,7 +519,7 @@ class _TimelinePainter extends CustomPainter {
       canvas.drawCircle(Offset(dx, _mid), 1.4, dots);
     }
     for (final motion in const [false, true]) {
-      final paint = Paint()..color = motion ? NothingPalette.red : bar;
+      final paint = Paint()..color = motion ? KJPalette.danger : bar;
       for (final r in recordings.where((r) => r.motion == motion)) {
         if (!r.end.isAfter(from) || !r.start.isBefore(to)) continue;
         final left = x(r.start);
@@ -559,7 +559,7 @@ class _TimelinePainter extends CustomPainter {
     if (c != null && !c.isBefore(from) && !c.isAfter(to)) {
       final cx = x(c);
       final red = Paint()
-        ..color = NothingPalette.red
+        ..color = KJPalette.accent
         ..strokeWidth = 2;
       canvas.drawLine(Offset(cx, _mid - 14), Offset(cx, _mid + 12), red);
       canvas.drawCircle(Offset(cx, _mid - 14), 4, red);

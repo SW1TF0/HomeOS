@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/nothing_theme.dart';
-import '../widgets/nothing_widgets.dart';
+import '../../theme/app_theme.dart';
+import '../widgets/kj_widgets.dart';
 
 Future<void> showHelpSheet(BuildContext context) => showModalBottomSheet(
       context: context,
@@ -112,7 +112,7 @@ class HelpSheet extends StatelessWidget {
         controller: scroll,
         padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
         children: [
-          const DotText('HELP', size: 30),
+          const DisplayText('Help', size: 30),
           const SizedBox(height: 6),
           Text('Tap a question to open it.', style: NType.body(14, color: p.textDim)),
           const SizedBox(height: 16),

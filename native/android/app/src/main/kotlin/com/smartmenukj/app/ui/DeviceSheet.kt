@@ -73,7 +73,7 @@ fun DeviceSheet(state: StoreState, id: String, onDismiss: () -> Unit) {
             }
             IconButton(onClick = { store.setFavorite(d.id, !d.favorite) }) {
                 Icon(if (d.favorite) Icons.Filled.Star else Icons.Outlined.StarBorder, "Favourite",
-                    tint = if (d.favorite) Palette.Red else p.text)
+                    tint = if (d.favorite) Palette.Accent else p.text)
             }
             IconButton(onClick = { editing = !editing }) { Icon(Icons.Outlined.Edit, "Edit", tint = p.text) }
         }
@@ -165,7 +165,7 @@ fun DeviceControls(d: Device, send: (DeviceCommand) -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { send(DeviceCommand(muted = s.muted != true)) }) {
                         Icon(if (s.muted == true) Icons.AutoMirrored.Outlined.VolumeOff else Icons.AutoMirrored.Outlined.VolumeUp,
-                            "Mute", tint = if (s.muted == true) Palette.Red else p.text)
+                            "Mute", tint = if (s.muted == true) Palette.Accent else p.text)
                     }
                     LevelBar(s.volume ?: 0.0, { send(DeviceCommand(volume = it)) }, modifier = Modifier.weight(1f))
                 }
@@ -206,7 +206,7 @@ fun DeviceControls(d: Device, send: (DeviceCommand) -> Unit) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     for ((k, v) in s.readings) {
                         NCard(padding = PaddingValues(14.dp), radius = 18.dp) {
-                            Text(k.uppercase(), style = NType.label(p.textDim))
+                            Text(k, style = NType.label(p.textDim))
                             Spacer(Modifier.height(4.dp))
                             Text(v, style = NType.dot(22.sp, p.text))
                         }
@@ -223,7 +223,7 @@ fun DeviceControls(d: Device, send: (DeviceCommand) -> Unit) {
 @Composable
 private fun Labeled(label: String, content: @Composable ColumnScope.() -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(label.uppercase(), style = NType.label(palette.textDim))
+        Text(label, style = NType.label(palette.textDim))
         content()
     }
 }
@@ -334,7 +334,7 @@ private fun AlarmControls(d: Device, send: (DeviceCommand) -> Unit) {
     val needsCode = d.props["codeFormat"] != null
     var code by remember { mutableStateOf("") }
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        DotText(Describe.activity(d.kind, s.activity), 28, color = if (s.activity in Activity.busy) Palette.Red else palette.text)
+        DotText(Describe.activity(d.kind, s.activity), 28, color = if (s.activity in Activity.busy) Palette.Accent else palette.text)
         if (needsCode) NTextField(code, { code = it }, "Code", secret = true)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             for (a in arms) {
@@ -361,12 +361,12 @@ private fun DeviceEditor(state: StoreState, d: Device, onDone: () -> Unit) {
     var confirm by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         NTextField(name, { name = it }, "Name")
-        Text("ROOM", style = NType.label(p.textDim))
+        Text("Room", style = NType.label(p.textDim))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             NChip("No room", selected = d.roomId == null) { store.setRoom(d.id, null) }
             for (r in state.data.rooms) NChip(r.name, selected = d.roomId == r.id) { store.setRoom(d.id, r.id) }
         }
-        Text("SHOW AS", style = NType.label(p.textDim))
+        Text("Show as", style = NType.label(p.textDim))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             for (k in DeviceKind.entries) NChip(k.label, selected = d.kind == k, icon = deviceIcon(k)) { store.setKind(d.id, k) }
         }

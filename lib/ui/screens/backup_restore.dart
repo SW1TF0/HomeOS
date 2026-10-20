@@ -5,9 +5,9 @@ import '../../state/app_settings.dart';
 import '../../state/backup_files.dart';
 import '../../state/home_store.dart';
 import '../../state/seed.dart';
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 import '../widgets/dialogs.dart';
-import '../widgets/nothing_widgets.dart';
+import '../widgets/kj_widgets.dart';
 
 /// Lets the owner pick a backup file and takes its homes back. With [ask], it first says that the homes on this
 /// device will be replaced.

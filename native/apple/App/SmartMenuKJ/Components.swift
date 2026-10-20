@@ -1,11 +1,11 @@
 import SwiftUI
 import SmartMenuCore
 
-/// A rounded card with a hairline border. Inverted cards are white on black, like Nothing widgets that are on.
+/// A rounded card. Inverted cards are white, like the tiles of devices that are on.
 struct NCard<Content: View>: View {
     @Environment(\.palette) var p
     var inverted = false
-    var radius: CGFloat = 24
+    var radius: CGFloat = 22
     var padding: CGFloat = 18
     @ViewBuilder var content: () -> Content
 
@@ -13,13 +13,13 @@ struct NCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 0, content: content)
             .padding(padding)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: radius, style: .continuous).fill(inverted ? p.text : p.surface))
-            .overlay(RoundedRectangle(cornerRadius: radius, style: .continuous).stroke(inverted ? p.text : p.border, lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: radius, style: .continuous).fill(inverted ? p.tileOn : p.surface)
+                .shadow(color: .black.opacity(p.dark ? 0 : 0.06), radius: 12, y: 4))
             .animation(.easeOut(duration: 0.2), value: inverted)
     }
 }
 
-/// "● LABEL" section header.
+/// Section header, like the room names in the site's phone demo.
 struct SectionLabel<Trailing: View>: View {
     @Environment(\.palette) var p
     var text: String
@@ -28,12 +28,11 @@ struct SectionLabel<Trailing: View>: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Circle().fill(accent ? Palette.red : p.textDim).frame(width: 6, height: 6)
-            Text(text.uppercased()).font(NType.label).tracking(1.8).foregroundStyle(p.textDim)
+            Text(text).font(NType.body(17, .semibold)).foregroundStyle(p.text)
             Spacer()
             trailing()
         }
-        .padding(.horizontal, 4).padding(.top, 22).padding(.bottom, 10)
+        .padding(.horizontal, 4).padding(.top, 18).padding(.bottom, 8)
     }
 }
 
@@ -46,7 +45,7 @@ struct HeaderAction: View {
     var label: String
     var action: () -> Void
     var body: some View {
-        Button(action: action) { Text(label).font(NType.body(13, .medium)).foregroundStyle(p.textDim) }.buttonStyle(.plain)
+        Button(action: action) { Text(label).font(NType.body(15, .medium)).foregroundStyle(Palette.accent) }.buttonStyle(.plain)
     }
 }
 
@@ -72,7 +71,7 @@ struct NChip: View {
     }
 }
 
-/// Dot-matrix text, for big numbers and titles.
+/// Bold heading text, for big numbers and titles.
 struct DotText: View {
     @Environment(\.palette) var p
     var text: String
@@ -89,9 +88,9 @@ struct PrimaryButton: View {
     var action: () -> Void
     var body: some View {
         Button(action: action) {
-            Text(label).font(NType.body(15, .semibold)).foregroundStyle(p.background)
+            Text(label).font(NType.body(15, .medium)).foregroundStyle(.white)
                 .padding(.horizontal, 22).padding(.vertical, 13)
-                .background(Capsule().fill(p.text.opacity(enabled ? 1 : 0.35)))
+                .background(Capsule().fill(Palette.accent.opacity(enabled ? 1 : 0.35)))
         }
         .buttonStyle(.plain).disabled(!enabled)
     }
@@ -103,9 +102,9 @@ struct SecondaryButton: View {
     var action: () -> Void
     var body: some View {
         Button(action: action) {
-            Text(label).font(NType.body(15, .medium)).foregroundStyle(p.text)
+            Text(label).font(NType.body(15, .medium)).foregroundStyle(Palette.accent)
                 .padding(.horizontal, 20).padding(.vertical, 12)
-                .overlay(Capsule().stroke(p.border, lineWidth: 1))
+                .overlay(Capsule().stroke(Palette.accent, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
@@ -121,7 +120,7 @@ struct NTextField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(label.uppercased()).font(NType.label).tracking(1.5).foregroundStyle(p.textDim)
+            Text(label).font(NType.label).foregroundStyle(p.textDim)
             Group {
                 if secret { SecureField(hint, text: $text) }
                 else if multiline { TextField(hint, text: $text, axis: .vertical).lineLimit(2...6) }
@@ -135,7 +134,7 @@ struct NTextField: View {
             .textInputAutocapitalization(.never)
             #endif
             .padding(14)
-            .background(RoundedRectangle(cornerRadius: 14).fill(p.surfaceHigh))
+            .background(RoundedRectangle(cornerRadius: 12).fill(p.surfaceHigh))
         }
     }
 }
@@ -238,6 +237,35 @@ extension Int {
     var color: Color { Color(hex: self) }
 }
 
+/// The colour of a device kind's icon when it is on, as in the site's phone demo.
+func kindColor(_ kind: DeviceKind) -> Color {
+    switch kind {
+    case .light: Palette.yellow
+    case .climate, .humidifier: Palette.orange
+    case .media: Palette.purple
+    case .outlet, .toggle, .button: Palette.green
+    case .cover, .fan, .purifier, .valve: Palette.teal
+    case .vacuum, .mower, .appliance: Palette.indigo
+    case .siren: Palette.red
+    default: Palette.blue
+    }
+}
+
+/// The round colour behind a scene's icon, like the scene buttons on smarthomekj.eu.
+func sceneColor(_ key: String) -> Color {
+    switch key {
+    case "morning", "day": Palette.orange
+    case "evening": Palette.pink
+    case "away": Palette.green
+    case "night": Palette.indigo
+    case "movie": Palette.pink
+    case "off": Palette.red
+    case "party": Palette.purple
+    case "relax": Palette.teal
+    default: Palette.accent
+    }
+}
+
 /// A device on a grid: tap switches it, hold opens its controls, and a sideways drag sets its level.
 struct DeviceTile: View {
     @Environment(\.palette) var p
@@ -252,13 +280,15 @@ struct DeviceTile: View {
         let active = device.countsAsOn
         let level = Describe.level(device)
         let shown = dragging ?? level
-        let fg = active ? p.background : p.text
+        let fg = active ? p.onTileOn : p.text
         let glow = Describe.lightColor(device)
+        let iconBg = active ? (glow?.color ?? kindColor(device.kind)) : (p.dark ? p.surfaceHigh : Color.white)
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 ZStack {
-                    Circle().fill(active ? (glow?.color ?? p.background).opacity(glow == nil ? 0.08 : 0.35) : p.surfaceHigh)
-                    Image(systemName: deviceIcon(device.kind, active: active)).font(.system(size: 17)).foregroundStyle(fg)
+                    Circle().fill(iconBg)
+                    Image(systemName: deviceIcon(device.kind, active: active)).font(.system(size: 17))
+                        .foregroundStyle(active ? (glow == nil ? Color.white : p.onTileOn) : p.textDim)
                 }
                 .frame(width: 38, height: 38)
                 Spacer()
@@ -272,17 +302,17 @@ struct DeviceTile: View {
             if let shown, dragging != nil || (active && level != nil) {
                 GeometryReader { g in
                     ZStack(alignment: .leading) {
-                        Capsule().fill(fg.opacity(0.15))
-                        Capsule().fill(fg).frame(width: g.size.width * shown)
+                        Capsule().fill(fg.opacity(0.1))
+                        Capsule().fill(active ? (glow?.color ?? kindColor(device.kind)) : p.textDim).frame(width: g.size.width * shown)
                     }
                 }
-                .frame(height: 3).padding(.top, 8)
+                .frame(height: 5).padding(.top, 8)
             }
         }
         .padding(14)
         .frame(maxWidth: .infinity, minHeight: 132, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(active ? p.text : p.surface))
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(active ? p.text : p.border, lineWidth: 1))
+        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(active ? p.tileOn : p.tileOff)
+            .shadow(color: .black.opacity(active && !p.dark ? 0.06 : 0), radius: 12, y: 4))
         .background(GeometryReader { g in Color.clear.onAppear { width = g.size.width } })
         .contentShape(Rectangle())
         .onTapGesture { Describe.tapToggles(device) ? store.toggle(device.id) : onOpen() }
@@ -305,7 +335,7 @@ extension Double {
     var clamped01: Double { Swift.min(Swift.max(self, 0), 1) }
 }
 
-/// A sheet with the Nothing look: dark card, a grab bar, scrolling content.
+/// A sheet: a grab bar and scrolling content.
 struct NSheet<Content: View>: View {
     @Environment(\.palette) var p
     @Environment(\.dismiss) var dismiss

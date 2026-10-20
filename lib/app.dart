@@ -5,13 +5,13 @@ import 'cloud/cloud_sync.dart';
 import 'state/app_settings.dart';
 import 'state/backup_files.dart';
 import 'state/home_store.dart';
-import 'theme/nothing_theme.dart';
+import 'theme/app_theme.dart';
 import 'ui/screens/connect_screen.dart';
 import 'ui/screens/devices_screen.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/nav.dart';
 import 'ui/screens/map_screen.dart';
-import 'ui/widgets/nothing_widgets.dart';
+import 'ui/widgets/kj_widgets.dart';
 
 class SmartMenuApp extends StatelessWidget {
   SmartMenuApp(
@@ -39,8 +39,8 @@ class SmartMenuApp extends StatelessWidget {
         builder: (context, store, _) => MaterialApp(
           title: 'SmartMenuKJ',
           debugShowCheckedModeBanner: false,
-          theme: buildNothingTheme(Brightness.light),
-          darkTheme: buildNothingTheme(Brightness.dark),
+          theme: buildAppTheme(Brightness.light),
+          darkTheme: buildAppTheme(Brightness.dark),
           themeMode: switch (store.themeMode) {
             'light' => ThemeMode.light,
             'system' => ThemeMode.system,
@@ -61,7 +61,7 @@ class _Tab {
 }
 
 const _tabs = [
-  _Tab('Home', Icons.circle_outlined, Icons.circle),
+  _Tab('Home', Icons.home_outlined, Icons.home_rounded),
   _Tab('Map', Icons.grid_view_outlined, Icons.grid_view_rounded),
   _Tab('Devices', Icons.lightbulb_outline, Icons.lightbulb),
   _Tab('Connect', Icons.wifi_tethering, Icons.wifi_tethering),
@@ -145,17 +145,18 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             child: Row(children: [
               Container(
                 width: 92,
-                decoration: BoxDecoration(border: Border(right: BorderSide(color: p.border))),
+                decoration: BoxDecoration(color: p.surface, border: Border(right: BorderSide(color: p.border))),
                 child: Column(children: [
                   const SizedBox(height: 22),
-                  const DotText('KJ', size: 30),
                   Container(
-                    margin: const EdgeInsets.only(top: 6),
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(color: NothingPalette.red, shape: BoxShape.circle),
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(color: p.text, borderRadius: BorderRadius.circular(12)),
+                    child: Icon(Icons.home_rounded, color: p.background, size: 26),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 6),
+                  const DisplayText('KJ', size: 15),
+                  const SizedBox(height: 22),
                   for (var i = 0; i < _tabs.length; i++)
                     _RailItem(tab: _tabs[i], selected: i == nav.tab, onTap: () => nav.go(i)),
                 ]),
@@ -187,9 +188,10 @@ class _RailItem extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 14),
         child: Column(children: [
-          Icon(selected ? tab.activeIcon : tab.icon, color: selected ? p.text : p.textDim),
+          Icon(selected ? tab.activeIcon : tab.icon, color: selected ? KJPalette.accent : p.textDim),
           const SizedBox(height: 6),
-          Text(tab.label.toUpperCase(), style: NType.label(color: selected ? p.text : p.textDim).copyWith(fontSize: 10)),
+          Text(tab.label,
+              style: NType.body(11, color: selected ? KJPalette.accent : p.textDim, weight: selected ? 600 : 500)),
         ]),
       ),
     );
@@ -205,7 +207,9 @@ class _BottomBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     return Container(
-      decoration: BoxDecoration(color: p.background, border: Border(top: BorderSide(color: p.border))),
+      decoration: BoxDecoration(
+          color: p.isDark ? const Color(0xF20D0D0D) : const Color(0xF2FFFFFF),
+          border: Border(top: BorderSide(color: p.border.withValues(alpha: 0.6), width: 0.5))),
       child: SafeArea(
         top: false,
         child: SizedBox(
@@ -218,19 +222,10 @@ class _BottomBar extends StatelessWidget {
                   onTap: () => onTap(i),
                   child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Icon(i == selected ? _tabs[i].activeIcon : _tabs[i].icon,
-                        size: 22, color: i == selected ? p.text : p.textDim),
+                        size: 24, color: i == selected ? KJPalette.accent : p.textDim),
                     const SizedBox(height: 4),
-                    Row(mainAxisSize: MainAxisSize.min, children: [
-                      if (i == selected)
-                        Container(
-                          margin: const EdgeInsets.only(right: 5),
-                          width: 4,
-                          height: 4,
-                          decoration: const BoxDecoration(color: NothingPalette.red, shape: BoxShape.circle),
-                        ),
-                      Text(_tabs[i].label.toUpperCase(),
-                          style: NType.label(color: i == selected ? p.text : p.textDim).copyWith(fontSize: 10)),
-                    ]),
+                    Text(_tabs[i].label,
+                        style: NType.body(11, color: i == selected ? KJPalette.accent : p.textDim, weight: 500)),
                   ]),
                 ),
               ),

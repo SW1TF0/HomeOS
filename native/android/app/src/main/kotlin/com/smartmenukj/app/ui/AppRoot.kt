@@ -12,6 +12,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,7 +32,7 @@ fun AppRoot(app: SmartMenuApp) {
     LaunchedEffect(Unit) {
         app.messages.collect { snackbar.currentSnackbarData?.dismiss(); snackbar.showSnackbar(it) }
     }
-    NothingTheme(state.data.themeMode) {
+    AppTheme(state.data.themeMode) {
         CompositionLocalProvider(LocalStore provides app.store, LocalNav provides nav, LocalApp provides app) {
             val p = palette
             Scaffold(
@@ -74,7 +75,8 @@ fun AppRoot(app: SmartMenuApp) {
 private fun BottomBar(nav: Nav) {
     val p = palette
     Row(
-        Modifier.fillMaxWidth().background(p.background).navigationBarsPadding().padding(horizontal = 8.dp, vertical = 8.dp),
+        Modifier.fillMaxWidth().background(if (p.dark) Color(0xF20D0D0D) else Color(0xF2FFFFFF))
+            .navigationBarsPadding().padding(horizontal = 8.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceAround,
     ) {
         for (t in Tab.entries) {
@@ -83,10 +85,9 @@ private fun BottomBar(nav: Nav) {
                 Modifier.clip(CircleShape).clickable { nav.tab = t }.padding(horizontal = 10.dp, vertical = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Icon(tabIcon(t), t.label, tint = if (on) p.text else p.textDim)
+                Icon(tabIcon(t), t.label, tint = if (on) Palette.Accent else p.textDim)
                 Spacer(Modifier.height(4.dp))
-                if (on) Box(Modifier.size(4.dp).background(Palette.Red, CircleShape))
-                else Text(t.label, style = NType.body(11.sp, p.textDim))
+                Text(t.label, style = NType.body(11.sp, if (on) Palette.Accent else p.textDim, 500))
             }
         }
     }
@@ -111,7 +112,7 @@ fun ProfileButton() {
     }
 }
 
-/** Title row of a tab: big dot-matrix title, then the profile button. */
+/** Title row of a tab: big bold title, then the profile button. */
 @Composable
 fun ScreenTitle(title: String, trailing: (@Composable RowScope.() -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 8.dp),

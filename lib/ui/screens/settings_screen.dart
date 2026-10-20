@@ -8,11 +8,11 @@ import '../../state/app_settings.dart';
 import '../../state/backup_files.dart';
 import '../../state/home_store.dart';
 import '../../state/scenes_widget.dart';
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 import '../../util/clock_text.dart';
 import '../nav.dart';
 import '../widgets/dialogs.dart';
-import '../widgets/nothing_widgets.dart';
+import '../widgets/kj_widgets.dart';
 import 'account_sheet.dart';
 import 'backup_restore.dart';
 import 'help_sheet.dart';
@@ -51,7 +51,7 @@ class SettingsScreen extends StatelessWidget {
                     icon: const Icon(Icons.arrow_back),
                   ),
                   const SizedBox(width: 6),
-                  const Expanded(child: DotText('SETTINGS', size: 34)),
+                  const Expanded(child: DisplayText('Settings', size: 34)),
                 ]),
               ),
               Expanded(

@@ -7,10 +7,10 @@ import 'package:provider/provider.dart';
 import '../../models/device.dart';
 import '../../models/home.dart';
 import '../../state/home_store.dart';
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 import '../../util/haptics.dart';
 import '../widgets/dialogs.dart';
-import '../widgets/nothing_widgets.dart';
+import '../widgets/kj_widgets.dart';
 import 'device_sheet.dart';
 import 'profile_menu.dart';
 import 'room_sheet.dart';
@@ -390,7 +390,7 @@ class MapScreenState extends State<MapScreen> {
               child: editing
                   ? FilledButton(
                       key: const Key('map-done'),
-                      style: FilledButton.styleFrom(backgroundColor: NothingPalette.red, foregroundColor: Colors.white),
+                      style: FilledButton.styleFrom(backgroundColor: KJPalette.danger, foregroundColor: Colors.white),
                       onPressed: () => setState(() => _endEditing(store)),
                       child: const Text('Done'),
                     )
@@ -475,7 +475,7 @@ class MapScreenState extends State<MapScreen> {
                       key: const ValueKey('drop-highlight'),
                       child: IgnorePointer(
                         child: Container(
-                          decoration: BoxDecoration(border: Border.all(color: NothingPalette.red, width: 2)),
+                          decoration: BoxDecoration(border: Border.all(color: KJPalette.accent, width: 2)),
                         ),
                       ),
                     ),
@@ -485,7 +485,7 @@ class MapScreenState extends State<MapScreen> {
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(32, 32, 32, 120),
                         child: Column(mainAxisSize: MainAxisSize.min, children: [
-                          const DotText('EMPTY FLOOR', size: 28),
+                          const DisplayText('Empty floor', size: 28),
                           const SizedBox(height: 8),
                           Text(
                               editing
@@ -512,7 +512,7 @@ class MapScreenState extends State<MapScreen> {
     );
   }
 
-  Widget _hint(NothingPalette p) => IgnorePointer(
+  Widget _hint(KJPalette p) => IgnorePointer(
         child: Center(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -522,7 +522,7 @@ class MapScreenState extends State<MapScreen> {
               border: Border.all(color: p.border),
             ),
             // Two even lines on a phone rather than one word left over.
-            child: Text('TAP TO SWITCH · HOLD FOR CONTROLS${_viewport.width < 600 ? '\n' : ' · '}TAP A ROOM TO OPEN IT',
+            child: Text('Tap to switch · hold for controls${_viewport.width < 600 ? '\n' : ' · '}tap a room to open it',
                 textAlign: TextAlign.center, style: NType.label(color: p.textDim)),
           ),
         ),
@@ -538,14 +538,14 @@ class MapScreenState extends State<MapScreen> {
           child: Container(
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: NothingPalette.red.withValues(alpha: 0.08),
+              color: KJPalette.accent.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: NothingPalette.red, width: 2),
+              border: Border.all(color: KJPalette.accent, width: 2),
             ),
             child: FittedBox(
               child: Padding(
                 padding: const EdgeInsets.all(4),
-                child: DotText('${r.width.round()} × ${r.height.round()}', size: 18, color: NothingPalette.red),
+                child: DisplayText('${r.width.round()} × ${r.height.round()}', size: 18, color: KJPalette.accent),
               ),
             ),
           ),
@@ -631,14 +631,14 @@ class MapScreenState extends State<MapScreen> {
     final p = context.palette;
     return _bar([
       const SizedBox(width: 10),
-      const Icon(Icons.draw_outlined, size: 18, color: NothingPalette.red),
+      const Icon(Icons.draw_outlined, size: 18, color: KJPalette.accent),
       const SizedBox(width: 8),
-      Text('DRAG ON THE MAP TO DRAW A ROOM', style: NType.label(color: p.text)),
+      Text('Drag on the map to draw a room', style: NType.label(color: p.text)),
       const SizedBox(width: 10),
       FilledButton(
         key: const Key('map-draw-stop'),
         style: _compact.copyWith(
-          backgroundColor: WidgetStateProperty.all(NothingPalette.red),
+          backgroundColor: WidgetStateProperty.all(KJPalette.accent),
           foregroundColor: WidgetStateProperty.all(Colors.white),
         ),
         onPressed: () => setState(() {
@@ -658,7 +658,7 @@ class MapScreenState extends State<MapScreen> {
         padding: const EdgeInsets.only(left: 12, right: 6),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 110),
-          child: DotText(selected.name, size: 18, maxLines: 1),
+          child: DisplayText(selected.name, size: 18, maxLines: 1),
         ),
       ),
       Text('${rect.width.round()}×${rect.height.round()}', style: NType.label(color: p.textDim)),
@@ -702,7 +702,7 @@ class MapScreenState extends State<MapScreen> {
             setState(() => _selectedRoom = null);
           }
         },
-        icon: const Icon(Icons.delete_outline, color: NothingPalette.red),
+        icon: const Icon(Icons.delete_outline, color: KJPalette.danger),
       ),
     ]);
   }
@@ -838,18 +838,18 @@ class MapScreenState extends State<MapScreen> {
       decoration: BoxDecoration(
         color: p.surface.withValues(alpha: isSelected ? 0.95 : 0.75),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: isSelected ? NothingPalette.red : p.border, width: isSelected ? 2 : 1.2),
+        border: Border.all(color: isSelected ? KJPalette.accent : p.border, width: isSelected ? 2 : 1.2),
       ),
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
       alignment: Alignment.topLeft,
       child: Stack(children: [
         Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          Text(r.name.toUpperCase(),
-              maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.dot(15, color: p.text, weight: 800, spacing: 0.5)),
+          Text(r.name,
+              maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.display(15, color: p.text, weight: 800, spacing: 0.5)),
           if (rect.height >= 3)
             Text(
               [
-                if (inside.isNotEmpty) '$active/${inside.length} ON',
+                if (inside.isNotEmpty) '$active/${inside.length} on',
                 if (temp != null) '${temp.toStringAsFixed(1)}°',
               ].join(' · '),
               maxLines: 1,
@@ -861,7 +861,7 @@ class MapScreenState extends State<MapScreen> {
           Align(
             alignment: Alignment.bottomRight,
             child: Text('${rect.width.round()}×${rect.height.round()}',
-                style: NType.label(color: isSelected ? NothingPalette.red : p.textDim).copyWith(fontSize: 9.5)),
+                style: NType.label(color: isSelected ? KJPalette.accent : p.textDim).copyWith(fontSize: 9.5)),
           ),
       ]),
     );
@@ -926,7 +926,7 @@ class MapScreenState extends State<MapScreen> {
               width: 16,
               height: 16,
               decoration: BoxDecoration(
-                color: NothingPalette.red,
+                color: KJPalette.accent,
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: p.background, width: 2),
               ),
@@ -969,7 +969,7 @@ class MapScreenState extends State<MapScreen> {
           shape: BoxShape.circle,
           color: active ? p.text : p.surface,
           border: Border.all(
-            color: !d.state.reachable ? NothingPalette.red : (active ? p.text : p.border),
+            color: !d.state.reachable ? KJPalette.danger : (active ? p.text : p.border),
             width: _deviceDrag.containsKey(d.id) ? 2.5 : 1.4,
           ),
           boxShadow: glow == null ? null : [BoxShadow(color: glow.withValues(alpha: 0.55), blurRadius: 22, spreadRadius: 2)],

@@ -1,4 +1,4 @@
-"""Draws the SmartMenuKJ app icon, a dot-matrix S on black, for every platform.
+"""Draws the SmartMenuKJ app icon, the house from the smarthomekj.eu logo on black, for every platform.
 
     python3 tool/make_icons.py
 
@@ -9,45 +9,25 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
-BLACK, WHITE, RED = '#000000', '#FFFFFF', '#D71921'
+BLACK, WHITE, BLUE = '#000000', '#FFFFFF', '#0071E3'
 
-# The S on a dot grid: '#' a white dot, 'R' the red one.
-S = ['..####.',
-     '.#....R',
-     '#......',
-     '#......',
-     '.#####.',
-     '......#',
-     '......#',
-     '#....#.',
-     '.####..']
-# The same S for icons too small for round dots, drawn pixel-sharp.
-SMALL = ['.###R',
-         '#....',
-         '#....',
-         '.###.',
-         '....#',
-         '....#',
-         '####.']
-DOT = 0.8  # dot diameter, as a share of the distance between dots
+# The house on a 1 x 1 square: roof and walls, then the door cut into them.
+HOUSE = [(0.5, 0.0), (1.0, 0.44), (0.88, 0.44), (0.88, 1.0), (0.12, 1.0), (0.12, 0.44), (0.0, 0.44)]
+DOOR = (0.38, 0.6, 0.62, 1.0)
 
 
-def dots(height, cx, cy, glyph=S):
-    """Yields (x, y, radius, colour) of every dot of a glyph [height] tall, centred on (cx, cy)."""
-    rows, cols = len(glyph), len(glyph[0])
-    pitch = height / (rows - 1 + DOT)
-    left, top = cx - (cols - 1) * pitch / 2, cy - (rows - 1) * pitch / 2
-    for r, line in enumerate(glyph):
-        for c, ch in enumerate(line):
-            if ch != '.':
-                yield left + c * pitch, top + r * pitch, DOT * pitch / 2, RED if ch == 'R' else WHITE
+def shapes(height, cx, cy):
+    """The house [height] tall, centred on (cx, cy): its outline as points and its door as a box."""
+    left, top = cx - height / 2, cy - height / 2
+    house = [(left + x * height, top + y * height) for x, y in HOUSE]
+    x0, y0, x1, y1 = DOOR
+    door = (left + x0 * height, top + y0 * height, left + x1 * height, top + y1 * height)
+    return house, door
 
 
 def icon(size, shape):
     """The icon as an image. shape: 'square' (full bleed), 'rounded' or 'mac' (rounded, with a margin)."""
-    if size < 40:
-        return small_icon(size, shape)
-    scale = 4  # draw big, then shrink, for smooth dots
+    scale = 4  # draw big, then shrink, for smooth edges
     big = size * scale
     image = Image.new('RGBA', (big, big), (0, 0, 0, 0))
     draw = ImageDraw.Draw(image)
@@ -57,38 +37,24 @@ def icon(size, shape):
         draw.rectangle((0, 0, big, big), fill=BLACK)
     else:
         draw.rounded_rectangle((inset, inset, big - inset - 1, big - inset - 1), radius=box * 0.225, fill=BLACK)
-    for x, y, r, colour in dots(box * 0.6, big / 2, big / 2):
-        draw.ellipse((x - r, y - r, x + r, y + r), fill=colour)
+    house, door = shapes(box * (0.62 if size < 40 else 0.5), big / 2, big / 2 - box * 0.01)
+    draw.polygon(house, fill=WHITE)
+    draw.rectangle(door, fill=BLUE)
     image = image.resize((size, size), Image.LANCZOS)
     return image.convert('RGB') if shape == 'square' else image
 
 
-def small_icon(size, shape):
-    image = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(image)
-    if shape == 'square':
-        draw.rectangle((0, 0, size, size), fill=BLACK)
-    else:
-        draw.rounded_rectangle((0, 0, size - 1, size - 1), radius=max(2, size // 5), fill=BLACK)
-    pitch = max(2, round(size * 0.6 / 7))
-    dot = pitch if pitch == 2 else pitch - 1
-    width, height = 4 * pitch + dot, 6 * pitch + dot
-    left, top = (size - width) // 2, (size - height) // 2
-    for r, line in enumerate(SMALL):
-        for c, ch in enumerate(line):
-            if ch != '.':
-                x, y = left + c * pitch, top + r * pitch
-                draw.rectangle((x, y, x + dot - 1, y + dot - 1), fill=RED if ch == 'R' else WHITE)
-    return image.convert('RGB') if shape == 'square' else image
-
-
 def vector(monochrome=False):
-    """An Android vector drawable of the dots, on the 108 x 108 dp adaptive icon canvas (66 dp safe circle)."""
-    paths = {}
-    for x, y, r, colour in dots(44, 54, 54):
-        paths.setdefault(WHITE if monochrome else colour, []).append(
-            f'M{x - r:.2f},{y:.2f}a{r:.2f},{r:.2f} 0 1,0 {2 * r:.2f},0a{r:.2f},{r:.2f} 0 1,0 {-2 * r:.2f},0z')
-    body = ''.join(f'\n    <path android:fillColor="{c}" android:pathData="{"".join(p)}" />' for c, p in paths.items())
+    """An Android vector drawable of the house, on the 108 x 108 dp adaptive icon canvas (66 dp safe circle)."""
+    house, (x0, y0, x1, y1) = shapes(40, 54, 53)
+    outline = 'M' + 'L'.join(f'{x:.2f},{y:.2f}' for x, y in house) + 'z'
+    door = f'M{x0:.2f},{y0:.2f}H{x1:.2f}V{y1:.2f}H{x0:.2f}z'
+    if monochrome:
+        # One colour only: the door is cut out of the house.
+        body = f'\n    <path android:fillColor="{WHITE}" android:fillType="evenOdd" android:pathData="{outline}{door}" />'
+    else:
+        body = (f'\n    <path android:fillColor="{WHITE}" android:pathData="{outline}" />'
+                f'\n    <path android:fillColor="{BLUE}" android:pathData="{door}" />')
     return ('<?xml version="1.0" encoding="utf-8"?>\n'
             '<!-- Made by tool/make_icons.py. -->\n'
             '<vector xmlns:android="http://schemas.android.com/apk/res/android"\n'

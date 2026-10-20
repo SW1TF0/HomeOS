@@ -5,9 +5,9 @@ import 'package:provider/provider.dart';
 import '../../cloud/cloud_sync.dart';
 import '../../cloud/firebase.dart';
 import '../../state/home_store.dart';
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 import '../widgets/dialogs.dart';
-import '../widgets/nothing_widgets.dart';
+import '../widgets/kj_widgets.dart';
 
 Future<void> showAccountSheet(BuildContext context) => showModalBottomSheet(
       context: context,
@@ -118,8 +118,8 @@ class _AccountSheetState extends State<AccountSheet> {
     );
   }
 
-  List<Widget> _signIn(BuildContext context, CloudSync cloud, NothingPalette p) => [
-        const DotText('ACCOUNT', size: 30),
+  List<Widget> _signIn(BuildContext context, CloudSync cloud, KJPalette p) => [
+        const DisplayText('Account', size: 30),
         const SizedBox(height: 6),
         Text(
             'Sign in to keep your homes on every phone and computer, and to switch things on and off from anywhere. '
@@ -156,7 +156,7 @@ class _AccountSheetState extends State<AccountSheet> {
         ),
         if (_error != null) ...[
           const SizedBox(height: 12),
-          Text(_error!, key: const Key('account-error'), style: NType.body(14, color: NothingPalette.red)),
+          Text(_error!, key: const Key('account-error'), style: NType.body(14, color: KJPalette.danger)),
         ],
         if (_note != null) ...[
           const SizedBox(height: 12),
@@ -196,11 +196,11 @@ class _AccountSheetState extends State<AccountSheet> {
         if (_working) const LinearProgressIndicator(),
       ];
 
-  List<Widget> _account(BuildContext context, CloudSync cloud, HomeStore store, NothingPalette p) {
+  List<Widget> _account(BuildContext context, CloudSync cloud, HomeStore store, KJPalette p) {
     final home = store.homeName;
     final linked = store.openHomeEntry.cloudId != null;
     return [
-      const DotText('ACCOUNT', size: 30),
+      const DisplayText('Account', size: 30),
       const SizedBox(height: 6),
       Text(cloud.account!.email, style: NType.body(16, color: p.text, weight: 500)),
       const SizedBox(height: 4),
@@ -209,7 +209,7 @@ class _AccountSheetState extends State<AccountSheet> {
             ? 'Syncing your homes...'
             : cloud.problem ?? 'Your homes are saved to your account and stay in step on every device you sign in on.',
         key: const Key('account-status'),
-        style: NType.body(14, color: cloud.problem == null ? p.textDim : NothingPalette.red),
+        style: NType.body(14, color: cloud.problem == null ? p.textDim : KJPalette.danger),
       ),
       if (cloud.needsRules) ...[
         const SizedBox(height: 10),
@@ -268,7 +268,7 @@ class _AccountSheetState extends State<AccountSheet> {
                       'plugged in and on the Wi-Fi, with SmartMenuKJ open.'
                   : 'No device at home is doing this yet, so away from home nothing can be switched.',
           key: const Key('account-hub-status'),
-          style: NType.body(13, color: cloud.online ? p.textDim : NothingPalette.red),
+          style: NType.body(13, color: cloud.online ? p.textDim : KJPalette.danger),
         ),
       ],
       const SizedBox(height: 24),

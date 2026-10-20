@@ -4,10 +4,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../models/device.dart';
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 import '../../util/color_math.dart';
 import '../../util/haptics.dart';
-import 'nothing_widgets.dart';
+import 'kj_widgets.dart';
 
 // ---- The one level a quick drag changes ---------------------------------------
 
@@ -111,16 +111,13 @@ class _LevelBarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const gap = 7.0, edge = 2.0;
-    final width = size.width - edge * 2;
-    final count = math.max(2, (width / gap).floor() + 1);
-    final step = width / (count - 1);
-    final lit = value <= 0.005 ? -1 : (value * (count - 1)).round();
-    final paint = Paint();
-    for (var i = 0; i < count; i++) {
-      paint.color = i <= lit ? color : track;
-      canvas.drawCircle(Offset(edge + i * step, size.height / 2), i <= lit ? 2.0 : 1.4, paint);
-    }
+    final h = math.min(size.height, 5.0);
+    final top = (size.height - h) / 2;
+    final radius = Radius.circular(h / 2);
+    canvas.drawRRect(RRect.fromLTRBR(0, top, size.width, top + h, radius), Paint()..color = track);
+    if (value <= 0.005) return;
+    final w = math.max(h, size.width * value);
+    canvas.drawRRect(RRect.fromLTRBR(0, top, w, top + h, radius), Paint()..color = color);
   }
 
   @override
@@ -202,8 +199,8 @@ class _LevelControlState extends State<LevelControl> {
     final p = context.palette;
     final v = _live ?? widget.value;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      SectionLabel(widget.label, trailing: Text(widget.display(v), style: NType.dot(18, color: p.text))),
-      DotSlider(
+      SectionLabel(widget.label, trailing: Text(widget.display(v), style: NType.display(18, color: p.text))),
+      LevelSlider(
         semanticLabel: widget.label,
         value: widget.value,
         colorAt: widget.colorAt,
@@ -465,21 +462,21 @@ class _TempDialState extends State<TempDial> {
                       : ((widget.current! - widget.min) / (widget.max - widget.min)).clamp(0.0, 1.0),
                   steps: ((widget.max - widget.min) / widget.step).round(),
                   majorEvery: (5 / widget.step).round(),
-                  on: widget.off ? p.textDim : p.text,
-                  off: p.border,
-                  knob: widget.off ? p.textDim : NothingPalette.red,
+                  on: widget.off ? p.textDim : KJPalette.orange,
+                  off: p.surfaceHigh,
+                  knob: widget.off ? p.textDim : KJPalette.orange,
                   hole: p.background,
                   mark: p.textDim,
                 ),
               ),
             ),
             Column(mainAxisSize: MainAxisSize.min, children: [
-              Text(widget.off ? 'OFF' : 'TARGET', style: NType.label(color: p.textDim)),
+              Text(widget.off ? 'Off' : 'Target', style: NType.label(color: p.textDim)),
               const SizedBox(height: 4),
-              DotText(show(value), size: widget.size * 0.22, color: widget.off ? p.textDim : p.text),
+              DisplayText(show(value), size: widget.size * 0.22, color: widget.off ? p.textDim : p.text),
               if (widget.current != null) ...[
                 const SizedBox(height: 6),
-                Text('NOW ${show(widget.current!)}', style: NType.label(color: p.textDim)),
+                Text('Now ${show(widget.current!)}', style: NType.label(color: p.textDim)),
               ],
             ]),
           ]),
@@ -521,20 +518,32 @@ class _DialPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final c = size.center(Offset.zero);
     final r = size.width / 2 - 16;
-    final paint = Paint();
-    for (var i = 0; i <= steps; i++) {
-      final ti = i / steps;
-      final filled = ti <= t + 1e-9;
-      final major = majorEvery > 0 && i % majorEvery == 0;
-      paint.color = filled ? on : off;
-      canvas.drawCircle(_at(c, r, ti), (filled ? 2.6 : 2.0) + (major ? 0.9 : 0), paint);
+    final rect = Rect.fromCircle(center: c, radius: r);
+    const start = 135 * math.pi / 180, sweep = 270 * math.pi / 180;
+    final stroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 14
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(rect, start, sweep, false, stroke..color = off);
+    if (t > 0.002) {
+      stroke
+        ..color = on
+        ..shader = on != KJPalette.orange
+            ? null
+            : const SweepGradient(
+                endAngle: sweep,
+                colors: [Color(0xFFFFB340), Color(0xFFFF6A2B), Color(0xFFFF3B30)],
+                transform: GradientRotation(start),
+              ).createShader(rect);
+      canvas.drawArc(rect, start, sweep * t, false, stroke);
     }
+    final paint = Paint();
     if (current != null) {
-      canvas.drawCircle(_at(c, r - 15, current!), 3, paint..color = mark);
+      canvas.drawCircle(_at(c, r - 18, current!), 3, paint..color = mark);
     }
     final k = _at(c, r, t);
-    canvas.drawCircle(k, 12, paint..color = knob);
-    canvas.drawCircle(k, 4, paint..color = hole);
+    canvas.drawCircle(k, 13, Paint()..color = const Color(0x33000000)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+    canvas.drawCircle(k, 11, paint..color = Colors.white);
   }
 
   @override
@@ -602,7 +611,7 @@ class _BlindControlState extends State<BlindControl> {
           height: widget.height,
           child: CustomPaint(
             painter: _BlindPainter(
-                open: pos, frame: p.border, slat: p.text, glass: p.dot, fill: p.surfaceHigh, handle: NothingPalette.red),
+                open: pos, frame: p.border, slat: p.text, glass: p.dot, fill: p.surfaceHigh, handle: KJPalette.accent),
           ),
         ),
       ),
@@ -762,7 +771,7 @@ class _HoldOrbState extends State<HoldOrb> with SingleTickerProviderStateMixin {
                 child: AnimatedBuilder(
                   animation: _ring,
                   builder: (context, _) => CustomPaint(
-                    painter: _HoldRingPainter(progress: _ring.value, track: p.border, fill: NothingPalette.red),
+                    painter: _HoldRingPainter(progress: _ring.value, track: p.border, fill: KJPalette.accent),
                   ),
                 ),
               ),
@@ -785,8 +794,8 @@ class _HoldOrbState extends State<HoldOrb> with SingleTickerProviderStateMixin {
       const SizedBox(height: 8),
       AnimatedDefaultTextStyle(
         duration: const Duration(milliseconds: 160),
-        style: NType.label(color: _nudge ? NothingPalette.red : p.textDim),
-        child: Text(widget.locked ? (_nudge ? 'KEEP HOLDING TO UNLOCK' : 'HOLD TO UNLOCK') : 'TAP TO LOCK'),
+        style: NType.label(color: _nudge ? KJPalette.accent : p.textDim),
+        child: Text(widget.locked ? (_nudge ? 'Keep holding to unlock' : 'Hold to unlock') : 'Tap to lock'),
       ),
     ]);
   }
@@ -800,16 +809,14 @@ class _HoldRingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const count = 44;
     final c = size.center(Offset.zero);
-    final r = size.width / 2 - 5;
-    final paint = Paint();
-    for (var i = 0; i < count; i++) {
-      final a = (i / count) * 2 * math.pi - math.pi / 2;
-      final lit = progress > 0 && i / count < progress;
-      paint.color = lit ? fill : track;
-      canvas.drawCircle(c + Offset(math.cos(a), math.sin(a)) * r, lit ? 2.6 : 1.8, paint);
-    }
+    final rect = Rect.fromCircle(center: c, radius: size.width / 2 - 5);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(rect, 0, 2 * math.pi, false, paint..color = track);
+    if (progress > 0) canvas.drawArc(rect, -math.pi / 2, 2 * math.pi * progress, false, paint..color = fill);
   }
 
   @override
@@ -852,7 +859,7 @@ class RobotOrb extends StatelessWidget {
           child: Stack(alignment: Alignment.center, children: [
             if (b != null)
               Positioned.fill(
-                child: CustomPaint(painter: _HoldRingPainter(progress: b, track: p.border, fill: low ? NothingPalette.red : p.text)),
+                child: CustomPaint(painter: _HoldRingPainter(progress: b, track: p.border, fill: low ? KJPalette.danger : p.text)),
               ),
             AnimatedContainer(
               duration: const Duration(milliseconds: 220),
@@ -867,7 +874,7 @@ class RobotOrb extends StatelessWidget {
                 Icon(running ? Icons.pause : Icons.play_arrow, size: size * 0.24, color: fg),
                 if (b != null) ...[
                   const SizedBox(height: 2),
-                  Text('${(b * 100).round()}%', style: NType.dot(20, color: low && !running ? NothingPalette.red : fg)),
+                  Text('${(b * 100).round()}%', style: NType.display(20, color: low && !running ? KJPalette.danger : fg)),
                 ],
               ]),
             ),

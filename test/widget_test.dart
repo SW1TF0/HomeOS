@@ -20,7 +20,7 @@ import 'package:smartmenukj/ui/screens/room_sheet.dart';
 import 'package:smartmenukj/state/home_store.dart';
 import 'package:smartmenukj/state/repository.dart';
 import 'package:smartmenukj/ui/widgets/camera_live.dart';
-import 'package:smartmenukj/ui/widgets/nothing_widgets.dart';
+import 'package:smartmenukj/ui/widgets/kj_widgets.dart';
 
 Future<HomeStore> pumpApp(WidgetTester tester, {Size size = const Size(420, 900), http.Client? client}) async {
   tester.view.physicalSize = size * 2;
@@ -88,7 +88,7 @@ class FakeScanner extends NetworkScanner {
 void main() {
   testWidgets('home shows favourites and tapping a tile switches it', (tester) async {
     final store = await pumpApp(tester);
-    expect(find.text('MY HOME'), findsOneWidget);
+    expect(find.text('My home'), findsOneWidget);
     final tv = store.devices.firstWhere((d) => d.name == 'TV');
     expect(tv.state.on, isFalse);
     await tester.tap(find.text('TV').first);
@@ -100,8 +100,8 @@ void main() {
   testWidgets('holding a tile opens its controls', (tester) async {
     await pumpApp(tester);
     await openControls(tester, 'Desk lamp');
-    expect(find.text('BRIGHTNESS'), findsOneWidget);
-    expect(find.text('WHITE'), findsOneWidget);
+    expect(find.text('Brightness'), findsOneWidget);
+    expect(find.text('White'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Rename'), 300, scrollable: find.byType(Scrollable).last);
     expect(find.text('Rename'), findsOneWidget);
   });
@@ -112,7 +112,7 @@ void main() {
     await scrollHomeTo(tester, find.byKey(Key('open-${tv.id}')));
     await tester.tap(find.byKey(Key('open-${tv.id}')));
     await tester.pumpAndSettle();
-    expect(find.text('VOLUME'), findsOneWidget);
+    expect(find.text('Volume'), findsOneWidget);
     expect(tv.state.on, isFalse, reason: 'opening the controls does not switch it');
   });
 
@@ -139,7 +139,7 @@ void main() {
     await tester.tap(orb);
     await tester.pumpAndSettle();
     expect(door.state.locked, isTrue, reason: 'a tap is not enough');
-    expect(find.text('KEEP HOLDING TO UNLOCK'), findsOneWidget);
+    expect(find.text('Keep holding to unlock'), findsOneWidget);
     final g = await tester.startGesture(tester.getCenter(orb));
     for (var i = 0; i < 12; i++) {
       await tester.pump(const Duration(milliseconds: 100));
@@ -232,7 +232,7 @@ void main() {
     final garage = store.rooms.firstWhere((r) => r.name == 'Garage');
     expect(garage.rect.size, const Size(6, 6));
     expect(store.rooms.where((r) => r != garage).any((r) => r.rect.overlaps(garage.rect)), isFalse);
-    expect(find.text('GARAGE'), findsWidgets);
+    expect(find.text('Garage'), findsWidgets);
     expect(find.byKey(Key('room-resize-tl-${garage.id}')), findsOneWidget, reason: 'the new room is selected');
     await tester.tap(find.byKey(const Key('map-undo')));
     await tester.pumpAndSettle();
@@ -299,7 +299,7 @@ void main() {
     await tester.tap(find.widgetWithText(FilledButton, 'Add'));
     await tester.pumpAndSettle();
     expect(store.floors.map((f) => f.name), contains('Attic'));
-    expect(find.text('EMPTY FLOOR'), findsOneWidget, reason: 'the new floor is shown');
+    expect(find.text('Empty floor'), findsOneWidget, reason: 'the new floor is shown');
   });
 
   testWidgets('map: tap a room to see it, then edit it from there', (tester) async {
@@ -356,7 +356,7 @@ void main() {
     expect(find.text('3 lights on'), findsOneWidget);
     await tester.tap(find.byKey(const Key('status-lights')));
     await tester.pumpAndSettle();
-    expect(find.text('LIGHTS'), findsWidgets);
+    expect(find.text('Lights'), findsWidgets);
     await tester.tap(find.byKey(const Key('list-action')));
     await tester.pumpAndSettle();
     expect(store.devices.where((d) => d.kind == DeviceKind.light && d.state.on == true), isEmpty);
@@ -366,7 +366,7 @@ void main() {
     final store = await pumpApp(tester);
     await tester.tap(find.byKey(const Key('home-edit')));
     await tester.pumpAndSettle();
-    expect(find.text('EDIT HOME'), findsOneWidget);
+    expect(find.text('Edit home'), findsWidgets);
     final before = store.favorites.length;
     await tester.tap(find.byTooltip('Remove from favourites').first);
     await tester.pumpAndSettle();
@@ -401,7 +401,7 @@ void main() {
     final tv = store.devices.firstWhere((d) => d.name == 'TV');
     await tester.longPress(find.text('TV').first);
     await tester.pumpAndSettle();
-    expect(find.text('VOLUME'), findsOneWidget);
+    expect(find.text('Volume'), findsOneWidget);
     final mute = find.byKey(const Key('mute-toggle'));
     await tester.ensureVisible(mute);
     await tester.pumpAndSettle();
@@ -529,12 +529,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(card);
     await tester.pumpAndSettle();
-    expect(find.text('ADD MATTER'), findsOneWidget);
+    expect(find.text('Add Matter'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('matter-code')), '1234-567-8901');
     await tester.tap(find.byKey(const Key('matter-add')));
     await tester.pumpAndSettle();
     expect(find.textContaining('typo'), findsOneWidget);
-    expect(find.text('ADD MATTER'), findsOneWidget, reason: 'the sheet stays open to try again');
+    expect(find.text('Add Matter'), findsOneWidget, reason: 'the sheet stays open to try again');
     final matter = store.integrations.where((i) => i.type == 'matter').single;
     expect(matter.settings['fabric'], isA<Map>(), reason: 'the app keeps its Matter keys');
     expect(store.devices.where((d) => d.integrationId == matter.id), isEmpty);
@@ -595,7 +595,7 @@ void main() {
     expect(find.text('Bedroom sensor: Smoke!'), findsOneWidget);
     await tester.tap(find.byKey(const Key('status-danger')));
     await tester.pumpAndSettle();
-    expect(find.text('SMOKE'), findsOneWidget, reason: 'the sensor opens with its readings');
+    expect(find.text('Smoke'), findsOneWidget, reason: 'the sensor opens with its readings');
     sensor.state = sensor.state.merge(const DeviceState(readings: {'Smoke': 'Clear'}));
     store.notifyListeners();
     await tester.pumpAndSettle();
@@ -712,7 +712,7 @@ void main() {
     expect(find.byKey(const Key('camera-setup-card')), findsOneWidget);
     await tester.tap(find.byKey(const Key('camera-setup-start')));
     await tester.pumpAndSettle();
-    expect(find.text('LIVE VIDEO'), findsOneWidget);
+    expect(find.text('Live video'), findsWidgets);
     await tester.tap(find.byKey(const Key('brand-tapo')));
     await tester.pumpAndSettle();
     expect(find.textContaining('Camera account'), findsOneWidget);
@@ -741,15 +741,15 @@ void main() {
     expect(describeState(cam), 'Live');
     await openControls(tester, 'Porch camera');
     expect(find.byKey(const Key('camera-live')), findsOneWidget);
-    expect(find.text('LIVE'), findsWidgets);
+    expect(find.text('Live'), findsWidgets);
     expect(find.descendant(of: find.byKey(const Key('camera-live')), matching: find.byType(Image)), findsOneWidget);
     await tester.tap(find.byKey(const Key('camera-fullscreen')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('camera-rotate')), findsOneWidget);
-    expect(find.text('PORCH CAMERA'), findsOneWidget);
+    expect(find.text('Porch camera'), findsOneWidget);
     await tester.tap(find.byKey(const Key('camera-close')));
     await tester.pumpAndSettle();
-    expect(find.text('PLAYING FULL SCREEN'), findsNothing);
+    expect(find.text('Playing full screen'), findsNothing);
   });
 
   testWidgets('an RTSP camera on a computer says where its live video plays', (tester) async {
@@ -799,7 +799,7 @@ void main() {
     await tester.tap(find.byKey(const Key('camera-playback')));
     await tester.pumpAndSettle();
 
-    expect(find.text('RECORDINGS'), findsOneWidget);
+    expect(find.text('Recordings'), findsOneWidget);
     expect(find.textContaining('Tap the line below'), findsOneWidget);
     const today = '2026-10-17';
     expect(days, [today]);
@@ -830,8 +830,8 @@ void main() {
     await tester.tap(find.byKey(const Key('playback-day-1')));
     await tester.pumpAndSettle();
     expect(days.last, '2026-10-16');
-    expect(find.text('YESTERDAY'), findsOneWidget);
-    expect(find.text('THU 15'), findsOneWidget);
+    expect(find.text('Yesterday'), findsOneWidget);
+    expect(find.text('Thu 15'), findsOneWidget);
     await tester.tap(find.byKey(const Key('playback-back')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('camera-live')), findsOneWidget);
@@ -860,7 +860,7 @@ void main() {
     final store = await pumpApp(tester);
     await tester.tap(find.byKey(const Key('automations-open')));
     await tester.pumpAndSettle();
-    expect(find.text('AUTOMATIONS'), findsOneWidget);
+    expect(find.text('Automations'), findsOneWidget);
     expect(find.byKey(const Key('automations-empty')), findsOneWidget);
 
     Future<void> pick(String text) async {
@@ -905,7 +905,7 @@ void main() {
     store.automationChanged(a);
     await tester.pumpAndSettle();
     expect(fan.state.on, isTrue);
-    expect(find.textContaining('RAN '), findsOneWidget);
+    expect(find.textContaining('Ran '), findsOneWidget);
 
     await tester.tap(find.byKey(Key('automation-switch-${a.id}')));
     await tester.pump();
@@ -936,20 +936,20 @@ void main() {
     final store = await pumpApp(tester);
     await tester.tap(find.byKey(const Key('home-switch')));
     await tester.pumpAndSettle();
-    expect(find.text('HOMES'), findsOneWidget);
+    expect(find.text('Homes'), findsOneWidget);
     await tester.tap(find.byKey(const Key('home-add')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Beach house');
     await tester.tap(find.text('Add'));
     await tester.pumpAndSettle();
-    expect(find.text('BEACH HOUSE'), findsOneWidget);
+    expect(find.text('Beach house'), findsOneWidget);
     expect(store.devices, isEmpty);
     expect(find.text('Everything is off.'), findsOneWidget);
     await tester.tap(find.byKey(const Key('home-switch')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('My home'));
     await tester.pumpAndSettle();
-    expect(find.text('MY HOME'), findsOneWidget);
+    expect(find.text('My home'), findsOneWidget);
     expect(store.devices, isNotEmpty);
     await tester.tap(find.byKey(const Key('tab-map')));
     await tester.pumpAndSettle();
@@ -1062,7 +1062,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(store.homeName, 'Cabin');
       expect(find.byKey(const Key('profile-menu')), findsNothing);
-      expect(find.text('CABIN'), findsOneWidget);
+      expect(find.text('Cabin'), findsOneWidget);
     });
 
     testWidgets('settings change the clock, the check interval and vibration, and are kept', (tester) async {
@@ -1072,7 +1072,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('profile-settings')));
       await tester.pumpAndSettle();
-      expect(find.text('SETTINGS'), findsOneWidget);
+      expect(find.text('Settings'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('choice-12-hour')));
       await tester.pumpAndSettle();
@@ -1091,7 +1091,7 @@ void main() {
 
       await tester.tap(find.byKey(const Key('settings-back')));
       await tester.pumpAndSettle();
-      expect(find.textContaining(RegExp(r'· (AM|PM)$')), findsOneWidget, reason: 'the 12-hour clock says AM or PM');
+      expect(find.textContaining(RegExp(r'^ (AM|PM) ')), findsOneWidget, reason: 'the 12-hour clock says AM or PM');
 
       final again = AppSettings();
       await again.load();
@@ -1119,7 +1119,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('profile-help')));
       await tester.pumpAndSettle();
-      expect(find.text('HELP'), findsOneWidget);
+      expect(find.text('Help'), findsOneWidget);
       await tester.tap(find.text('Add your devices'));
       await tester.pumpAndSettle();
       expect(find.textContaining('Scan network'), findsWidgets);

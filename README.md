@@ -1,8 +1,8 @@
 # SmartMenuKJ
 
-<img src="docs/icon.png" alt="SmartMenuKJ icon: a dot-matrix S with a red dot on black" width="96">
+<img src="docs/icon.png" alt="SmartMenuKJ icon: a white house with a blue door on black" width="96">
 
-A free smart home app for phones and computers. Draw your home as a floor plan, put your devices where they really are, and control them with a tap. It is styled after Nothing OS: black and white, dot-matrix type and a single red accent.
+A free smart home app for phones and computers. Draw your home as a floor plan, put your devices where they really are, and control them with a tap. Its look follows [smarthomekj.eu](https://www.smarthomekj.eu): soft white and black surfaces, big bold type, one blue accent, and device tiles that turn white with a coloured icon when they are on.
 
 Everything is free and local-first. There is no subscription and no paywall, and no account is needed: the app talks to your devices directly on your home network, and your homes are saved on your own device. A free account is optional; it keeps your homes in step on every phone and computer and lets you switch things from anywhere.
 
@@ -41,8 +41,8 @@ Everything is free and local-first. There is no subscription and no paywall, and
 ## What it does
 
 - **Floor plan.** Add a ready-made room (Kitchen, Bedroom, Garage...) and it drops into a free spot, or draw one by dragging on the dotted grid. Move rooms, resize them from any corner, duplicate or delete them, and undo any change. Devices that are not on the plan wait in a tray at the bottom: drag one into a room and it joins that room. Tap a device on the plan to switch it, hold it for full controls, tap a room to open it.
-- **Controls.** Dot-matrix sliders with one-tap presets for brightness and white (Warm, Neutral, Cool, Daylight), a colour ring, a thermostat dial with Eco / Comfort / Warm, blinds you slide open, volume, locks that only open when you hold them, and sensor readings, each shown only when the device supports it. Robot vacuums and mowers get start / pause ringed by their battery, send home, stop, find and suction or cleaning mode; washers, dryers and dishwashers show what they are doing and the time left; alarms arm home / away / night and ask before disarming (the code is never saved); purifiers and fans get speed and presets, humidifiers a dial, and valves, sirens, garage doors, buttons and cameras their own controls. Drag sideways across a light's tile to dim it without opening anything.
-- **Home screen.** A dot-matrix clock and a status strip (lights on, temperature inside, locks, open blinds, offline devices) where each pill opens the devices behind it, next to one button that switches everything off. Smoke, carbon monoxide and leaks show first, in red. Then your favourites and your rooms. **Edit home** picks and orders the favourites and rooms.
+- **Controls.** Sliders with one-tap presets for brightness and white (Warm, Neutral, Cool, Daylight), a colour ring, a thermostat dial with Eco / Comfort / Warm, blinds you slide open, volume, locks that only open when you hold them, and sensor readings, each shown only when the device supports it. Robot vacuums and mowers get start / pause ringed by their battery, send home, stop, find and suction or cleaning mode; washers, dryers and dishwashers show what they are doing and the time left; alarms arm home / away / night and ask before disarming (the code is never saved); purifiers and fans get speed and presets, humidifiers a dial, and valves, sirens, garage doors, buttons and cameras their own controls. Drag sideways across a light's tile to dim it without opening anything.
+- **Home screen.** The home's name, the time and a status strip (lights on, temperature inside, locks, open blinds, offline devices) where each pill opens the devices behind it, next to one button that switches everything off. Smoke, carbon monoxide and leaks show first, in red. Then your favourites and your rooms. **Edit home** picks and orders the favourites and rooms.
 - **Rooms.** Tap a room on the home screen or the plan to see everything in it: one slider for all its lights, all off / lights on, every device, and a shortcut to edit the room on the plan.
 - **Scenes.** Make a scene that turns devices off ("All off", "Good night"), turns them on, or brings back how they are now ("Movie night"), and run it with one tap. Hold a scene to change it: each device has an on / off switch, and tapping a device sets exactly what it does (brightness, white, colour, temperature, blind position, lock, robot, alarm) without touching the device until the scene runs, with **Try it on the device** to check. Scenes can run by themselves at a time of day on chosen weekdays. On Android they run even when the app is closed (an exact alarm wakes it); on computers they run while the app is open.
 - **Automations.** "When this happens, do that": a sensor detects motion, a door opens, a room gets warmer than 25°, a light turns on, the alarm goes off, a robot finishes or a device stops answering, and a scene runs or a device switches, maybe off again a few minutes later (a light after motion). An automation can be kept to some hours, like the night. They run while the app is open, and all the time on a device that keeps the home online.
@@ -111,7 +111,7 @@ lib/
   integrations/   One driver per system + catalog + network scan
   state/          HomeStore (all changes go through it), local storage, sample home
   cloud/          Accounts, sync and remote control over Firebase (REST, no SDK)
-  theme/          Nothing-style colours and type
+  theme/          colours and type (smarthomekj.eu look)
   ui/             Screens and shared widgets
 test/             Model, driver, store and widget tests
 tool/             Screenshot generator
@@ -132,5 +132,5 @@ What is stored: the layout of each home (floors, rooms, devices, scenes, and con
 ## Credits and licences
 
 - App code: MIT licence, see `LICENSE`.
-- [Doto](https://fonts.google.com/specimen/Doto) and [Space Grotesk](https://fonts.google.com/specimen/Space+Grotesk) fonts: SIL Open Font License, see `assets/fonts/`.
-- SmartMenuKJ is an independent project. It is inspired by Nothing's design language and is not affiliated with or endorsed by Nothing Technology, Philips Hue, Shelly or any other brand named here.
+- [Inter](https://fonts.google.com/specimen/Inter) font: SIL Open Font License, see `assets/fonts/`.
+- SmartMenuKJ is an independent project. It is not affiliated with or endorsed by Philips Hue, Shelly or any other brand named here.

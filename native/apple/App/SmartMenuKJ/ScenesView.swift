@@ -85,7 +85,7 @@ struct SceneEditor: View {
             FlowRow {
                 ForEach(sceneIconKeys, id: \.self) { k in
                     Button { icon = k } label: {
-                        Image(systemName: sceneIcon(k)).foregroundStyle(icon == k ? Palette.red : p.textDim).frame(width: 40, height: 40)
+                        Image(systemName: sceneIcon(k)).foregroundStyle(icon == k ? Palette.accent : p.textDim).frame(width: 40, height: 40)
                     }
                     .buttonStyle(.plain)
                 }
@@ -118,7 +118,7 @@ struct SceneEditor: View {
                 .padding(.vertical, 4)
             }
             SectionLabel("Time")
-            Toggle(isOn: $timed) { Text("Run by itself").font(NType.body(15, .medium)).foregroundStyle(p.text) }.tint(Palette.red)
+            Toggle(isOn: $timed) { Text("Run by itself").font(NType.body(15, .medium)).foregroundStyle(p.text) }.tint(Palette.accent)
             if timed {
                 HStack(spacing: 8) {
                     RoundButton(icon: "minus") { hour = (hour + 23) % 24 }

@@ -7,8 +7,8 @@ import '../../integrations/integration.dart';
 import '../../integrations/network_scan.dart';
 import '../../models/device.dart';
 import '../../state/home_store.dart';
-import '../../theme/nothing_theme.dart';
-import '../widgets/nothing_widgets.dart';
+import '../../theme/app_theme.dart';
+import '../widgets/kj_widgets.dart';
 
 /// Asks for a camera's address, brand and login, then finds its live video. Without [device] the camera is added.
 /// Returns the camera once it is set up.
@@ -144,7 +144,7 @@ class _CameraSetupSheetState extends State<CameraSetupSheet> {
         controller: scroll,
         padding: EdgeInsets.fromLTRB(24, 0, 24, 32 + MediaQuery.viewInsetsOf(context).bottom),
         children: [
-          DotText(d == null ? 'ADD CAMERA' : 'LIVE VIDEO', size: 30),
+          DisplayText(d == null ? 'Add camera' : 'Live video', size: 30),
           const SizedBox(height: 6),
           Text(
               'SmartMenuKJ plays the camera\'s own video straight over your Wi-Fi. Nothing goes through a cloud, '
@@ -155,7 +155,7 @@ class _CameraSetupSheetState extends State<CameraSetupSheet> {
                 trailing: _searching
                     ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
                     : GestureDetector(
-                        onTap: _search, child: Text('SEARCH AGAIN', style: NType.label(color: p.textDim)))),
+                        onTap: _search, child: Text('Search again', style: NType.label(color: p.textDim)))),
             if (_found.isEmpty)
               Text(
                   _searching
@@ -237,7 +237,7 @@ class _CameraSetupSheetState extends State<CameraSetupSheet> {
             ),
           if (_problem != null) ...[
             const SizedBox(height: 14),
-            Text(_problem!, key: const Key('camera-problem'), style: NType.body(14, color: NothingPalette.red)),
+            Text(_problem!, key: const Key('camera-problem'), style: NType.body(14, color: KJPalette.danger)),
           ],
           const SizedBox(height: 18),
           FilledButton.icon(
@@ -256,7 +256,7 @@ class _CameraSetupSheetState extends State<CameraSetupSheet> {
                 store.clearCamera(d);
                 Navigator.pop(context);
               },
-              child: const Text('Forget the login', style: TextStyle(color: NothingPalette.red)),
+              child: const Text('Forget the login', style: TextStyle(color: KJPalette.danger)),
             ),
           ],
           const SizedBox(height: 18),

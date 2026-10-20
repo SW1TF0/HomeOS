@@ -6,10 +6,10 @@ import '../../models/device.dart';
 import '../../models/scene.dart';
 import '../../state/app_settings.dart';
 import '../../state/home_store.dart';
-import '../../theme/nothing_theme.dart';
+import '../../theme/app_theme.dart';
 import '../../util/clock_text.dart';
 import '../widgets/dialogs.dart';
-import '../widgets/nothing_widgets.dart';
+import '../widgets/kj_widgets.dart';
 import 'scenes.dart';
 
 /// Opens the list of automations.
@@ -167,7 +167,7 @@ class AutomationsScreen extends StatelessWidget {
                     icon: const Icon(Icons.arrow_back),
                   ),
                   const SizedBox(width: 6),
-                  const Expanded(child: DotText('AUTOMATIONS', size: 30)),
+                  const Expanded(child: DisplayText('Automations', size: 30)),
                 ]),
               ),
               Expanded(
@@ -209,7 +209,7 @@ class AutomationsScreen extends StatelessWidget {
                                       width: 5,
                                       height: 5,
                                       child: DecoratedBox(
-                                          decoration: BoxDecoration(color: NothingPalette.red, shape: BoxShape.circle))),
+                                          decoration: BoxDecoration(color: KJPalette.accent, shape: BoxShape.circle))),
                                 ),
                                 Expanded(child: Text(idea, style: NType.body(14, color: p.text))),
                               ]),
@@ -238,14 +238,14 @@ class AutomationsScreen extends StatelessWidget {
                                     [
                                       hoursText(a, h24),
                                       if (store.automationRuns[a.id] case final at?) 'Ran ${clockText(at, h24)}',
-                                    ].join(' · ').toUpperCase(),
+                                    ].join(' · '),
                                     style: NType.label(color: p.textDim)),
                               ]),
                             ),
                             Switch(
                               key: Key('automation-switch-${a.id}'),
                               value: a.enabled,
-                              activeTrackColor: NothingPalette.red,
+                              activeTrackColor: KJPalette.accent,
                               onChanged: (v) {
                                 a.enabled = v;
                                 store.automationChanged(a);
@@ -292,13 +292,13 @@ class AutomationSheet extends StatelessWidget {
     Future<void> pickHours() async {
       final from = await showTimePicker(
         context: context,
-        helpText: 'FROM',
+        helpText: 'From',
         initialTime: TimeOfDay(hour: (a.from ?? 22 * 60) ~/ 60, minute: (a.from ?? 0) % 60),
       );
       if (from == null || !context.mounted) return;
       final to = await showTimePicker(
         context: context,
-        helpText: 'UNTIL',
+        helpText: 'Until',
         initialTime: TimeOfDay(hour: (a.to ?? 6 * 60) ~/ 60, minute: (a.to ?? 0) % 60),
       );
       if (to == null) return;
@@ -321,11 +321,11 @@ class AutomationSheet extends StatelessWidget {
           Row(children: [
             const Icon(Icons.bolt, size: 30),
             const SizedBox(width: 12),
-            const Expanded(child: DotText('AUTOMATION', size: 28)),
+            const Expanded(child: DisplayText('Automation', size: 28)),
             Switch(
               key: const Key('automation-enabled'),
               value: a.enabled,
-              activeTrackColor: NothingPalette.red,
+              activeTrackColor: KJPalette.accent,
               onChanged: (v) {
                 a.enabled = v;
                 store.automationChanged(a);

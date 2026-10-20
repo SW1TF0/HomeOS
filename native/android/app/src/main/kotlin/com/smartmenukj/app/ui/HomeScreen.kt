@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -51,23 +52,26 @@ fun HomeScreen(state: StoreState) {
         item(span = { GridItemSpan(maxLineSpan) }) {
             Column {
                 Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Row(Modifier.weight(1f).clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                        .clickable { nav.homes = true }.padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Text((state.home?.name ?: "My home").uppercase(), style = NType.label(p.text), maxLines = 1,
-                            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                        Spacer(Modifier.width(8.dp))
-                        Box(Modifier.size(6.dp).background(Palette.Red, CircleShape))
-                        Spacer(Modifier.width(4.dp))
-                        Icon(Icons.Outlined.UnfoldMore, null, tint = p.textDim, modifier = Modifier.size(16.dp))
-                    }
+                    Box(Modifier.weight(1f)) { Clock() }
                     ProfileButton()
                 }
-                Spacer(Modifier.height(8.dp))
-                Clock()
-                Spacer(Modifier.height(8.dp))
-                Text(if (active == 0) "Everything is off." else "$active of ${d.devices.size} devices active.",
-                    style = NType.body(16.sp, p.textDim))
+                Spacer(Modifier.height(6.dp))
+                Row(Modifier.clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                    .clickable { nav.homes = true }.padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(state.home?.name ?: "My home", style = NType.dot(34.sp, p.text), maxLines = 1,
+                        overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    Spacer(Modifier.width(4.dp))
+                    Icon(Icons.Outlined.KeyboardArrowDown, null, tint = p.textDim, modifier = Modifier.size(28.dp))
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(8.dp).background(
+                        if (d.devices.any { !it.state.reachable }) Palette.Orange else Palette.Green, CircleShape))
+                    Spacer(Modifier.width(8.dp))
+                    Text(if (active == 0) "Everything is off." else "$active of ${d.devices.size} devices active.",
+                        style = NType.body(15.sp, p.textDim))
+                }
                 Spacer(Modifier.height(14.dp))
                 StatusStrip(d)
                 if (Seed.isSample(d)) {
@@ -137,10 +141,11 @@ private fun Clock() {
         }
     }
     val time = SimpleDateFormat(if (settings.clock24) "HH:mm" else "h:mm", Locale.getDefault()).format(now)
-    val day = SimpleDateFormat("EEEE d MMMM", Locale.getDefault()).format(now)
-    Column {
-        DotText(time, 72)
-        Text(day.uppercase(), style = NType.label(palette.textDim))
+    val day = SimpleDateFormat("EEE d MMM", Locale.getDefault()).format(now)
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(time, style = NType.body(15.sp, palette.text, 600))
+        Spacer(Modifier.width(8.dp))
+        Text(day, style = NType.body(15.sp, palette.textDim), maxLines = 1)
     }
 }
 
@@ -167,7 +172,7 @@ private fun Pill(icon: androidx.compose.ui.graphics.vector.ImageVector, text: St
     val p = palette
     Row(Modifier.clip(CircleShape).background(p.surface).padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = if (accent) Palette.Red else p.text, modifier = Modifier.size(16.dp))
+        Icon(icon, null, tint = if (accent) Palette.Accent else p.text, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(6.dp))
         Text(text, style = NType.body(13.sp, p.text, 500))
     }
@@ -183,7 +188,9 @@ fun ScenesRow(d: HomeData) {
             NCard(padding = PaddingValues(horizontal = 16.dp, vertical = 14.dp), radius = 20.dp,
                 onClick = { store.runScene(s.id) }, onLongClick = { nav.scene = s.id }) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(sceneIcon(s.icon), null, tint = p.text, modifier = Modifier.size(20.dp))
+                    Box(Modifier.size(32.dp).background(sceneColor(s.icon), CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(sceneIcon(s.icon), null, tint = Color.White, modifier = Modifier.size(18.dp))
+                    }
                     Spacer(Modifier.width(10.dp))
                     Column {
                         Text(s.name, style = NType.body(14.sp, p.text, 500))
@@ -195,7 +202,7 @@ fun ScenesRow(d: HomeData) {
         NCard(padding = PaddingValues(horizontal = 16.dp, vertical = 14.dp), radius = 20.dp,
             onClick = { nav.scene = NEW_SCENE }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Add, null, tint = p.textDim, modifier = Modifier.size(20.dp))
+                Icon(Icons.Outlined.Add, null, tint = Palette.Accent, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("New scene", style = NType.body(14.sp, p.textDim, 500))
             }
@@ -215,7 +222,7 @@ private fun RoomCard(d: HomeData, r: Room, onClick: () -> Unit) {
         Row(verticalAlignment = Alignment.Top) {
             Text(r.name, style = NType.body(16.sp, p.text, 500), modifier = Modifier.weight(1f), maxLines = 1,
                 overflow = TextOverflow.Ellipsis)
-            if (on > 0) Box(Modifier.padding(top = 6.dp).size(8.dp).background(Palette.Red, CircleShape))
+            if (on > 0) Box(Modifier.padding(top = 6.dp).size(8.dp).background(Palette.Accent, CircleShape))
         }
         Spacer(Modifier.height(14.dp))
         Row(verticalAlignment = Alignment.Bottom) {

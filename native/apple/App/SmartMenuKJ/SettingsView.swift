@@ -28,7 +28,7 @@ struct SettingsView: View {
                         NChip(label: label, selected: store.data.themeMode == mode) { store.setTheme(mode) }
                     }
                 }
-                SettingRow(title: "24-hour clock") { Toggle("", isOn: $clock24).labelsHidden().tint(Palette.red) }
+                SettingRow(title: "24-hour clock") { Toggle("", isOn: $clock24).labelsHidden().tint(Palette.accent) }
                 SectionLabel("Devices")
                 Text("Check devices every").font(NType.body(14)).foregroundStyle(p.textDim).padding(.bottom, 8)
                 HStack(spacing: 8) {
