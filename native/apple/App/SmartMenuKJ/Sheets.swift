@@ -72,7 +72,7 @@ struct HomesSheet: View {
             ForEach(store.homes) { h in
                 SettingRow(title: h.name, subtitle: h.id == store.homeId ? "Open now" : nil) {
                     HStack(spacing: 4) {
-                        if h.id == store.homeId { Circle().fill(Palette.red).frame(width: 8, height: 8) }
+                        if h.id == store.homeId { Circle().fill(Palette.accent).frame(width: 8, height: 8) }
                         Button { renaming = h.id; name = h.name } label: { Image(systemName: "pencil").foregroundStyle(p.textDim).padding(8) }
                             .buttonStyle(.plain)
                         if store.homes.count > 1 {

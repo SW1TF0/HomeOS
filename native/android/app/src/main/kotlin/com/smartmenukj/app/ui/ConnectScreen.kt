@@ -64,7 +64,7 @@ fun ConnectScreen(state: StoreState) {
                             Text(if (scanning) "Looking around your Wi-Fi…" else "Scan network", style = NType.body(16.sp, p.background, 500))
                             Text("Finds Hue, Shelly, WLED, Tasmota, ESPHome and Home Assistant", style = NType.body(13.sp, p.background.copy(alpha = 0.65f)))
                         }
-                        if (scanning) CircularProgressIndicator(color = Palette.Red, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+                        if (scanning) CircularProgressIndicator(color = Palette.Accent, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
                     }
                 }
             }
@@ -112,7 +112,7 @@ fun ConnectScreen(state: StoreState) {
                                     maxLines = 2,
                                 )
                             }
-                            if (cfg.id in state.busy) CircularProgressIndicator(color = Palette.Red, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                            if (cfg.id in state.busy) CircularProgressIndicator(color = Palette.Accent, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
                             else Box(Modifier.size(8.dp).background(if (spec == null || st?.ok == false) Palette.Red else p.textDim, CircleShape))
                         }
                     }

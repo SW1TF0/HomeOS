@@ -10,7 +10,6 @@ struct SmartMenuKJApp: App {
     @AppStorage("checkSeconds") private var checkSeconds = 10
 
     init() {
-        NType.register()
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("SmartMenuKJ/homes", isDirectory: true)
         let s = HomeStore(storage: FolderStorage(dir), http: URLSessionHttp())
@@ -172,7 +171,7 @@ struct RootView: View {
         }
         .environment(\.palette, p)
         .preferredColorScheme(p.dark ? .dark : .light)
-        .tint(p.text)
+        .tint(Palette.accent)
     }
 }
 
@@ -185,9 +184,8 @@ struct BottomBar: View {
                 let on = nav.tab == t
                 Button { nav.tab = t } label: {
                     VStack(spacing: 4) {
-                        Image(systemName: t.icon).font(.system(size: 19)).foregroundStyle(on ? p.text : p.textDim)
-                        if on { Circle().fill(Palette.red).frame(width: 4, height: 4).padding(.vertical, 3) }
-                        else { Text(t.rawValue).font(NType.body(11)).foregroundStyle(p.textDim) }
+                        Image(systemName: t.icon).font(.system(size: 20)).foregroundStyle(on ? Palette.accent : p.textDim)
+                        Text(t.rawValue).font(NType.body(11, .medium)).foregroundStyle(on ? Palette.accent : p.textDim)
                     }
                     .frame(maxWidth: .infinity).padding(.vertical, 8).contentShape(Rectangle())
                 }
@@ -195,8 +193,8 @@ struct BottomBar: View {
             }
         }
         .padding(.horizontal, 8)
-        .background(p.background)
-        .overlay(alignment: .top) { Rectangle().fill(p.border).frame(height: 1) }
+        .background(.bar)
+        .overlay(alignment: .top) { Rectangle().fill(p.border.opacity(0.6)).frame(height: 0.5) }
     }
 }
 

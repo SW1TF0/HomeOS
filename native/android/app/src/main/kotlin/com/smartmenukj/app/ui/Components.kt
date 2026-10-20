@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -36,7 +37,7 @@ import com.smartmenukj.core.model.*
 
 val palette: Palette @Composable get() = LocalPalette.current
 
-/** The dot grid that sits behind Nothing OS screens. */
+/** The faint dot grid behind the floor plan. */
 fun Modifier.dotGrid(color: Color, spacing: Dp = 16.dp, radius: Float = 1.6f, origin: Offset = Offset.Zero) = drawBehind {
     val step = spacing.toPx()
     if (step < 4) return@drawBehind
@@ -51,26 +52,25 @@ fun Modifier.dotGrid(color: Color, spacing: Dp = 16.dp, radius: Float = 1.6f, or
     }
 }
 
-/** A rounded card with a hairline border. Inverted cards are white on black, like Nothing widgets that are on. */
+/** A rounded card. Inverted cards are white, like the tiles of devices that are on. */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun NCard(
     modifier: Modifier = Modifier,
     inverted: Boolean = false,
-    radius: Dp = 24.dp,
+    radius: Dp = 22.dp,
     padding: PaddingValues = PaddingValues(18.dp),
     onClick: (() -> Unit)? = null,
     onLongClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val p = palette
-    val bg by animateColorAsState(if (inverted) p.text else p.surface, label = "card")
+    val bg by animateColorAsState(if (inverted) p.tileOn else p.surface, label = "card")
     val shape = RoundedCornerShape(radius)
     Column(
         modifier
             .clip(shape)
             .background(bg)
-            .border(1.dp, if (inverted) p.text else p.border, shape)
             .then(if (onClick != null || onLongClick != null) {
                 Modifier.combinedClickable(onClick = { onClick?.invoke() }, onLongClick = onLongClick)
             } else Modifier)
@@ -79,22 +79,20 @@ fun NCard(
     )
 }
 
-/** "● LABEL" section header. */
+/** Section header, like the room names in the site's phone demo. */
 @Composable
-fun SectionLabel(text: String, accent: Boolean = false, trailing: (@Composable () -> Unit)? = null) {
+fun SectionLabel(text: String, @Suppress("UNUSED_PARAMETER") accent: Boolean = false, trailing: (@Composable () -> Unit)? = null) {
     val p = palette
-    Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 22.dp, bottom = 10.dp),
+    Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 18.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(6.dp).background(if (accent) Palette.Red else p.textDim, CircleShape))
-        Spacer(Modifier.width(8.dp))
-        Text(text.uppercase(), style = NType.label(p.textDim), modifier = Modifier.weight(1f))
+        Text(text, style = NType.body(17.sp, p.text, 600), modifier = Modifier.weight(1f))
         trailing?.invoke()
     }
 }
 
 @Composable
 fun HeaderAction(label: String, onClick: () -> Unit) {
-    Text(label, style = NType.body(13.sp, palette.textDim, 500),
+    Text(label, style = NType.body(15.sp, Palette.Accent, 500),
         modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(horizontal = 6.dp, vertical = 2.dp))
 }
 
@@ -116,7 +114,7 @@ fun NChip(label: String, selected: Boolean = false, icon: ImageVector? = null, o
     }
 }
 
-/** Dot-matrix text, for big numbers and titles. */
+/** Bold heading text, for big numbers and titles. */
 @Composable
 fun DotText(text: String, size: Int = 32, color: Color = palette.text, modifier: Modifier = Modifier) {
     Text(text, style = NType.dot(size.sp, color), modifier = modifier, maxLines = 1, overflow = TextOverflow.Clip)
@@ -174,8 +172,33 @@ val sceneIconKeys = listOf("auto", "off", "morning", "movie", "night", "away", "
 
 fun Int.asColor() = Color(0xFF000000.toInt() or this)
 
+/** The colour of a device kind's icon when it is on, as in the site's phone demo. */
+fun kindColor(kind: DeviceKind): Color = when (kind) {
+    DeviceKind.light -> Palette.Yellow
+    DeviceKind.climate, DeviceKind.humidifier -> Palette.Orange
+    DeviceKind.media -> Palette.Purple
+    DeviceKind.outlet, DeviceKind.toggle, DeviceKind.button -> Palette.Green
+    DeviceKind.cover, DeviceKind.fan, DeviceKind.purifier, DeviceKind.valve -> Palette.Teal
+    DeviceKind.vacuum, DeviceKind.mower, DeviceKind.appliance -> Palette.Indigo
+    DeviceKind.siren -> Palette.Red
+    else -> Palette.Blue
+}
+
+/** The round colour behind a scene's icon, like the scene buttons on smarthomekj.eu. */
+fun sceneColor(key: String): Color = when (key) {
+    "morning" -> Palette.Orange
+    "away" -> Palette.Green
+    "night" -> Palette.Indigo
+    "movie" -> Palette.Pink
+    "off" -> Palette.Red
+    "dinner" -> Palette.Yellow
+    "relax" -> Palette.Teal
+    "party" -> Palette.Purple
+    else -> Palette.Accent
+}
+
 /**
- * Square device tile. Active devices invert to white, like Nothing widgets. Tap switches it (or opens its controls),
+ * Square device tile. Devices that are on turn white with a coloured icon, like the site's phone demo. Tap switches it (or opens its controls),
  * hold opens its controls, and a sideways drag sets its level (brightness, blind, fan speed, volume).
  */
 @Composable
@@ -193,17 +216,17 @@ fun DeviceTile(
     val level = Describe.level(device)
     var dragging by remember { mutableStateOf<Double?>(null) }
     val shown = dragging ?: level
-    val fg = if (active) p.background else p.text
-    val dim = if (active) p.background.copy(alpha = 0.6f) else p.textDim
+    val fg = if (active) p.onTileOn else p.text
+    val dim = if (active) p.onTileOn.copy(alpha = 0.55f) else p.textDim
     val glow = Describe.lightColor(device)?.asColor()
-    val shape = RoundedCornerShape(24.dp)
+    val iconBg = if (active) glow ?: kindColor(device.kind) else if (p.dark) p.surfaceHigh else Color.White
+    val shape = RoundedCornerShape(20.dp)
     var width by remember { mutableIntStateOf(1) }
     Box(
         modifier
             .aspectRatio(1.05f)
             .clip(shape)
-            .background(if (active) p.text else p.surface)
-            .border(1.dp, if (active) p.text else p.border, shape)
+            .background(if (active) p.tileOn else p.tileOff)
             .onSizeChanged { width = it.width }
             .pointerInput(device.id) {
                 detectTapGestures(
@@ -225,13 +248,14 @@ fun DeviceTile(
     ) {
         if (shown != null && (dragging != null || (active && level != null))) {
             Box(Modifier.fillMaxHeight().fillMaxWidth(shown.toFloat().coerceIn(0f, 1f))
-                .background((if (active) p.background else p.text).copy(alpha = 0.08f)))
+                .background((if (active) Color.Black else p.text).copy(alpha = 0.06f)))
         }
         Column(Modifier.fillMaxSize().padding(16.dp)) {
             Row(verticalAlignment = Alignment.Top) {
-                Box(Modifier.size(40.dp).clip(CircleShape).background(if (active) p.background.copy(alpha = 0.08f) else p.surfaceHigh),
-                    contentAlignment = Alignment.Center) {
-                    Icon(deviceIcon(device.kind, active), null, tint = glow ?: fg, modifier = Modifier.size(22.dp))
+                Box(Modifier.size(38.dp).clip(CircleShape).background(iconBg), contentAlignment = Alignment.Center) {
+                    Icon(deviceIcon(device.kind, active), null,
+                        tint = if (!active) p.textDim else if (iconBg.luminance() > 0.6f) p.onTileOn else Color.White,
+                        modifier = Modifier.size(20.dp))
                 }
                 Spacer(Modifier.weight(1f))
                 if (!device.state.reachable) Box(Modifier.size(8.dp).background(Palette.Red, CircleShape))
@@ -240,7 +264,7 @@ fun DeviceTile(
                 }
             }
             Spacer(Modifier.weight(1f))
-            Text(device.name, style = NType.body(15.sp, fg, 500), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(device.name, style = NType.body(15.sp, fg, 600), maxLines = 2, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(2.dp))
             Text(subtitle, style = NType.body(12.sp, dim), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
@@ -276,8 +300,8 @@ fun LevelBar(
                 ) { change, _ -> local = (change.position.x / width).toDouble().coerceIn(0.0, 1.0) }
             },
     ) {
-        Box(Modifier.fillMaxHeight().fillMaxWidth(v.toFloat()).background(color ?: p.text))
-        Text(label(v), style = NType.dot(22.sp, if (v > 0.25) (if (color != null) Color.Black else p.background) else p.text),
+        Box(Modifier.fillMaxHeight().fillMaxWidth(v.toFloat()).background(color ?: Palette.Accent))
+        Text(label(v), style = NType.dot(22.sp, if (v > 0.25) (if (color != null) Color.Black else Color.White) else p.text),
             modifier = Modifier.align(Alignment.CenterStart).padding(start = 18.dp))
     }
 }
@@ -286,7 +310,7 @@ fun LevelBar(
 @Composable
 fun PowerOrb(on: Boolean, onClick: () -> Unit, size: Dp = 76.dp, icon: ImageVector = Icons.Outlined.PowerSettingsNew) {
     val p = palette
-    val bg by animateColorAsState(if (on) Palette.Red else p.surfaceHigh, label = "orb")
+    val bg by animateColorAsState(if (on) Palette.Accent else p.surfaceHigh, label = "orb")
     Box(Modifier.size(size).clip(CircleShape).background(bg).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         Icon(icon, if (on) "Turn off" else "Turn on", tint = if (on) Color.White else p.text, modifier = Modifier.size(size * 0.42f))
     }
@@ -297,9 +321,9 @@ fun PowerOrb(on: Boolean, onClick: () -> Unit, size: Dp = 76.dp, icon: ImageVect
 fun ActionButton(icon: ImageVector, label: String, selected: Boolean = false, onClick: () -> Unit) {
     val p = palette
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(76.dp)) {
-        Box(Modifier.size(56.dp).clip(CircleShape).background(if (selected) p.text else p.surfaceHigh).clickable(onClick = onClick),
+        Box(Modifier.size(56.dp).clip(CircleShape).background(if (selected) Palette.Accent else p.surfaceHigh).clickable(onClick = onClick),
             contentAlignment = Alignment.Center) {
-            Icon(icon, label, tint = if (selected) p.background else p.text)
+            Icon(icon, label, tint = if (selected) Color.White else p.text)
         }
         Spacer(Modifier.height(6.dp))
         Text(label, style = NType.body(12.sp, p.textDim), maxLines = 1)
@@ -326,7 +350,7 @@ fun NTextField(
         minLines = if (multiline) 3 else 1,
         visualTransformation = if (secret) androidx.compose.ui.text.input.PasswordVisualTransformation()
         else androidx.compose.ui.text.input.VisualTransformation.None,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = TextFieldDefaults.colors(
             focusedContainerColor = p.surfaceHigh,
             unfocusedContainerColor = p.surfaceHigh,
@@ -334,7 +358,7 @@ fun NTextField(
             unfocusedIndicatorColor = Color.Transparent,
             focusedLabelColor = p.textDim,
             unfocusedLabelColor = p.textDim,
-            cursorColor = Palette.Red,
+            cursorColor = Palette.Accent,
             focusedTextColor = p.text,
             unfocusedTextColor = p.text,
         ),
@@ -347,9 +371,9 @@ fun NTextField(
 fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val p = palette
     Button(onClick = onClick, enabled = enabled, modifier = modifier, shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(containerColor = p.text, contentColor = p.background),
+        colors = ButtonDefaults.buttonColors(containerColor = Palette.Accent, contentColor = Color.White),
         contentPadding = PaddingValues(horizontal = 22.dp, vertical = 14.dp)) {
-        Text(text, style = NType.body(14.sp, weight = 500))
+        Text(text, style = NType.body(15.sp, weight = 500))
     }
 }
 
@@ -357,10 +381,10 @@ fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifi
 fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
     val p = palette
     OutlinedButton(onClick = onClick, enabled = enabled, modifier = modifier, shape = CircleShape,
-        border = androidx.compose.foundation.BorderStroke(1.dp, p.border),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = p.text),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Palette.Accent),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = Palette.Accent),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp)) {
-        Text(text, style = NType.body(14.sp, weight = 500))
+        Text(text, style = NType.body(15.sp, weight = 500))
     }
 }
 
@@ -368,8 +392,8 @@ fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modi
 fun NSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
     val p = palette
     Switch(checked = checked, onCheckedChange = onChange, colors = SwitchDefaults.colors(
-        checkedThumbColor = Color.White, checkedTrackColor = Palette.Red, checkedBorderColor = Color.Transparent,
-        uncheckedThumbColor = p.textDim, uncheckedTrackColor = p.surfaceHigh, uncheckedBorderColor = Color.Transparent,
+        checkedThumbColor = Color.White, checkedTrackColor = Palette.Green, checkedBorderColor = Color.Transparent,
+        uncheckedThumbColor = Color.White, uncheckedTrackColor = p.border, uncheckedBorderColor = Color.Transparent,
     ))
 }
 

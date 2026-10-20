@@ -178,8 +178,8 @@ struct RoomBox: View {
         ZStack(alignment: .topLeading) {
             shape.fill(on > 0 ? p.surfaceHigh : p.surface.opacity(0.85))
             shape.stroke(editing ? p.text : p.border, lineWidth: editing ? 1.5 : 1)
-            Text(r.name.uppercased()).font(NType.label).tracking(1.5).foregroundStyle(on > 0 ? p.text : p.textDim).lineLimit(1).padding(8)
-            if on > 0 { Circle().fill(Palette.red).frame(width: 6, height: 6).frame(maxWidth: .infinity, alignment: .trailing).padding(9) }
+            Text(r.name).font(NType.label).foregroundStyle(on > 0 ? p.text : p.textDim).lineLimit(1).padding(8)
+            if on > 0 { Circle().fill(Palette.accent).frame(width: 6, height: 6).frame(maxWidth: .infinity, alignment: .trailing).padding(9) }
             if editing {
                 Image(systemName: "arrow.up.left.and.arrow.down.right").font(.system(size: 12)).foregroundStyle(p.text)
                     .frame(width: 30, height: 30).contentShape(Rectangle())

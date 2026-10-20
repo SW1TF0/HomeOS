@@ -91,7 +91,7 @@ fun HomesSheet(state: StoreState, onDismiss: () -> Unit) {
                 Icons.Outlined.Home,
                 onClick = { store.switchHome(h.id); onDismiss() },
             ) {
-                if (h.id == state.homeId) Box(Modifier.size(8.dp).background(Palette.Red, CircleShape))
+                if (h.id == state.homeId) Box(Modifier.size(8.dp).background(Palette.Accent, CircleShape))
                 androidx.compose.material3.IconButton(onClick = { renaming = h.id; name = h.name }) {
                     Icon(Icons.Outlined.Edit, "Rename", tint = p.textDim)
                 }

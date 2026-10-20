@@ -173,9 +173,9 @@ private fun RoomBox(r: Room, cell: Float, pan: Offset, editing: Boolean, on: Int
                 ) { ch, amount -> ch.consume(); drag = (drag ?: Offset.Zero) + amount }
             } else Modifier),
     ) {
-        Text(r.name.uppercase(), style = NType.label(if (on > 0) p.text else p.textDim), maxLines = 1, overflow = TextOverflow.Ellipsis,
+        Text(r.name, style = NType.label(if (on > 0) p.text else p.textDim), maxLines = 1, overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(8.dp))
-        if (on > 0) Box(Modifier.align(Alignment.TopEnd).padding(9.dp).size(6.dp).background(Palette.Red, CircleShape))
+        if (on > 0) Box(Modifier.align(Alignment.TopEnd).padding(9.dp).size(6.dp).background(Palette.Accent, CircleShape))
         if (editing) {
             Box(
                 Modifier.align(Alignment.BottomEnd).size(28.dp)

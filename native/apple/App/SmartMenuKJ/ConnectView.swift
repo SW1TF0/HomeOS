@@ -25,7 +25,7 @@ struct ConnectView: View {
                                     Text("Finds Hue, Shelly, WLED, Tasmota, ESPHome and Home Assistant").font(NType.body(13)).foregroundStyle(p.background.opacity(0.65))
                                 }
                                 Spacer()
-                                if scan.running { ProgressView().tint(Palette.red) }
+                                if scan.running { ProgressView().tint(Palette.accent) }
                             }
                         }
                     }
@@ -109,7 +109,7 @@ struct Row: View {
                         Text(subtitle).font(NType.body(13)).foregroundStyle(warn ? Palette.red : p.textDim).lineLimit(2)
                     }
                     Spacer()
-                    if busy { ProgressView().tint(Palette.red) }
+                    if busy { ProgressView().tint(Palette.accent) }
                     else if let trailing { Image(systemName: trailing).foregroundStyle(p.textDim) }
                     else { Circle().fill(warn ? Palette.red : p.textDim).frame(width: 8, height: 8) }
                 }

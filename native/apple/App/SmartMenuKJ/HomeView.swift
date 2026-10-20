@@ -16,23 +16,24 @@ struct HomeView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
-                    Button { nav.sheet = .homes } label: {
-                        HStack(spacing: 8) {
-                            Text((store.home?.name ?? HomeStore.defaultHome).uppercased()).font(NType.label).tracking(1.8)
-                                .foregroundStyle(p.text).lineLimit(1)
-                            Circle().fill(Palette.red).frame(width: 6, height: 6)
-                            Image(systemName: "chevron.up.chevron.down").font(.system(size: 11)).foregroundStyle(p.textDim)
-                        }
-                        .padding(.vertical, 8)
-                    }
-                    .buttonStyle(.plain)
+                    ClockView()
                     Spacer()
                     ProfileButton()
                 }
                 .padding(.top, 10)
-                ClockView().padding(.top, 8)
-                Text(active == 0 ? "Everything is off." : "\(active) of \(d.devices.count) devices active.")
-                    .font(NType.body(16)).foregroundStyle(p.textDim).padding(.top, 8)
+                Button { nav.sheet = .homes } label: {
+                    HStack(spacing: 6) {
+                        Text(store.home?.name ?? HomeStore.defaultHome).font(NType.dot(34)).foregroundStyle(p.text).lineLimit(1)
+                        Image(systemName: "chevron.down").font(.system(size: 17, weight: .semibold)).foregroundStyle(p.textDim)
+                    }
+                }
+                .buttonStyle(.plain).padding(.top, 6)
+                HStack(spacing: 8) {
+                    Circle().fill(d.devices.contains { !$0.state.reachable } ? Palette.orange : Palette.green).frame(width: 8, height: 8)
+                    Text(active == 0 ? "Everything is off." : "\(active) of \(d.devices.count) devices active.")
+                        .font(NType.body(15)).foregroundStyle(p.textDim)
+                }
+                .padding(.top, 6)
                 StatusStrip(data: d).padding(.top, 14)
                 if Seed.isSample(d) {
                     NCard(padding: 16) {
@@ -96,9 +97,9 @@ struct ClockView: View {
     @AppStorage("clock24") private var clock24 = true
     var body: some View {
         TimelineView(.everyMinute) { ctx in
-            VStack(alignment: .leading, spacing: 4) {
-                DotText(format(ctx.date, clock24 ? "HH:mm" : "h:mm"), 72)
-                Text(format(ctx.date, "EEEE d MMMM").uppercased()).font(NType.label).tracking(1.8).foregroundStyle(p.textDim)
+            HStack(spacing: 8) {
+                Text(format(ctx.date, clock24 ? "HH:mm" : "h:mm a")).font(NType.body(15, .semibold)).foregroundStyle(p.text)
+                Text(format(ctx.date, "EEE d MMM")).font(NType.body(15)).foregroundStyle(p.textDim)
             }
         }
     }
@@ -136,7 +137,7 @@ struct Pill: View {
     var accent = false
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: icon).font(.system(size: 13)).foregroundStyle(accent ? Palette.red : p.text)
+            Image(systemName: icon).font(.system(size: 13)).foregroundStyle(accent ? Palette.accent : p.text)
             Text(text).font(NType.body(13, .medium)).foregroundStyle(p.text)
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
@@ -154,7 +155,8 @@ struct ScenesRow: View {
                 ForEach(store.data.scenes) { s in
                     NCard(radius: 20, padding: 14) {
                         HStack(spacing: 10) {
-                            Image(systemName: sceneIcon(s.icon)).foregroundStyle(p.text)
+                            Image(systemName: sceneIcon(s.icon)).font(.system(size: 15)).foregroundStyle(.white)
+                                .frame(width: 32, height: 32).background(Circle().fill(sceneColor(s.icon)))
                             VStack(alignment: .leading) {
                                 Text(s.name).font(NType.body(14, .medium)).foregroundStyle(p.text)
                                 if let t = s.schedule { Text("\(t.time) · \(t.daysLabel)").font(NType.body(11)).foregroundStyle(p.textDim) }
@@ -168,7 +170,7 @@ struct ScenesRow: View {
                 Button { nav.sheet = .scene(newSceneId) } label: {
                     NCard(radius: 20, padding: 14) {
                         HStack(spacing: 8) {
-                            Image(systemName: "plus").foregroundStyle(p.textDim)
+                            Image(systemName: "plus").foregroundStyle(Palette.accent)
                             Text("New scene").font(NType.body(14, .medium)).foregroundStyle(p.textDim)
                         }
                     }
@@ -192,7 +194,7 @@ struct RoomCard: View {
             HStack(alignment: .top) {
                 Text(room.name).font(NType.body(16, .medium)).foregroundStyle(p.text).lineLimit(1)
                 Spacer()
-                if on > 0 { Circle().fill(Palette.red).frame(width: 8, height: 8).padding(.top, 6) }
+                if on > 0 { Circle().fill(Palette.accent).frame(width: 8, height: 8).padding(.top, 6) }
             }
             Spacer(minLength: 14)
             HStack(alignment: .lastTextBaseline, spacing: 8) {
