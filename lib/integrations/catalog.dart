@@ -7,6 +7,8 @@ import 'esphome.dart';
 import 'home_assistant.dart';
 import 'hue.dart';
 import 'integration.dart';
+import 'lan/lan_driver.dart';
+import 'matter/matter_driver.dart';
 import 'mqtt.dart';
 import 'shelly.dart';
 import 'tasmota.dart';
@@ -46,7 +48,36 @@ class IntegrationSpec {
 const _hosts = SettingField('hosts', 'Device addresses',
     hint: 'One IP or hostname per line, e.g. 192.168.1.40', multiline: true, required: true);
 
+/// The type of the "Network devices" connection (TVs and anything else on the LAN).
+const lanType = 'lan';
+
 final List<IntegrationSpec> integrationCatalog = [
+  IntegrationSpec(
+    type: lanType,
+    name: 'Network devices',
+    tagline: 'TVs, speakers, plugs, anything on Wi-Fi',
+    description: 'Adds anything on your home network, found by Scan network or typed in by address. '
+        'Samsung, LG, Sony and Roku TVs, Chromecast and Google TV, UPnP / DLNA players and speakers, '
+        'TP-Link Kasa, Yeelight and Belkin WeMo get real controls. Everything else shows whether it is online '
+        'and can be woken with Wake-on-LAN.',
+    icon: Icons.tv,
+    fields: const [
+      SettingField('hosts', 'Device addresses', hint: 'One IP per line, e.g. 192.168.1.50', multiline: true),
+    ],
+    create: LanDriver.new,
+  ),
+  IntegrationSpec(
+    type: matterType,
+    name: 'Matter',
+    tagline: 'Lights, plugs, sensors, blinds, no hub',
+    description: 'Adds Matter devices straight to SmartHomeKJ with their pairing code, with no hub, cloud or account. '
+        'The device must already be on your network: share it from Google Home, Apple Home, SmartThings, Alexa or '
+        'another Matter app (look for "Linked Matter apps" or "Turn on pairing mode") to get a new code. '
+        'Bridges such as Hue, IKEA and Aqara bring all their devices.',
+    icon: Icons.join_inner,
+    fields: const [],
+    create: MatterDriver.new,
+  ),
   IntegrationSpec(
     type: 'homeassistant',
     name: 'Home Assistant',
@@ -136,7 +167,7 @@ final List<IntegrationSpec> integrationCatalog = [
     type: 'demo',
     name: 'Virtual devices',
     tagline: 'Try the app, plan before you buy',
-    description: 'Devices that live only in SmartMenuKJ. Use them to try the app or to plan a room before the hardware arrives.',
+    description: 'Devices that live only in SmartHomeKJ. Use them to try the app or to plan a room before the hardware arrives.',
     icon: Icons.blur_on,
     fields: const [],
     manualDevices: true,

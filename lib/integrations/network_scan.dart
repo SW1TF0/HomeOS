@@ -1,8 +1,17 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:multicast_dns/multicast_dns.dart';
+
+import 'camera/onvif.dart';
+import 'lan/mdns.dart';
+import 'lan/net.dart';
+import 'lan/plugs.dart';
+import 'lan/roomba.dart';
+import 'lan/sweep.dart';
+import 'lan/upnp.dart';
+import 'lan/whois.dart';
 
 /// Something found on the local network.
 class FoundService {
@@ -12,6 +21,7 @@ class FoundService {
     required this.port,
     required this.service,
     this.integrationType,
+    this.hints = const {},
   });
 
   final String name;
@@ -19,25 +29,100 @@ class FoundService {
   final int port;
   final String service;
 
-  /// Which integration can use it, or null when it needs Home Assistant (Matter).
+  /// Which integration can use it. `lan` means the Network devices connection.
   final String? integrationType;
+
+  /// What discovery learned, passed on to the Network devices connection.
+  final Map<String, String> hints;
+
+  FoundService copyWith({String? name, Map<String, String>? hints}) => FoundService(
+        name: name ?? this.name,
+        host: host,
+        port: port,
+        service: service,
+        integrationType: integrationType,
+        hints: hints ?? this.hints,
+      );
+
+  bool get isLan => integrationType == 'lan';
+  String get protocol => hints['protocol'] ?? 'generic';
 
   /// Address to store in an integration's settings. Hue and ESPHome advertise
   /// other ports (HTTPS, native API) than the HTTP API this app uses.
   String get address => switch (integrationType) {
         'homeassistant' => 'http://$host:$port',
-        'hue' || 'esphome' || 'mqtt' => host,
+        'hue' || 'esphome' || 'mqtt' || 'lan' => host,
         _ => port == 80 || port == 0 ? host : '$host:$port',
       };
 
-  String get key => '$integrationType|$host|$port';
+  /// Network devices are one entry per address, whatever they announce. A
+  /// Matter device announces itself once for every app it is in.
+  String get key => isLan
+      ? 'lan|$host'
+      : integrationType == 'matter'
+          ? 'matter|${hints['instance'] ?? host}'
+          : '$integrationType|$host|$port';
+
+  static const protocolLabels = {
+    'roku': 'Roku',
+    'samsung': 'Samsung TV',
+    'webos': 'LG TV',
+    'sony': 'Sony TV',
+    'cast': 'Google Cast',
+    'kasa': 'TP-Link Kasa',
+    'yeelight': 'Yeelight',
+    'wemo': 'Belkin WeMo',
+    'roomba': 'iRobot Roomba',
+    'valetudo': 'Robot vacuum',
+    'mikrotik': 'MikroTik router',
+    'upnp': 'Media player',
+    'camera': 'Camera',
+    'generic': 'Network device',
+  };
+
+  /// How sure discovery is about what this is. Better guesses replace worse ones,
+  /// and a device's own name beats one made up from its maker.
+  int get rank =>
+      switch (protocol) {
+        'generic' => 0,
+        'upnp' => 3,
+        _ => 6,
+      } +
+      (name == host
+          ? 0
+          : hints['guessed'] != null
+              ? 1
+              : 2);
 }
 
-/// Looks for smart home devices with mDNS (Bonjour) and the free Hue discovery endpoint.
+/// Runs [task] while holding Android's multicast lock, without which the
+/// phone drops mDNS answers (Matter pairing looks for the device that way).
+Future<T> withMulticast<T>(Future<T> Function() task) async {
+  try {
+    await NetworkScanner._lock.invokeMethod('acquire');
+  } catch (_) {}
+  try {
+    return await task();
+  } finally {
+    try {
+      await NetworkScanner._lock.invokeMethod('release');
+    } catch (_) {}
+  }
+}
+
+/// Looks for devices with mDNS (Bonjour), SSDP (UPnP), the Kasa and Yeelight
+/// broadcasts, a quick check of TV ports, and the free Hue discovery endpoint.
 class NetworkScanner {
-  NetworkScanner({http.Client? client}) : _client = client ?? http.Client();
+  NetworkScanner({http.Client? client, this.sweep = true, this.neighbors}) : _client = client ?? http.Client();
 
   final http.Client _client;
+
+  /// Who the router says has which address (names and MACs), when the home has a router it can log in to.
+  final Future<Map<String, Neighbor>> Function()? neighbors;
+
+  /// Whether to also knock on every address in the local /24, so devices that
+  /// announce nothing still show up.
+  final bool sweep;
 
   static const services = {
     '_hue._tcp': 'hue',
@@ -46,29 +131,103 @@ class NetworkScanner {
     '_esphomelib._tcp': 'esphome',
     '_home-assistant._tcp': 'homeassistant',
     '_mqtt._tcp': 'mqtt',
-    '_matter._tcp': null,
-    '_matterc._udp': null,
+    '_matter._tcp': 'matter',
+    '_matterc._udp': 'matter',
     '_http._tcp': 'http',
   };
 
-  /// Guesses the integration for a generic `_http._tcp` service from its name.
-  static String? guessFromName(String name) {
+  /// mDNS services of things the Network devices connection handles, with the protocol to try.
+  static const lanServices = {
+    '_googlecast._tcp': 'cast',
+    '_valetudo._tcp': 'valetudo',
+    '_airplay._tcp': 'generic',
+    '_spotify-connect._tcp': 'generic',
+    '_androidtvremote2._tcp': 'generic',
+    '_sonos._tcp': 'generic',
+    '_hap._tcp': 'generic',
+    '_ipp._tcp': 'generic',
+    '_printer._tcp': 'generic',
+    '_smb._tcp': 'generic',
+    '_companion-link._tcp': 'generic',
+  };
+
+  static const _lock = MethodChannel('smartmenukj/multicast');
+
+  /// Guesses the integration for a generic `_http._tcp` service from its name. Anything else is a network device.
+  static String guessFromName(String name) {
     final n = name.toLowerCase();
     if (n.startsWith('shelly')) return 'shelly';
     if (n.contains('tasmota')) return 'tasmota';
     if (n.startsWith('wled')) return 'wled';
-    return 'skip';
+    return 'lan';
   }
 
   Stream<FoundService> scan({Duration timeout = const Duration(seconds: 4)}) {
     final out = StreamController<FoundService>();
+    final lan = <String, FoundService>{};
+    final familyHosts = <String>{};
     final seen = <String>{};
-    void emit(FoundService s) {
-      if (seen.add(s.key) && !out.isClosed) out.add(s);
+    void emit(FoundService found) {
+      var s = found;
+      if (out.isClosed) return;
+      if (s.isLan) {
+        if (familyHosts.contains(s.host)) return;
+        final before = lan[s.host];
+        if (before != null) {
+          // The best guess keeps its protocol and takes what the other one learned (a name, a MAC, a maker).
+          final better = s.rank > before.rank ? s : before;
+          final other = identical(better, s) ? before : s;
+          final named = better.name == better.host && other.name != other.host;
+          s = better.copyWith(name: named ? other.name : null, hints: {...other.hints, ...better.hints});
+          if (better.hints['guessed'] == null && !named) s.hints.remove('guessed');
+          if (identical(better, before) && s.name == before.name && s.hints.length == before.hints.length) return;
+        }
+        lan[s.host] = s;
+        out.add(s);
+        return;
+      }
+      if (s.integrationType != null) familyHosts.add(s.host);
+      if (seen.add(s.key)) out.add(s);
     }
 
     Future<void> run() async {
-      await Future.wait([_hueCloud(emit), _mdns(emit, timeout)]);
+      try {
+        await _lock.invokeMethod('acquire');
+      } catch (_) {}
+      await Future.wait([
+        _hueCloud(emit),
+        _mdns(emit, timeout),
+        _ssdp(emit, timeout),
+        kasaBroadcast((host, info) => emit(FoundService(
+              name: '${info['alias'] ?? 'Kasa device'}',
+              host: host,
+              port: 9999,
+              service: 'Kasa',
+              integrationType: 'lan',
+              hints: {'protocol': 'kasa', 'name': '${info['alias'] ?? 'Kasa device'}'},
+            ))),
+        yeelightSearch((host, h) => emit(FoundService(
+              name: (h['name'] ?? '').isEmpty ? 'Yeelight' : h['name']!,
+              host: host,
+              port: 55443,
+              service: 'Yeelight',
+              integrationType: 'lan',
+              hints: {'protocol': 'yeelight', 'model': h['model'] ?? '', if ((h['name'] ?? '').isNotEmpty) 'name': h['name']!},
+            ))),
+        _onvif(emit, timeout),
+        roombaSearch((info) => emit(FoundService(
+              name: info.name,
+              host: info.host,
+              port: 8883,
+              service: 'iRobot',
+              integrationType: 'lan',
+              hints: info.hints,
+            ))),
+        if (sweep) _sweep(emit),
+      ]);
+      try {
+        await _lock.invokeMethod('release');
+      } catch (_) {}
       await out.close();
     }
 
@@ -89,43 +248,120 @@ class NetworkScanner {
     } catch (_) {}
   }
 
+  Future<void> _onvif(void Function(FoundService) emit, Duration timeout) async {
+    for (final cam in await onvifProbe(timeout: timeout)) {
+      emit(FoundService(
+        name: cam.name ?? 'Camera',
+        host: cam.host,
+        port: cam.deviceUrl.port,
+        service: 'ONVIF',
+        integrationType: 'lan',
+        hints: {'protocol': 'camera', 'onvif': cam.deviceUrl.toString(), 'name': ?cam.name},
+      ));
+    }
+  }
+
+  Future<void> _ssdp(void Function(FoundService) emit, Duration timeout) async {
+    final locations = <String>{};
+    final pending = <Future<void>>[];
+    await for (final r in ssdpSearch(timeout: timeout)) {
+      final loc = r.location;
+      if (loc == null || !locations.add(loc)) continue;
+      final uri = Uri.tryParse(loc);
+      if (uri == null) continue;
+      pending.add(() async {
+        final desc = await fetchDescription(_client, uri);
+        final hints = desc?.hints(uri, server: r.server) ??
+            {'location': loc, 'server': r.server, 'protocol': r.st.startsWith('roku') ? 'roku' : 'generic'};
+        emit(FoundService(
+          name: desc?.friendlyName ?? r.host,
+          host: r.host,
+          port: uri.port,
+          service: 'UPnP',
+          integrationType: 'lan',
+          hints: hints,
+        ));
+      }());
+    }
+    await Future.wait(pending);
+  }
+
+  Future<void> _sweep(void Function(FoundService) emit) async {
+    final known = (neighbors?.call() ?? Future.value(<String, Neighbor>{}))
+        .timeout(const Duration(seconds: 8), onTimeout: () => const {})
+        .catchError((_) => <String, Neighbor>{});
+    final nets = await localNetworks();
+    final own = nets.map((n) => n.address.address).toSet();
+    final prefixes = nets.map((n) => n.prefix24).toSet().take(2).toSet();
+    final hosts = <String>[
+      for (final pre in prefixes)
+        for (var i = 1; i < 255; i++)
+          if (!own.contains('$pre.$i')) '$pre.$i',
+    ];
+    final answered = <String>{};
+    final named = <Future<void>>[];
+    void found(String host, Set<int> open) => named.add(() async {
+          final who = await whoIs(host, open: open, known: (await known)[host]);
+          emit(FoundService(
+            name: who.label ?? host,
+            host: host,
+            port: open.isEmpty ? 0 : open.first,
+            service: 'Network',
+            integrationType: 'lan',
+            hints: {
+              'protocol': guessFromPorts(open) ?? 'generic',
+              if (open.isNotEmpty) 'port': '${open.first}',
+              ...who.hints,
+            },
+          ));
+        }());
+    await sweepHosts(hosts, (hit) {
+      answered.add(hit.host);
+      found(hit.host, hit.openPorts);
+    });
+    // Phones asleep turn every knock away silently, but the router still has them.
+    for (final host in (await known).keys) {
+      if (!answered.contains(host) && !own.contains(host) && prefixes.any((p) => host.startsWith('$p.'))) found(host, const {});
+    }
+    await Future.wait(named);
+  }
+
   Future<void> _mdns(void Function(FoundService) emit, Duration timeout) async {
-    final client = MDnsClient();
-    try {
-      await client.start();
-    } catch (_) {
-      return;
-    }
-    try {
-      await Future.wait(services.entries.map((svc) async {
-        await for (final ptr in client
-            .lookup<PtrResourceRecord>(ResourceRecordQuery.serverPointer('${svc.key}.local'), timeout: timeout)) {
-          final instance = ptr.domainName.split('.').first;
-          var type = svc.value;
-          if (type == 'http') {
-            type = guessFromName(instance);
-            if (type == 'skip') continue;
-          }
-          await for (final srv in client
-              .lookup<SrvResourceRecord>(ResourceRecordQuery.service(ptr.domainName), timeout: timeout)) {
-            await for (final ip in client.lookup<IPAddressResourceRecord>(
-                ResourceRecordQuery.addressIPv4(srv.target), timeout: timeout)) {
-              emit(FoundService(
-                name: instance,
-                host: ip.address.address,
-                port: srv.port,
-                service: svc.key,
-                integrationType: type,
-              ));
-              break;
-            }
-          }
-        }
-      }));
-    } catch (_) {
-      // Some networks block multicast; the Hue cloud lookup still runs.
-    } finally {
-      client.stop();
-    }
+    final types = <String, String?>{...services, ...lanServices};
+    await mdnsBrowse(types.keys, (svc) {
+      // Types learned only by asking "what is out there" are network devices.
+      final known = types.containsKey(svc.type);
+      final value = known ? types[svc.type] : 'generic';
+      var isLan = value == 'generic' || lanServices.containsKey(svc.type);
+      var type = isLan ? 'lan' : value;
+      var protocol = value;
+      if (type == 'http') {
+        // A web page that is not a known family is still a device on the network.
+        type = guessFromName(svc.instance);
+        isLan = type == 'lan';
+        protocol = 'generic';
+      }
+      var name = svc.instance;
+      final hints = <String, String>{if (isLan) 'protocol': protocol!, 'service': svc.type};
+      if (svc.type == '_googlecast._tcp') {
+        name = svc.txt['fn'] ?? name;
+        if (svc.txt['md'] != null) hints['model'] = svc.txt['md']!;
+      }
+      if (type == 'matter') {
+        // Matter devices announce a random id; the name, if any, is in DN.
+        hints['instance'] = svc.instance;
+        if (svc.txt['CM'] != null) hints['pairing'] = svc.txt['CM']!;
+        name = svc.txt['DN'] ?? 'Matter device';
+      }
+      if (isLan) hints['name'] = name;
+      emit(FoundService(
+        name: name,
+        host: svc.host,
+        port: svc.port ?? 0,
+        service: svc.type,
+        integrationType: type,
+        hints: {...hints, if (svc.port != null) 'port': '${svc.port}'},
+      ));
+    }, timeout: timeout);
   }
 }

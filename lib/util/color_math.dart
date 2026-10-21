@@ -63,3 +63,37 @@ int kelvinToRgb(int kelvin) {
   int c(double v) => v.clamp(0, 255).round();
   return rgbToInt(c(r), c(g), c(b));
 }
+
+/// RGB (0xRRGGBB) to hue 0..360, saturation 0..1, value 0..1.
+List<double> rgbToHsv(int rgb) {
+  final c = intToRgb(rgb).map((v) => v / 255).toList();
+  final mx = c.reduce(math.max), mn = c.reduce(math.min);
+  final d = mx - mn;
+  double h = 0;
+  if (d > 0) {
+    if (mx == c[0]) {
+      h = 60 * (((c[1] - c[2]) / d) % 6);
+    } else if (mx == c[1]) {
+      h = 60 * (((c[2] - c[0]) / d) + 2);
+    } else {
+      h = 60 * (((c[0] - c[1]) / d) + 4);
+    }
+  }
+  return [h < 0 ? h + 360 : h, mx == 0 ? 0 : d / mx, mx];
+}
+
+int hsvToRgb(double h, double s, double v) {
+  final c = v * s;
+  final x = c * (1 - ((h / 60) % 2 - 1).abs());
+  final m = v - c;
+  final (r, g, b) = switch (h % 360) {
+    < 60 => (c, x, 0.0),
+    < 120 => (x, c, 0.0),
+    < 180 => (0.0, c, x),
+    < 240 => (0.0, x, c),
+    < 300 => (x, 0.0, c),
+    _ => (c, 0.0, x),
+  };
+  int ch(double v) => ((v + m) * 255).round().clamp(0, 255);
+  return (ch(r) << 16) | (ch(g) << 8) | ch(b);
+}

@@ -1,0 +1,6 @@
+Generated/
+*.xcodeproj/
+build/
+build-ios/
+Payload/
+*.log
