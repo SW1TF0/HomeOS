@@ -46,9 +46,10 @@ const _topics = [
   (
     Icons.grid_view_outlined,
     'Draw your home',
-    'Open Map and tap Edit. Add a ready-made room, or drag on the dotted grid to draw one, and drag a corner to resize '
-        'it. Devices that wait in the tray at the bottom join a room when you drag them onto it. Undo puts back your '
-        'last change.',
+    'Open Map and tap Edit. Add a ready-made room, or drag on the dotted grid to draw one. To change a room\'s size, '
+        'tap it, then drag a blue dot on a corner or a bar on a wall, pinch it with two fingers, or tap + and - next to '
+        'Width and Height. Devices that wait in the tray at the bottom join a room when you drag them onto it. Undo puts '
+        'back your last change.',
   ),
   (
     Icons.touch_app_outlined,

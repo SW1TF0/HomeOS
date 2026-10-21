@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../../models/device.dart';
 import '../integration.dart';
 import 'lan_protocol.dart';
+import 'mac_vendor.dart';
 import 'net.dart';
 
 /// One answer to an SSDP search.
@@ -291,6 +292,8 @@ class GenericProtocol extends LanProtocol {
 
   /// Guesses what a device is from what discovery found.
   static DeviceKind kindFrom(Map<String, String> hints) {
+    final known = DeviceKind.values.asNameMap()[hints['kind']];
+    if (known != null) return known;
     final t = '${hints['deviceType']} ${hints['service']} ${hints['name']} ${hints['model']}'.toLowerCase();
     if (t.contains('camera') || t.contains('_rtsp') || t.contains('onvif') || t.contains('ipc')) return DeviceKind.camera;
     if (t.contains('mediarenderer') || t.contains('airplay') || t.contains('_raop') || t.contains('spotify') ||
@@ -330,17 +333,28 @@ class GenericProtocol extends LanProtocol {
           'port': ?open.firstOrNull,
           'web': ?web,
           'mac': ?hints['mac'],
+          'vendor': ?hints['vendor'],
+          'what': ?hints['what'],
           'model': [hints['manufacturer'], hints['model']].where((s) => s != null && s.isNotEmpty).join(' '),
           if (hints['service'] != null) 'service': hints['service'],
         },
-        state: _state(host, answers.any((a) => a != null)),
+        state: _state(host, answers.any((a) => a != null), hints),
       ),
     ];
   }
 
-  static DeviceState _state(String host, bool online) => DeviceState(
-        readings: {'Status': online ? 'Online' : 'Offline', 'Address': host},
-      );
+  /// Online or not, plus who made it and what it probably is, so a device known only by its address still says something.
+  static DeviceState _state(String host, bool online, Map<String, dynamic> props) {
+    final vendor = props['vendor'] as String? ?? MacVendors.loaded?.vendorOf(props['mac'] as String?);
+    final mac = props['mac'] as String?;
+    final what = props['what'] as String? ?? guessDevice(vendor: vendor, mac: mac)?.what;
+    return DeviceState(readings: {
+      'Status': online ? 'Online' : 'Offline',
+      'Address': host,
+      'Maker': ?vendor,
+      'Looks like': ?what,
+    });
+  }
 
   @override
   Future<DeviceState?> read(LanContext ctx, Device device) async {
@@ -349,7 +363,8 @@ class GenericProtocol extends LanProtocol {
     // A device that turns a knock down is there too: phones and many gadgets have no open port.
     final answers =
         await Future.wait({?port, ...ports.take(5)}.map((p) => ctx.knock(host, p, within: const Duration(milliseconds: 900))));
-    return _state(host, answers.any((a) => a != null));
+    await MacVendors.load();
+    return _state(host, answers.any((a) => a != null), device.props);
   }
 
   @override

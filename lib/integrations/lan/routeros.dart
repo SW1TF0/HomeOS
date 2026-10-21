@@ -8,6 +8,7 @@ import 'package:pointycastle/digests/md5.dart';
 import '../../models/device.dart';
 import '../integration.dart';
 import 'lan_protocol.dart';
+import 'whois.dart';
 
 /// The router turned down the user name or password.
 class RouterLoginException extends IntegrationException {
@@ -418,6 +419,24 @@ class MikroTik {
       clients: [for (final e in results[3] as List<Map<String, String>>) RouterClient(e)]
         ..sort((a, b) => a.online == b.online ? a.name.toLowerCase().compareTo(b.name.toLowerCase()) : (a.online ? -1 : 1)),
     );
+  }
+
+  /// Who has which address: the DHCP leases (with the name each device gave) and the ARP table.
+  Future<Map<String, Neighbor>> neighbors() async {
+    final results = await Future.wait([_maybe('/ip/dhcp-server/lease'), _maybe('/ip/arp')]);
+    final out = <String, Neighbor>{};
+    for (final c in results[0].map(RouterClient.new).where((c) => c.online && c.address.isNotEmpty)) {
+      final comment = c.entry['comment'] ?? '';
+      out[c.address] = Neighbor(mac: c.mac.isEmpty ? null : c.mac, name: comment.isNotEmpty ? comment : c.entry['host-name']);
+    }
+    for (final a in results[1]) {
+      final ip = a['address'] ?? '';
+      final mac = a['mac-address'] ?? '';
+      if (ip.isEmpty || mac.isEmpty || a['complete'] == 'false' || a['invalid'] == 'true') continue;
+      final comment = a['comment'] ?? '';
+      out[ip] = (out[ip] ?? const Neighbor()).merge(Neighbor(mac: mac, name: comment.isEmpty ? null : comment));
+    }
+    return out;
   }
 
   Future<void> setEnabled(String menu, String id, bool on) => os.run('$menu/set', {'.id': id, 'disabled': on ? 'no' : 'yes'});

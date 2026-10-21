@@ -150,6 +150,22 @@ IconData deviceIcon(DeviceKind kind, {bool active = false}) => switch (kind) {
       DeviceKind.other => Icons.devices_other_outlined,
     };
 
+/// An icon for what a network device probably is ("iPhone or iPad", "Printer", "Computer or laptop").
+IconData iconForGuess(String what, String? kind) {
+  final w = what.toLowerCase();
+  if (RegExp(r'phone|ipad|tablet').hasMatch(w)) return Icons.smartphone;
+  if (w.contains('printer')) return Icons.print_outlined;
+  if (RegExp(r'computer|laptop|\bmac\b').hasMatch(w)) return Icons.laptop;
+  if (w.contains('nas') || w.contains('storage')) return Icons.storage;
+  if (w.contains('console')) return Icons.sports_esports_outlined;
+  if (w.contains('watch') || w.contains('fitness')) return Icons.watch_outlined;
+  if (w.contains('router') || w.contains('access point')) return Icons.router_outlined;
+  if (w.contains('speaker') || w.contains('echo')) return Icons.speaker_outlined;
+  if (w.contains('plug') || w.contains('bulb')) return Icons.power_outlined;
+  final k = DeviceKind.values.asNameMap()[kind];
+  return k == null ? Icons.devices_other : deviceIcon(k);
+}
+
 /// "Cleaning", "Going home", "Armed away"... for [DeviceState.activity].
 String activityLabel(DeviceKind kind, String? activity) => switch (activity) {
       null => kind == DeviceKind.alarm ? 'Unknown' : 'Ready',

@@ -403,8 +403,12 @@ class _ScanSheetState extends State<ScanSheet> {
       _found.clear();
       _scanning = true;
     });
-    _sub = (widget.scanner ?? NetworkScanner()).scan(timeout: const Duration(seconds: 5)).listen(
-          (s) => setState(() => _found[s.key] = s),
+    final store = context.read<HomeStore>();
+    _sub = (widget.scanner ?? NetworkScanner(neighbors: store.routerNeighbors)).scan(timeout: const Duration(seconds: 5)).listen(
+          (s) {
+            setState(() => _found[s.key] = s);
+            if (s.isLan && s.name != s.host) store.learnFromScan(s.host, s.name, s.hints);
+          },
           onDone: () => mounted ? setState(() => _scanning = false) : null,
         );
   }
@@ -502,11 +506,15 @@ class _ScanSheetState extends State<ScanSheet> {
           ? 'Matter · set up in an app'
           : (s.hints['pairing'] == '0' ? 'Matter · not in pairing mode' : 'Matter · ready to pair');
     }
-    final what = s.integrationType == null
-        ? 'Device'
-        : s.isLan
-            ? (FoundService.protocolLabels[s.protocol] ?? 'Network device')
-            : specFor(s.integrationType!)?.name;
+    if (s.isLan) {
+      // "Apple · iPhone or iPad · 192.168.88.21"
+      final what = s.protocol == 'generic' ? s.hints['what'] : FoundService.protocolLabels[s.protocol];
+      final vendor = s.hints['vendor'];
+      final shown = what != null && what != s.name;
+      final parts = [if (vendor != null && !(shown && what.startsWith(vendor))) vendor, if (shown) what];
+      return [...parts.isEmpty ? ['Network device'] : parts, s.host].join(' · ');
+    }
+    final what = s.integrationType == null ? 'Device' : specFor(s.integrationType!)?.name;
     return '$what · ${s.host}';
   }
 
@@ -521,7 +529,7 @@ class _ScanSheetState extends State<ScanSheet> {
       'camera' => Icons.videocam_outlined,
       'roomba' || 'valetudo' => Icons.cleaning_services_outlined,
       'mikrotik' => Icons.router_outlined,
-      _ => s.name.contains('router') ? Icons.router_outlined : Icons.devices_other,
+      _ => iconForGuess('${s.hints['what']} ${s.name}', s.hints['kind']),
     };
   }
 
@@ -549,6 +557,13 @@ class _ScanSheetState extends State<ScanSheet> {
           Text('Everything on this Wi-Fi that answers: TVs, speakers, plugs, lights, robots, routers, hubs, printers and more. '
               'Tap Add on anything you want in SmartHomeKJ.',
               style: NType.body(13, color: p.textDim)),
+          if (visible.any((s) => s.protocol == 'mikrotik') &&
+              !store.devices.any((d) => d.props['protocol'] == 'mikrotik' && d.state.readings['Status'] != 'Needs its login')) ...[
+            const SizedBox(height: 8),
+            Text('Add your MikroTik and log in under Router settings: the next scan then names every device from the '
+                'router\'s own list.',
+                key: const Key('scan-router-tip'), style: NType.body(13, color: KJPalette.accent)),
+          ],
           if (_addable(store).length > 1 && _adding.isEmpty) ...[
             const SizedBox(height: 14),
             FilledButton.icon(

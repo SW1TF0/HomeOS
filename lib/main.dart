@@ -19,6 +19,7 @@ import 'state/scenes_widget.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  LicenseRegistry.addLicense(_bundledLicenses);
   final settings = AppSettings();
   await settings.load();
   final backups = BackupFiles.here();
@@ -40,6 +41,13 @@ Future<void> main() async {
   );
   unawaited(cloud.start());
   runApp(SmartMenuApp(store: store, cloud: cloud, settings: settings, backups: backups));
+}
+
+/// Licences of what ships inside the app besides packages, for Settings > Licences.
+Stream<LicenseEntry> _bundledLicenses() async* {
+  yield LicenseEntryWithLineBreaks(['Inter font'], await rootBundle.loadString('assets/fonts/Inter-OFL.txt'));
+  yield LicenseEntryWithLineBreaks(
+      ['MAC address makers (IEEE, oui-data)'], await rootBundle.loadString('assets/mac_vendors-LICENSE.txt'));
 }
 
 const _hub = MethodChannel('smartmenukj/hub');

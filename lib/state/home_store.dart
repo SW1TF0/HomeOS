@@ -11,7 +11,9 @@ import '../integrations/camera/camera_setup.dart';
 import '../integrations/catalog.dart';
 import '../integrations/integration.dart';
 import '../integrations/lan/lan_driver.dart';
+import '../integrations/lan/mac_vendor.dart';
 import '../integrations/lan/routeros.dart';
+import '../integrations/lan/whois.dart';
 import '../integrations/matter/matter_driver.dart';
 import '../models/automation.dart';
 import '../models/device.dart';
@@ -1242,6 +1244,14 @@ class HomeStore extends ChangeNotifier {
     final cfg = lanIntegration;
     final driver = _drivers[cfg.id];
     if (driver is! LanDriver) return const [];
+    if (hints.isEmpty) {
+      // Typed in by hand: find out what it is first, as a scan would.
+      hints = (await whoIs(host, known: (await routerNeighbors())[host])).hints;
+    } else if (hints['mac'] != null && hints['vendor'] == null) {
+      final vendor = (await MacVendors.load())?.vendorOf(hints['mac']);
+      final guess = guessDevice(vendor: vendor, mac: hints['mac']);
+      hints = {...hints, 'vendor': ?vendor, 'what': ?guess?.what, if (guess != null) 'kind': guess.kind.name};
+    }
     final match = await driver.identify(host, hints: hints);
     if (match.family != null) {
       await addToFamily(match.family!, host);
@@ -1257,6 +1267,8 @@ class HomeStore extends ChangeNotifier {
         existing.props = {...existing.props, ...f.props};
         existing.capabilities = _keepSnapshot(existing, f.capabilities);
         existing.state = existing.state.merge(f.state);
+        if (existing.name == host) existing.name = f.name;
+        if (existing.kind == DeviceKind.other) existing.kind = f.kind;
       }
     }
     final hosts = parseHosts(cfg.setting('hosts'));
@@ -1398,6 +1410,46 @@ class HomeStore extends ChangeNotifier {
     final problem = await driver.setUp(d);
     toast(problem ?? '${d.name} is ready.');
     _changed();
+  }
+
+  /// Who has which address, from every MikroTik in this home that has its login. Empty without one.
+  Future<Map<String, Neighbor>> routerNeighbors() async {
+    final out = <String, Neighbor>{};
+    final routers = devices.where((d) => d.props['protocol'] == 'mikrotik' && d.state.readings['Status'] != 'Needs its login');
+    await Future.wait(routers.map((d) async {
+      try {
+        final r = await openRouter(d).timeout(const Duration(seconds: 5));
+        try {
+          out.addAll(await r.neighbors().timeout(const Duration(seconds: 6)));
+        } finally {
+          await r.os.close();
+        }
+      } catch (_) {}
+    }));
+    return out;
+  }
+
+  /// Gives a device that was added by its bare address the name, maker and kind a scan found for it.
+  void learnFromScan(String host, String name, Map<String, String> hints) {
+    var changed = false;
+    for (final d in devices.where((d) => d.props['host'] == host && integration(d.integrationId)?.type == lanType)) {
+      if (d.name == host && name != host) {
+        d.name = name;
+        changed = true;
+      }
+      for (final k in const ['mac', 'vendor', 'what']) {
+        if (d.props[k] == null && hints[k] != null) {
+          d.props[k] = hints[k];
+          changed = true;
+        }
+      }
+      final kind = DeviceKind.values.asNameMap()[hints['kind']];
+      if (d.kind == DeviceKind.other && kind != null) {
+        d.kind = kind;
+        changed = true;
+      }
+    }
+    if (changed) _changed();
   }
 
   /// Logs in to a MikroTik router, for its settings screen.

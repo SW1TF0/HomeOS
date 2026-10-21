@@ -9,6 +9,7 @@ import 'package:http/testing.dart';
 import 'package:smartmenukj/integrations/integration.dart';
 import 'package:smartmenukj/integrations/lan/lan_driver.dart';
 import 'package:smartmenukj/integrations/lan/lan_protocol.dart';
+import 'package:smartmenukj/integrations/lan/mac_vendor.dart';
 import 'package:smartmenukj/integrations/lan/roomba.dart';
 import 'package:smartmenukj/integrations/lan/routeros.dart';
 import 'package:smartmenukj/integrations/lan/sweep.dart';
@@ -616,7 +617,7 @@ void main() {
       expect(NetworkScanner.guessFromName('Living room thing'), 'lan');
       expect(NetworkScanner.guessFromName('shellyplug-s-1234'), 'shelly');
       expect(guessFromPorts({80, 8291}), 'mikrotik');
-      expect(labelFromPorts({53, 80, 8291}), 'MikroTik router');
+      expect(guessDevice(ports: {53, 80, 8291})?.what, 'MikroTik router');
       expect(sweepPorts, containsAll([8883, 8291, 8728]));
       expect(FoundService.protocolLabels['roomba'], 'iRobot Roomba');
       expect(uptimeText('1w2d3h4m5s'), '9 days 3 h');

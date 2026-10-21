@@ -81,18 +81,3 @@ String? guessFromPorts(Set<int> open) {
   if (open.contains(554)) return 'camera';
   return null;
 }
-
-/// A readable label when a device has no name of its own.
-String labelFromPorts(Set<int> open) {
-  if (open.contains(8291) || open.contains(8728)) return 'MikroTik router';
-  if (open.contains(53) && (open.contains(80) || open.contains(443))) return 'Wi-Fi router';
-  if (open.contains(62078)) return 'iPhone or iPad';
-  if (open.contains(9100) || open.contains(631)) return 'Printer';
-  if (open.contains(554)) return 'Camera';
-  if (open.contains(445) || open.contains(139)) return 'Computer';
-  if (open.contains(5555)) return 'Android device';
-  if (open.contains(6668)) return 'Tuya smart device';
-  if (open.contains(1883)) return 'MQTT broker';
-  if (open.contains(8123)) return 'Home Assistant';
-  return 'Device';
-}

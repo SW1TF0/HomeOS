@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:smartmenukj/integrations/lan/mac_vendor.dart';
 import 'package:smartmenukj/integrations/lan/mdns.dart';
 import 'package:smartmenukj/integrations/lan/sweep.dart';
 
@@ -91,9 +92,9 @@ void main() {
   });
 
   test('labels devices from their ports', () {
-    expect(labelFromPorts({53, 80}), 'Wi-Fi router');
-    expect(labelFromPorts({62078}), 'iPhone or iPad');
-    expect(labelFromPorts({9100}), 'Printer');
-    expect(labelFromPorts({}), 'Device');
+    expect(guessDevice(ports: {53, 80})?.what, 'Wi-Fi router');
+    expect(guessDevice(ports: {62078})?.what, 'iPhone or iPad');
+    expect(guessDevice(ports: {9100})?.what, 'Printer');
+    expect(guessDevice(), isNull);
   });
 }

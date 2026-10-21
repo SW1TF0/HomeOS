@@ -32,21 +32,27 @@ const roomTemplates = <(String, IconData, double, double)>[
   ('Stairs', Icons.stairs_outlined, 3, 4),
 ];
 
-/// A finger on a room: moving it, or resizing it from one corner.
+/// A finger on a room: moving it, resizing it from a corner or an edge, or two fingers pinching it.
 class _RoomDrag {
-  _RoomDrag(this.rect, this.corner);
+  _RoomDrag(this.rect, this.corner) : start = rect, shown = rect.size;
 
   /// Where the room would be right now, in map units, not yet snapped.
   Rect rect;
 
-  /// The corner being dragged, or null when the whole room moves.
+  /// Where it was when the fingers came down.
+  final Rect start;
+
+  /// The corner or edge being dragged, [Alignment.center] for a pinch, or null when the whole room moves.
   final Alignment? corner;
+
+  /// The size last shown, so the phone clicks once per step.
+  Size shown;
 }
 
 /// The floor plan.
 /// View mode: tap a device to switch it, hold it for controls, tap a room to see it.
-/// Edit mode: add or draw rooms, drag rooms to move them, drag a corner to
-/// resize, drag devices anywhere (they join the room they land in), drag
+/// Edit mode: add or draw rooms, drag rooms to move them, drag a corner or an
+/// edge, pinch, or tap + and - to resize, drag devices anywhere (they join the room they land in), drag
 /// devices from the tray onto the map, undo any step.
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -106,7 +112,7 @@ class MapScreenState extends State<MapScreen> {
   // ---- Moving the view ----------------------------------------------------------
 
   /// Room the edit bars take at the bottom of the screen.
-  double get _bottomInset => editing ? 140 : 56;
+  double get _bottomInset => editing ? (_selectedRoom == null ? 140 : 196) : 56;
 
   void _zoomTo(Rect bounds, {double maxScale = 1.6}) {
     if (_viewport.isEmpty) return;
@@ -448,7 +454,12 @@ class MapScreenState extends State<MapScreen> {
                         width: size.width,
                         height: size.height,
                         child: Stack(clipBehavior: Clip.none, children: [
-                          for (final r in rooms) _buildRoom(store, r),
+                          // The selected room last, so its handles sit above the rooms next to it.
+                          for (final r in [
+                            ...rooms.where((r) => r.id != _selectedRoom),
+                            ...rooms.where((r) => r.id == _selectedRoom),
+                          ])
+                            _buildRoom(store, r),
                           for (final d in devices) _buildDevice(store, d),
                           if (_drawing)
                             Positioned.fill(
@@ -590,9 +601,11 @@ class MapScreenState extends State<MapScreen> {
         ],
         if (_drawing)
           _drawBar()
-        else if (selected != null)
-          _roomBar(store, selected)
-        else
+        else if (selected != null) ...[
+          _sizeBar(store, selected),
+          const SizedBox(height: 8),
+          _roomBar(store, selected),
+        ] else
           _toolsBar(store),
       ]),
     );
@@ -650,9 +663,48 @@ class MapScreenState extends State<MapScreen> {
     ]);
   }
 
-  Widget _roomBar(HomeStore store, Room selected) {
+  /// Width and height in squares, one tap per square: the easy way to resize on a phone.
+  Widget _sizeBar(HomeStore store, Room r) {
     final p = context.palette;
-    final rect = _roomRect(selected);
+    final rect = _roomRect(r);
+    Widget stepper(String label, String key, double value, void Function(double v) set) =>
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(label, style: NType.label(color: p.textDim)),
+          IconButton(
+            key: Key('$key-less'),
+            tooltip: 'Smaller',
+            visualDensity: VisualDensity.compact,
+            onPressed: value > HomeStore.minRoomSize ? () => set(value - 1) : null,
+            icon: const Icon(Icons.remove),
+          ),
+          SizedBox(
+            width: 26,
+            child: Text('${value.round()}',
+                key: Key(key), textAlign: TextAlign.center, style: NType.body(16, color: p.text, weight: 700)),
+          ),
+          IconButton(
+            key: Key('$key-more'),
+            tooltip: 'Bigger',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => set(value + 1),
+            icon: const Icon(Icons.add),
+          ),
+        ]);
+    return _bar([
+      const SizedBox(width: 10),
+      stepper('Width', 'room-width', rect.width, (w) {
+        store.setRoomRect(r, width: w, moveDevices: false);
+        Haptics.selectionClick();
+      }),
+      const SizedBox(width: 6),
+      stepper('Height', 'room-height', rect.height, (h) {
+        store.setRoomRect(r, height: h, moveDevices: false);
+        Haptics.selectionClick();
+      }),
+    ]);
+  }
+
+  Widget _roomBar(HomeStore store, Room selected) {
     return _bar([
       Padding(
         padding: const EdgeInsets.only(left: 12, right: 6),
@@ -661,8 +713,6 @@ class MapScreenState extends State<MapScreen> {
           child: DisplayText(selected.name, size: 18, maxLines: 1),
         ),
       ),
-      Text('${rect.width.round()}×${rect.height.round()}', style: NType.label(color: p.textDim)),
-      const SizedBox(width: 4),
       IconButton(
         tooltip: 'Rename room',
         visualDensity: VisualDensity.compact,
@@ -788,7 +838,9 @@ class MapScreenState extends State<MapScreen> {
     if (corner == null) {
       return Rect.fromLTWH(math.max(0, _snap(live.left)), math.max(0, _snap(live.top)), r.width, r.height);
     }
-    var left = _snap(live.left), top = _snap(live.top), right = _snap(live.right), bottom = _snap(live.bottom);
+    var left = math.max(0.0, _snap(live.left)), top = math.max(0.0, _snap(live.top));
+    var right = _snap(live.right), bottom = _snap(live.bottom);
+    // The side being dragged stops where the room would get too small.
     if (corner.x < 0) {
       left = math.max(0, math.min(left, right - min));
     } else {
@@ -813,6 +865,33 @@ class MapScreenState extends State<MapScreen> {
       c.x > 0 ? r.right + delta.dx : r.right,
       c.y > 0 ? r.bottom + delta.dy : r.bottom,
     );
+    _clickOnStep(id);
+  }
+
+  /// One finger moves the room; two fingers pinch it bigger or smaller.
+  void _moveOrPinch(String id, ScaleUpdateDetails d) {
+    final drag = _roomDrag[id];
+    if (drag == null) return;
+    if (drag.corner == null) {
+      drag.rect = drag.rect.translate(d.focalPointDelta.dx / cell, d.focalPointDelta.dy / cell);
+      return;
+    }
+    final s = drag.start;
+    final scale = d.scale.clamp(0.2, 5.0);
+    drag.rect = Rect.fromCenter(center: s.center, width: s.width * scale, height: s.height * scale);
+    _clickOnStep(id);
+  }
+
+  /// A light click each time a room being resized grows or shrinks by a square.
+  void _clickOnStep(String id) {
+    final drag = _roomDrag[id];
+    final room = context.read<HomeStore>().room(id);
+    if (drag == null || room == null) return;
+    final size = _roomRect(room).size;
+    if (size != drag.shown) {
+      drag.shown = size;
+      Haptics.selectionClick();
+    }
   }
 
   void _commitRoom(HomeStore store, Room r) {
@@ -857,7 +936,17 @@ class MapScreenState extends State<MapScreen> {
               style: NType.label(color: p.textDim).copyWith(fontSize: 9.5),
             ),
         ]),
-        if (isSelected || dragging)
+        if (dragging && _roomDrag[r.id]?.corner != null)
+          // Big while resizing, so the size is easy to read under the finger.
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(color: KJPalette.accent, borderRadius: BorderRadius.circular(999)),
+              child: Text('${rect.width.round()} × ${rect.height.round()}',
+                  style: NType.body(13, color: Colors.white, weight: 700)),
+            ),
+          )
+        else if (isSelected || dragging)
           Align(
             alignment: Alignment.bottomRight,
             child: Text('${rect.width.round()}×${rect.height.round()}',
@@ -870,72 +959,89 @@ class MapScreenState extends State<MapScreen> {
       key: Key('room-${r.id}'),
       behavior: HitTestBehavior.opaque,
       onTap: editing ? () => setState(() => _selectedRoom = r.id) : () => showRoomSheet(context, r.id),
-      onPanStart: editing
-          ? (_) => setState(() {
-                _selectedRoom = r.id;
-                _roomDrag[r.id] = _RoomDrag(r.rect, null);
-              })
-          : null,
-      onPanUpdate: editing
+      // A scale gesture is a drag with one finger and a pinch with two.
+      onScaleStart: editing
           ? (d) => setState(() {
-                final drag = _roomDrag[r.id];
-                if (drag != null) drag.rect = drag.rect.translate(d.delta.dx / cell, d.delta.dy / cell);
+                _selectedRoom = r.id;
+                _roomDrag[r.id] = _RoomDrag(r.rect, d.pointerCount > 1 ? Alignment.center : null);
               })
           : null,
-      onPanEnd: editing ? (_) => _commitRoom(store, r) : null,
-      onPanCancel: editing ? () => setState(() => _roomDrag.remove(r.id)) : null,
+      onScaleUpdate: editing ? (d) => setState(() => _moveOrPinch(r.id, d)) : null,
+      onScaleEnd: editing ? (_) => _commitRoom(store, r) : null,
       child: body,
     );
 
+    // A selected room reaches past its walls, so the outer half of each handle can be grabbed too.
+    final m = isSelected ? _handleReach : 0.0;
     return Positioned(
-      left: rect.left * cell,
-      top: rect.top * cell,
-      width: rect.width * cell,
-      height: rect.height * cell,
+      key: ValueKey(r.id),
+      left: rect.left * cell - m,
+      top: rect.top * cell - m,
+      width: rect.width * cell + 2 * m,
+      height: rect.height * cell + 2 * m,
       child: Stack(clipBehavior: Clip.none, children: [
-        Positioned.fill(child: body),
-        if (isSelected) ...[
-          _handle(store, r, Alignment.topLeft, 'room-resize-tl-${r.id}'),
-          _handle(store, r, Alignment.topRight, 'room-resize-tr-${r.id}'),
-          _handle(store, r, Alignment.bottomLeft, 'room-resize-bl-${r.id}'),
-          _handle(store, r, Alignment.bottomRight, 'room-resize-${r.id}'),
-        ],
+        Positioned(left: m, top: m, right: m, bottom: m, child: body),
+        if (isSelected)
+          for (final (at, key) in const [
+            (Alignment.topCenter, 't'),
+            (Alignment.bottomCenter, 'b'),
+            (Alignment.centerLeft, 'l'),
+            (Alignment.centerRight, 'r'),
+            (Alignment.topLeft, 'tl'),
+            (Alignment.topRight, 'tr'),
+            (Alignment.bottomLeft, 'bl'),
+            (Alignment.bottomRight, 'br'),
+          ])
+            _handle(store, r, at, key == 'br' ? 'room-resize-${r.id}' : 'room-resize-$key-${r.id}', rect.size * cell, m),
       ]),
     );
   }
 
-  Widget _handle(HomeStore store, Room r, Alignment corner, String key) {
-    final p = context.palette;
-    return Positioned(
-      left: corner.x < 0 ? -14 : null,
-      right: corner.x > 0 ? -14 : null,
-      top: corner.y < 0 ? -14 : null,
-      bottom: corner.y > 0 ? -14 : null,
-      child: GestureDetector(
-        key: Key(key),
-        behavior: HitTestBehavior.opaque,
-        onPanStart: (_) => setState(() => _roomDrag[r.id] = _RoomDrag(r.rect, corner)),
-        onPanUpdate: (d) => setState(() => _resize(r.id, d.delta / cell)),
-        onPanEnd: (_) => _commitRoom(store, r),
-        onPanCancel: () => setState(() => _roomDrag.remove(r.id)),
-        child: SizedBox(
-          width: 28,
-          height: 28,
-          child: Center(
-            child: Container(
-              width: 16,
-              height: 16,
-              decoration: BoxDecoration(
-                color: KJPalette.accent,
-                borderRadius: BorderRadius.circular(4),
-                border: Border.all(color: p.background, width: 2),
+  /// A dot on a corner or a bar on an edge of the selected room. It stays the
+  /// size of a fingertip however far the map is zoomed out.
+  static const _handleReach = 48.0;
+
+  Widget _handle(HomeStore store, Room r, Alignment at, String key, Size room, double origin) => AnimatedBuilder(
+        animation: _transform,
+        builder: (context, _) {
+          final p = context.palette;
+          final zoom = _transform.value.getMaxScaleOnAxis();
+          final hit = 44 / zoom;
+          final edge = at.x == 0 || at.y == 0;
+          // An edge bar needs room between the corners to be grabbed on its own.
+          if (edge && (at.x == 0 ? room.width : room.height) * zoom < 132) return const SizedBox.shrink();
+          final along = at.x == 0;
+          return Positioned(
+            left: origin + (at.x + 1) / 2 * room.width - hit / 2,
+            top: origin + (at.y + 1) / 2 * room.height - hit / 2,
+            width: hit,
+            height: hit,
+            child: GestureDetector(
+              key: Key(key),
+              behavior: HitTestBehavior.opaque,
+              onPanStart: (_) => setState(() {
+                _roomDrag[r.id] = _RoomDrag(r.rect, at);
+                Haptics.selectionClick();
+              }),
+              onPanUpdate: (d) => setState(() => _resize(r.id, d.delta / cell)),
+              onPanEnd: (_) => _commitRoom(store, r),
+              onPanCancel: () => setState(() => _roomDrag.remove(r.id)),
+              child: Center(
+                child: Container(
+                  width: (edge ? (along ? 26 : 9) : 18) / zoom,
+                  height: (edge ? (along ? 9 : 26) : 18) / zoom,
+                  decoration: BoxDecoration(
+                    color: KJPalette.accent,
+                    borderRadius: BorderRadius.circular(9 / zoom),
+                    border: Border.all(color: p.background, width: 2 / zoom),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 4 / zoom)],
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
+          );
+        },
+      );
 
   // ---- Devices ------------------------------------------------------------------------
 

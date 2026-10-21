@@ -272,6 +272,51 @@ void main() {
     expect(office.rect.bottom, bottom);
   });
 
+  testWidgets('map edit: resize a room from an edge, with + and -, and by pinching', (tester) async {
+    final store = await pumpApp(tester);
+    final office = store.rooms.firstWhere((r) => r.name == 'Office');
+    final start = office.rect;
+    await openMapEditor(tester);
+    await tester.tapAt(tester.getTopLeft(find.byKey(Key('room-${office.id}'))) + const Offset(12, 12));
+    await tester.pumpAndSettle();
+
+    // The right edge: only the width changes.
+    await dragSlowly(tester, tester.getCenter(find.byKey(Key('room-resize-r-${office.id}'))), const Offset(60, 0));
+    expect(office.rect.left, start.left);
+    expect(office.rect.width, greaterThan(start.width));
+    expect(office.rect.height, start.height);
+
+    // The size bar: one square per tap.
+    final width = office.width, height = office.height;
+    await tester.tap(find.byKey(const Key('room-width-more')));
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('room-height-less')));
+    await tester.pump();
+    expect(office.width, width + 1);
+    expect(office.height, height - 1);
+    expect(tester.widget<Text>(find.byKey(const Key('room-width'))).data, '${(width + 1).round()}');
+
+    // Two fingers spread apart make it bigger around its middle (away from the desk lamp in the middle).
+    final before = office.rect;
+    final body = tester.getRect(find.byKey(Key('room-${office.id}')));
+    final a = await tester.startGesture(body.topLeft + Offset(body.width * 0.25, body.height * 0.25), pointer: 7);
+    final b = await tester.startGesture(body.topLeft + Offset(body.width * 0.4, body.height * 0.32), pointer: 8);
+    for (var i = 0; i < 10; i++) {
+      await a.moveBy(const Offset(-6, -3));
+      await b.moveBy(const Offset(6, 3));
+      await tester.pump();
+    }
+    await a.up();
+    await b.up();
+    await tester.pumpAndSettle();
+    expect(office.width, greaterThan(before.width));
+    expect(office.height, greaterThan(before.height));
+    expect((office.rect.center - before.center).distance, lessThan(1.01));
+    await tester.tap(find.byKey(const Key('map-undo')));
+    await tester.pumpAndSettle();
+    expect(office.rect, before, reason: 'a pinch is one step to undo');
+  });
+
   testWidgets('map edit: drag a device from the tray into a room', (tester) async {
     final store = await pumpApp(tester);
     final lamp = store.devices.firstWhere((d) => d.name == 'Desk lamp');
@@ -437,6 +482,28 @@ void main() {
     expect(find.text('Samsung TV · 10.0.0.5'), findsOneWidget);
     expect(find.text('shelly1-abc'), findsOneWidget);
     expect(find.byKey(const Key('add-by-address')), findsOneWidget);
+  });
+
+  testWidgets('scan says who made each device and what it probably is', (tester) async {
+    await pumpApp(tester);
+    showModalBottomSheet(
+      context: tester.element(find.byType(Scaffold).first),
+      isScrollControlled: true,
+      builder: (_) => ScanSheet(
+        scanner: FakeScanner(const [
+          FoundService(name: 'Galaxy-S23', host: '192.168.88.21', port: 0, service: 'Network', integrationType: 'lan',
+              hints: {'protocol': 'generic', 'vendor': 'Samsung', 'what': 'Samsung phone, tablet or TV'}),
+          FoundService(name: 'iPhone or iPad', host: '192.168.88.22', port: 62078, service: 'Network', integrationType: 'lan',
+              hints: {'protocol': 'generic', 'vendor': 'Apple', 'what': 'iPhone or iPad', 'guessed': '1'}),
+          FoundService(name: '192.168.88.23', host: '192.168.88.23', port: 0, service: 'Network', integrationType: 'lan',
+              hints: {'protocol': 'generic'}),
+        ]),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Samsung phone, tablet or TV · 192.168.88.21'), findsOneWidget);
+    expect(find.text('Apple · 192.168.88.22'), findsOneWidget);
+    expect(find.text('Network device · 192.168.88.23'), findsOneWidget);
   });
 
   testWidgets('make a scene on the home screen and run it', (tester) async {

@@ -11,6 +11,7 @@ import 'lan/plugs.dart';
 import 'lan/roomba.dart';
 import 'lan/sweep.dart';
 import 'lan/upnp.dart';
+import 'lan/whois.dart';
 
 /// Something found on the local network.
 class FoundService {
@@ -33,6 +34,15 @@ class FoundService {
 
   /// What discovery learned, passed on to the Network devices connection.
   final Map<String, String> hints;
+
+  FoundService copyWith({String? name, Map<String, String>? hints}) => FoundService(
+        name: name ?? this.name,
+        host: host,
+        port: port,
+        service: service,
+        integrationType: integrationType,
+        hints: hints ?? this.hints,
+      );
 
   bool get isLan => integrationType == 'lan';
   String get protocol => hints['protocol'] ?? 'generic';
@@ -70,14 +80,19 @@ class FoundService {
     'generic': 'Network device',
   };
 
-  /// How sure discovery is about what this is. Better guesses replace worse ones.
+  /// How sure discovery is about what this is. Better guesses replace worse ones,
+  /// and a device's own name beats one made up from its maker.
   int get rank =>
       switch (protocol) {
         'generic' => 0,
-        'upnp' => 2,
-        _ => 4,
+        'upnp' => 3,
+        _ => 6,
       } +
-      (name != host ? 1 : 0);
+      (name == host
+          ? 0
+          : hints['guessed'] != null
+              ? 1
+              : 2);
 }
 
 /// Runs [task] while holding Android's multicast lock, without which the
@@ -98,9 +113,12 @@ Future<T> withMulticast<T>(Future<T> Function() task) async {
 /// Looks for devices with mDNS (Bonjour), SSDP (UPnP), the Kasa and Yeelight
 /// broadcasts, a quick check of TV ports, and the free Hue discovery endpoint.
 class NetworkScanner {
-  NetworkScanner({http.Client? client, this.sweep = true}) : _client = client ?? http.Client();
+  NetworkScanner({http.Client? client, this.sweep = true, this.neighbors}) : _client = client ?? http.Client();
 
   final http.Client _client;
+
+  /// Who the router says has which address (names and MACs), when the home has a router it can log in to.
+  final Future<Map<String, Neighbor>> Function()? neighbors;
 
   /// Whether to also knock on every address in the local /24, so devices that
   /// announce nothing still show up.
@@ -149,12 +167,21 @@ class NetworkScanner {
     final lan = <String, FoundService>{};
     final familyHosts = <String>{};
     final seen = <String>{};
-    void emit(FoundService s) {
+    void emit(FoundService found) {
+      var s = found;
       if (out.isClosed) return;
       if (s.isLan) {
         if (familyHosts.contains(s.host)) return;
         final before = lan[s.host];
-        if (before != null && before.rank >= s.rank) return;
+        if (before != null) {
+          // The best guess keeps its protocol and takes what the other one learned (a name, a MAC, a maker).
+          final better = s.rank > before.rank ? s : before;
+          final other = identical(better, s) ? before : s;
+          final named = better.name == better.host && other.name != other.host;
+          s = better.copyWith(name: named ? other.name : null, hints: {...other.hints, ...better.hints});
+          if (better.hints['guessed'] == null && !named) s.hints.remove('guessed');
+          if (identical(better, before) && s.name == before.name && s.hints.length == before.hints.length) return;
+        }
         lan[s.host] = s;
         out.add(s);
         return;
@@ -260,33 +287,42 @@ class NetworkScanner {
   }
 
   Future<void> _sweep(void Function(FoundService) emit) async {
+    final known = (neighbors?.call() ?? Future.value(<String, Neighbor>{}))
+        .timeout(const Duration(seconds: 8), onTimeout: () => const {})
+        .catchError((_) => <String, Neighbor>{});
     final nets = await localNetworks();
     final own = nets.map((n) => n.address.address).toSet();
+    final prefixes = nets.map((n) => n.prefix24).toSet().take(2).toSet();
     final hosts = <String>[
-      for (final pre in nets.map((n) => n.prefix24).toSet().take(2))
+      for (final pre in prefixes)
         for (var i = 1; i < 255; i++)
           if (!own.contains('$pre.$i')) '$pre.$i',
     ];
+    final answered = <String>{};
     final named = <Future<void>>[];
+    void found(String host, Set<int> open) => named.add(() async {
+          final who = await whoIs(host, open: open, known: (await known)[host]);
+          emit(FoundService(
+            name: who.label ?? host,
+            host: host,
+            port: open.isEmpty ? 0 : open.first,
+            service: 'Network',
+            integrationType: 'lan',
+            hints: {
+              'protocol': guessFromPorts(open) ?? 'generic',
+              if (open.isNotEmpty) 'port': '${open.first}',
+              ...who.hints,
+            },
+          ));
+        }());
     await sweepHosts(hosts, (hit) {
-      named.add(() async {
-        final protocol = guessFromPorts(hit.openPorts);
-        final label = labelFromPorts(hit.openPorts);
-        final name = await reverseName(hit.host) ?? (label == 'Device' ? null : label);
-        emit(FoundService(
-          name: name ?? hit.host,
-          host: hit.host,
-          port: hit.openPorts.isEmpty ? 0 : hit.openPorts.first,
-          service: 'Network',
-          integrationType: 'lan',
-          hints: {
-            'protocol': protocol ?? 'generic',
-            if (hit.openPorts.isNotEmpty) 'port': '${hit.openPorts.first}',
-            'name': ?name,
-          },
-        ));
-      }());
+      answered.add(hit.host);
+      found(hit.host, hit.openPorts);
     });
+    // Phones asleep turn every knock away silently, but the router still has them.
+    for (final host in (await known).keys) {
+      if (!answered.contains(host) && !own.contains(host) && prefixes.any((p) => host.startsWith('$p.'))) found(host, const {});
+    }
     await Future.wait(named);
   }
 

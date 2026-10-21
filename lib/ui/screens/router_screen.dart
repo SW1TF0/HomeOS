@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../integrations/integration.dart';
+import '../../integrations/lan/mac_vendor.dart';
 import '../../integrations/lan/routeros.dart';
 import '../../models/device.dart';
 import '../../state/home_store.dart';
@@ -70,6 +71,7 @@ class _RouterScreenState extends State<RouterScreen> {
       _router = null;
       final router = await _store.openRouter(d);
       final snap = await router.load();
+      await MacVendors.load();
       if (!mounted) {
         await router.os.close();
         return;
@@ -99,6 +101,14 @@ class _RouterScreenState extends State<RouterScreen> {
     await _connect();
     if (_needsLogin && mounted) _store.toast('The router did not accept that login.');
     if (!_needsLogin && _error == null) _store.refreshDevice(d);
+  }
+
+  DeviceGuess? _guess(RouterClient c) => guessDevice(vendor: MacVendors.loaded?.vendorOf(c.mac), mac: c.mac);
+
+  /// What a connected device probably is, from its MAC.
+  String? _whatIs(RouterClient c) {
+    final vendor = MacVendors.loaded?.vendorOf(c.mac);
+    return _guess(c)?.what ?? (vendor == null ? null : '$vendor device');
   }
 
   /// Does [change] on the router, then shows how it looks now.
@@ -355,17 +365,22 @@ class _RouterScreenState extends State<RouterScreen> {
             for (final c in snap.clients.take(80))
               ListTile(
                 key: Key('client-${c.address}'),
-                leading: Icon(c.online ? Icons.devices : Icons.devices_other_outlined, color: c.online ? null : p.textDim),
-                title: Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-                subtitle: Text([c.address, if (c.mac.isNotEmpty) c.mac, c.online ? 'Online' : 'Offline'].join(' · '),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                leading: Icon(iconForGuess('${_guess(c)?.what} ${c.name}', _guess(c)?.kind.name), color: c.online ? null : p.textDim),
+                title: Text(c.name == c.address ? _whatIs(c) ?? c.name : c.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                subtitle: Text(
+                    [c.address, MacVendors.loaded?.vendorOf(c.mac) ?? (c.mac.isEmpty ? null : c.mac), c.online ? 'Online' : 'Offline']
+                        .nonNulls
+                        .join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
                 trailing: PopupMenuButton<String>(
                   key: Key('client-menu-${c.address}'),
                   tooltip: 'More',
                   onSelected: (what) async {
                     if (what == 'add') {
+                      final name = c.name == c.address ? _whatIs(c) : c.name;
                       await _store.addNetworkDevice(c.address,
-                          hints: {if (c.name != c.address) 'name': c.name, if (c.mac.isNotEmpty) 'mac': c.mac});
+                          hints: {'name': ?name, if (c.mac.isNotEmpty) 'mac': c.mac});
                     } else if (what == 'keep') {
                       await _change((r) => r.keepAddress(c), done: '${c.name} keeps ${c.address} from now on.');
                     }
