@@ -1,7 +1,8 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-/// Colours from smarthomekj.eu: soft white and black surfaces, near-black
-/// text, one blue for actions and iOS-style colours for device kinds.
+/// Apple-style colours: the iOS system greys for surfaces, black or white
+/// text, system blue for actions and the iOS colours for device kinds.
 @immutable
 class KJPalette extends ThemeExtension<KJPalette> {
   const KJPalette({
@@ -17,13 +18,13 @@ class KJPalette extends ThemeExtension<KJPalette> {
   });
 
   /// Buttons, links, switches and anything selected.
-  static const accent = Color(0xFF0071E3);
+  static const accent = Color(0xFF007AFF);
 
   /// Errors, deletes, devices that don't answer, alarms.
   static const danger = Color(0xFFFF3B30);
 
   static const green = Color(0xFF34C759);
-  static const yellow = Color(0xFFFFB800);
+  static const yellow = Color(0xFFFFCC00);
   static const orange = Color(0xFFFF9500);
   static const purple = Color(0xFFAF52DE);
   static const blue = Color(0xFF007AFF);
@@ -36,23 +37,23 @@ class KJPalette extends ThemeExtension<KJPalette> {
     surface: Color(0xFF1C1C1E),
     surfaceHigh: Color(0xFF2C2C2E),
     border: Color(0xFF38383A),
-    text: Color(0xFFF5F5F7),
-    textDim: Color(0xFF98989D),
+    text: Color(0xFFFFFFFF),
+    textDim: Color(0xFF98989F),
     dot: Color(0xFF2C2C2E),
     onAccent: Color(0xFFFFFFFF),
     shadow: Color(0x00000000),
   );
 
   static const light = KJPalette(
-    background: Color(0xFFF5F5F7),
+    background: Color(0xFFF2F2F7),
     surface: Color(0xFFFFFFFF),
-    surfaceHigh: Color(0xFFE8E8ED),
-    border: Color(0xFFD2D2D7),
-    text: Color(0xFF1D1D1F),
-    textDim: Color(0xFF6E6E73),
-    dot: Color(0xFFD2D2D7),
+    surfaceHigh: Color(0xFFE5E5EA),
+    border: Color(0xFFD1D1D6),
+    text: Color(0xFF000000),
+    textDim: Color(0xFF6C6C70),
+    dot: Color(0xFFD1D1D6),
     onAccent: Color(0xFFFFFFFF),
-    shadow: Color(0x14000000),
+    shadow: Color(0x12000000),
   );
 
   final Color background;
@@ -69,17 +70,20 @@ class KJPalette extends ThemeExtension<KJPalette> {
 
   bool get isDark => background.computeLuminance() < 0.2;
 
-  /// Background of a device tile that is off.
-  Color get tileOff => isDark ? const Color(0xFF1C1C1E) : const Color(0xFFE3E3E8);
+  /// Background of a device tile that is off: frosted glass, as in Apple Home.
+  Color get tileOff => isDark ? const Color(0xB33A3A3C) : const Color(0x14000000);
 
-  /// The white tile of a device that is on, like in the site's phone demo.
-  Color get tileOn => isDark ? const Color(0xFFF5F5F7) : const Color(0xFFFFFFFF);
+  /// The white tile of a device that is on, as in Apple Home.
+  Color get tileOn => const Color(0xFFFFFFFF);
 
   /// Text on [tileOn].
-  Color get onTileOn => const Color(0xFF1D1D1F);
+  Color get onTileOn => const Color(0xFF000000);
+
+  /// Cards and buttons laid on the home wallpaper.
+  Color get glass => isDark ? const Color(0x8C2C2C2E) : const Color(0xA6FFFFFF);
 
   List<BoxShadow> get cardShadow =>
-      shadow.a == 0 ? const [] : [BoxShadow(color: shadow, blurRadius: 24, offset: const Offset(0, 6))];
+      shadow.a == 0 ? const [] : [BoxShadow(color: shadow, blurRadius: 10, offset: const Offset(0, 2))];
 
   @override
   KJPalette copyWith() => this;
@@ -106,8 +110,8 @@ extension KJContext on BuildContext {
   KJPalette get palette => Theme.of(this).extension<KJPalette>() ?? KJPalette.dark;
 }
 
-/// Type styles. Inter (SIL OFL) for everything, close to the Apple system
-/// font the site uses: big bold headings with tight letter spacing.
+/// Type styles. Inter (SIL OFL) for everything, the closest free font to
+/// Apple's San Francisco, on the iOS type scale: 34 large titles, 17 body.
 class NType {
   static const bodyFamily = 'Inter';
 
@@ -169,6 +173,7 @@ ThemeData buildAppTheme(Brightness brightness) {
     labelSmall: NType.label(color: p.textDim),
   );
   final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(999));
+  const ios = CupertinoPageTransitionsBuilder();
   return ThemeData(
     useMaterial3: true,
     brightness: brightness,
@@ -179,19 +184,39 @@ ThemeData buildAppTheme(Brightness brightness) {
     textTheme: text,
     extensions: [p],
     splashFactory: NoSplash.splashFactory,
+    // iOS slide-in pages and swipe back everywhere, not only on Apple devices.
+    pageTransitionsTheme: const PageTransitionsTheme(builders: {
+      TargetPlatform.android: ios,
+      TargetPlatform.iOS: ios,
+      TargetPlatform.macOS: ios,
+      TargetPlatform.windows: ios,
+      TargetPlatform.linux: ios,
+      TargetPlatform.fuchsia: ios,
+    }),
+    cupertinoOverrideTheme: CupertinoThemeData(
+      brightness: brightness,
+      primaryColor: KJPalette.accent,
+      scaffoldBackgroundColor: p.background,
+      barBackgroundColor: p.surface,
+    ),
     highlightColor: Colors.transparent,
     dividerColor: p.border,
     dividerTheme: DividerThemeData(color: p.border, thickness: 1, space: 1),
     iconTheme: IconThemeData(color: p.text, size: 22),
+    // The iOS back chevron instead of Android's arrow.
+    actionIconTheme: ActionIconThemeData(
+      backButtonIconBuilder: (_) => const Icon(CupertinoIcons.back, color: KJPalette.accent, size: 28),
+      closeButtonIconBuilder: (_) => const Icon(CupertinoIcons.xmark, size: 22),
+    ),
     cardTheme: CardThemeData(
-        color: p.surface, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22))),
+        color: p.surface, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18))),
     appBarTheme: AppBarTheme(
       backgroundColor: p.background,
       surfaceTintColor: Colors.transparent,
       foregroundColor: p.text,
       elevation: 0,
       centerTitle: false,
-      titleTextStyle: NType.display(22, color: p.text),
+      titleTextStyle: NType.body(17, color: p.text, weight: 600),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
@@ -199,7 +224,7 @@ ThemeData buildAppTheme(Brightness brightness) {
         foregroundColor: Colors.white,
         shape: shape,
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-        textStyle: NType.body(15, weight: 500),
+        textStyle: NType.body(17, weight: 600),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
@@ -208,50 +233,59 @@ ThemeData buildAppTheme(Brightness brightness) {
         side: const BorderSide(color: KJPalette.accent),
         shape: shape,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        textStyle: NType.body(15, weight: 500),
+        textStyle: NType.body(17, weight: 500),
       ),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: KJPalette.accent,
         shape: shape,
-        textStyle: NType.body(15, weight: 500),
+        textStyle: NType.body(17, weight: 400),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: p.surfaceHigh,
+      fillColor: p.isDark ? p.surfaceHigh : const Color(0xFFEFEFF4),
       labelStyle: NType.body(14, color: p.textDim),
       hintStyle: NType.body(14, color: p.textDim),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
       focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: KJPalette.accent, width: 2)),
+          borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: KJPalette.accent, width: 1.5)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     ),
+    // iOS sheets: grouped grey background, a small grabber and a dimmed page behind.
     bottomSheetTheme: BottomSheetThemeData(
-      backgroundColor: p.surface,
+      backgroundColor: p.isDark ? p.surface : p.background,
       surfaceTintColor: Colors.transparent,
+      modalBarrierColor: Colors.black.withValues(alpha: 0.35),
       showDragHandle: true,
-      dragHandleColor: p.border,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      dragHandleColor: p.isDark ? const Color(0xFF5A5A5E) : const Color(0xFFC7C7CC),
+      dragHandleSize: const Size(36, 5),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
     ),
+    // iOS alerts: small, rounded, frosted.
     dialogTheme: DialogThemeData(
-      backgroundColor: p.surface,
+      backgroundColor: p.isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF9F9F9),
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
-      titleTextStyle: NType.display(22, color: p.text),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      titleTextStyle: NType.body(17, color: p.text, weight: 600),
+      contentTextStyle: NType.body(14, color: p.text),
     ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: p.isDark ? p.surfaceHigh : const Color(0xFF1D1D1F),
       contentTextStyle: NType.body(14, color: Colors.white),
       behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
+    // As close to the iOS switch as a Material switch gets: green, white thumb, no outline or icon.
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.all(Colors.white),
-      trackColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? KJPalette.green : p.border),
+      trackColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? KJPalette.green : (p.isDark ? const Color(0xFF39393D) : p.surfaceHigh)),
       trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
+      thumbIcon: WidgetStateProperty.all(null),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
     ),
     chipTheme: ChipThemeData(
       backgroundColor: p.surfaceHigh,
@@ -265,8 +299,16 @@ ThemeData buildAppTheme(Brightness brightness) {
     listTileTheme: ListTileThemeData(
       iconColor: p.text,
       textColor: p.text,
-      titleTextStyle: NType.body(15, color: p.text, weight: 500),
+      titleTextStyle: NType.body(17, color: p.text),
       subtitleTextStyle: NType.body(13, color: p.textDim),
+      minLeadingWidth: 28,
+    ),
+    popupMenuTheme: PopupMenuThemeData(
+      color: p.isDark ? const Color(0xFF2C2C2E) : const Color(0xF2F9F9F9),
+      surfaceTintColor: Colors.transparent,
+      elevation: 8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      textStyle: NType.body(17, color: p.text),
     ),
     progressIndicatorTheme: ProgressIndicatorThemeData(color: KJPalette.accent, linearTrackColor: p.surfaceHigh),
   );

@@ -2,7 +2,7 @@
 
 <img src="docs/icon.png" alt="SmartHomeKJ icon: a white house with a blue door on black" width="96">
 
-A free smart home app for phones and computers. Draw your home as a floor plan, put your devices where they really are, and control them with a tap. Its look follows [smarthomekj.eu](https://www.smarthomekj.eu): soft white and black surfaces, big bold type, one blue accent, and device tiles that turn white with a coloured icon when they are on.
+A free smart home app for phones and computers. Draw your home as a floor plan, put your devices where they really are, and control them with a tap. It looks and feels like an Apple app, in the style of Apple Home: big bold titles, frosted glass tiles on a soft wallpaper that turn white with a coloured icon when a device is on, status capsules, a tall brightness pill, iOS sheets, slide-in pages and springy motion, on Android and computers too.
 
 Everything is free and local-first. There is no subscription and no paywall, and no account is needed: the app talks to your devices directly on your home network, and your homes are saved on your own device. A free account is optional; it keeps your homes in step on every phone and computer and lets you switch things from anywhere.
 
@@ -113,7 +113,7 @@ lib/
   integrations/   One driver per system + catalog + network scan
   state/          HomeStore (all changes go through it), local storage, sample home
   cloud/          Accounts, sync and remote control over Firebase (REST, no SDK)
-  theme/          colours and type (smarthomekj.eu look)
+  theme/          colours and type (Apple Home look)
   ui/             Screens and shared widgets
 test/             Model, driver, store and widget tests
 tool/             Screenshot generator

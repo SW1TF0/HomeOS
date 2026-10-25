@@ -112,59 +112,67 @@ class _ScenesRowState extends State<ScenesRow> {
   Widget build(BuildContext context) {
     final store = context.watch<HomeStore>();
     final p = context.palette;
-    return SizedBox(
-      height: 132,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: [
-          for (final s in store.scenes) ...[
-            SizedBox(
-              width: 150,
-              child: NCard(
-                key: Key('scene-${s.id}'),
-                inverted: _running == s.id,
-                padding: const EdgeInsets.all(14),
-                onTap: () => _run(store, s),
-                onLongPress: () => showSceneSheet(context, s),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(color: sceneColor(s.icon), shape: BoxShape.circle),
-                    child: Icon(sceneIcon(s.icon), size: 20, color: Colors.white),
-                  ),
-                  const Spacer(),
-                  Text(s.name,
+    Widget tile({required Key key, required Color color, required IconData icon, required String name,
+            required String detail, required VoidCallback onTap, VoidCallback? onLongPress, bool running = false}) =>
+        SizedBox(
+          width: 176,
+          child: NCard(
+            key: key,
+            glass: true,
+            inverted: running,
+            radius: 18,
+            padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+            onTap: onTap,
+            onLongPress: onLongPress,
+            child: Row(children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                child: Icon(icon, size: 19, color: color == KJPalette.accent || color.computeLuminance() < 0.6 ? Colors.white : Colors.black),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: NType.body(15, color: _running == s.id ? p.onTileOn : p.text, weight: 600)),
-                  Text(_sceneSubtitle(s),
+                      style: NType.body(14.5, color: running ? p.onTileOn : p.text, weight: 600, height: 1.2)),
+                  Text(detail,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: NType.body(12, color: _running == s.id ? p.onTileOn.withValues(alpha: 0.6) : p.textDim)),
+                      style: NType.body(12.5, color: running ? const Color(0x99000000) : p.textDim, height: 1.2)),
                 ]),
               ),
+            ]),
+          ),
+        );
+    return SizedBox(
+      height: 62,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        children: [
+          for (final s in store.scenes) ...[
+            tile(
+              key: Key('scene-${s.id}'),
+              color: sceneColor(s.icon),
+              icon: sceneIcon(s.icon),
+              name: s.name,
+              detail: _running == s.id ? 'Running...' : _sceneSubtitle(s),
+              running: _running == s.id,
+              onTap: () => _run(store, s),
+              onLongPress: () => showSceneSheet(context, s),
             ),
             const SizedBox(width: 10),
           ],
-          SizedBox(
-            width: 150,
-            child: NCard(
-              key: const Key('scene-new'),
-              padding: const EdgeInsets.all(14),
-              onTap: () => createScene(context),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(color: p.surfaceHigh, shape: BoxShape.circle),
-                  child: const Icon(Icons.add, size: 22, color: KJPalette.accent),
-                ),
-                const Spacer(),
-                Text('New scene', style: NType.body(15, color: p.text, weight: 600)),
-                Text('Turn things off or on', maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.body(12, color: p.textDim)),
-              ]),
-            ),
+          tile(
+            key: const Key('scene-new'),
+            color: p.surfaceHigh,
+            icon: Icons.add,
+            name: 'New scene',
+            detail: 'Turn things off or on',
+            onTap: () => createScene(context),
           ),
         ],
       ),

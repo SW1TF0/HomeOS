@@ -665,6 +665,19 @@ class _Hero extends StatelessWidget {
         onChangeEnd: (v) => store.command(d, DeviceCommand(position: v)),
       );
     }
+    if (d.has(Capability.brightness) && s.reachable) {
+      final on = s.on == true;
+      return PillSlider(
+        key: const Key('brightness-pill'),
+        semanticLabel: 'Brightness',
+        value: on ? (s.brightness ?? 1) : 0,
+        color: lightColor(d) ?? KJPalette.yellow,
+        icon: deviceIcon(d.kind, active: on),
+        onLive: (v) => store.command(d, levelCommand(d, v)),
+        onChangeEnd: (v) => store.command(d, levelCommand(d, v)),
+        onTap: () => store.toggle(d),
+      );
+    }
     if (d.has(Capability.onOff)) {
       return PowerOrb(on: s.on == true, icon: deviceIcon(d.kind, active: s.on == true), onTap: () => store.toggle(d));
     }
@@ -792,18 +805,23 @@ class _CameraNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    return AspectRatio(
-      aspectRatio: 16 / 9,
-      child: DecoratedBox(
-        decoration: BoxDecoration(color: p.surfaceHigh, borderRadius: BorderRadius.circular(22)),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(icon, size: 32, color: p.textDim),
-            const SizedBox(height: 12),
-            Text(text, textAlign: TextAlign.center, style: NType.body(14, color: p.text)),
-            if (action != null) ...[const SizedBox(height: 14), action!],
-          ]),
+    // At least as tall as a 16:9 picture, taller when the words need it.
+    return LayoutBuilder(
+      builder: (context, box) => ConstrainedBox(
+        constraints: BoxConstraints(minHeight: box.maxWidth * 9 / 16, minWidth: box.maxWidth),
+        child: DecoratedBox(
+          decoration: BoxDecoration(color: p.surfaceHigh, borderRadius: BorderRadius.circular(18)),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(icon, size: 32, color: p.textDim),
+                const SizedBox(height: 12),
+                Text(text, textAlign: TextAlign.center, style: NType.body(14, color: p.text)),
+                if (action != null) ...[const SizedBox(height: 14), action!],
+              ]),
+            ),
+          ),
         ),
       ),
     );

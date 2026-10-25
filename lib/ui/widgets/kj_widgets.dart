@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 
 import '../../models/device.dart';
@@ -47,7 +48,41 @@ class DotGrid extends StatelessWidget {
       );
 }
 
+/// Shrinks its child a little while a finger is down on it and springs back,
+/// like buttons and tiles on iOS. Never takes the touch from the child.
+class PressScale extends StatefulWidget {
+  const PressScale({super.key, required this.child, this.enabled = true, this.scale = 0.96});
+  final Widget child;
+  final bool enabled;
+  final double scale;
+
+  @override
+  State<PressScale> createState() => _PressScaleState();
+}
+
+class _PressScaleState extends State<PressScale> {
+  var _down = false;
+
+  void _set(bool v) {
+    if (widget.enabled && v != _down) setState(() => _down = v);
+  }
+
+  @override
+  Widget build(BuildContext context) => Listener(
+        onPointerDown: (_) => _set(true),
+        onPointerUp: (_) => _set(false),
+        onPointerCancel: (_) => _set(false),
+        child: AnimatedScale(
+          scale: _down ? widget.scale : 1,
+          duration: Duration(milliseconds: _down ? 90 : 260),
+          curve: _down ? Curves.easeOut : Curves.easeOutBack,
+          child: widget.child,
+        ),
+      );
+}
+
 /// A rounded card: white on the light theme with a soft shadow, dark grey on the dark one.
+/// [glass] makes it see-through, for cards laid on the home wallpaper.
 class NCard extends StatelessWidget {
   const NCard({
     super.key,
@@ -56,7 +91,8 @@ class NCard extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.inverted = false,
-    this.radius = 22,
+    this.glass = false,
+    this.radius = 18,
   });
 
   final Widget child;
@@ -64,33 +100,105 @@ class NCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final bool inverted;
+  final bool glass;
   final double radius;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-      decoration: BoxDecoration(
-        color: inverted ? p.tileOn : p.surface,
-        borderRadius: BorderRadius.circular(radius),
-        boxShadow: p.cardShadow,
-      ),
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
+    return PressScale(
+      enabled: onTap != null || onLongPress != null,
+      scale: 0.97,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          color: inverted ? p.tileOn : (glass ? p.glass : p.surface),
           borderRadius: BorderRadius.circular(radius),
-          onTap: onTap,
-          onLongPress: onLongPress,
-          child: Padding(padding: padding, child: child),
+          boxShadow: glass && !inverted ? const [] : p.cardShadow,
+        ),
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(radius),
+            onTap: onTap,
+            onLongPress: onLongPress,
+            child: Padding(padding: padding, child: child),
+          ),
         ),
       ),
     );
   }
 }
 
-/// Section header, like the room names in the site's phone demo.
+/// A round frosted button for the top of a screen, like the + and ... in Apple Home.
+class GlassButton extends StatelessWidget {
+  const GlassButton({super.key, required this.icon, required this.onPressed, this.tooltip, this.size = 36});
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final String? tooltip;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final button = Semantics(
+      button: true,
+      label: tooltip,
+      child: PressScale(
+        enabled: onPressed != null,
+        scale: 0.9,
+        child: GestureDetector(
+          onTap: onPressed,
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: p.isDark ? p.glass : p.surface, boxShadow: p.cardShadow),
+            child: Icon(icon, size: size * 0.5, color: p.text),
+          ),
+        ),
+      ),
+    );
+    return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
+  }
+}
+
+/// The soft coloured wallpaper behind the home screen, as in Apple Home.
+class HomeWallpaper extends StatelessWidget {
+  const HomeWallpaper({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final dark = p.isDark;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: dark
+              ? const [Color(0xFF1F2A3A), Color(0xFF12141C), Color(0xFF0B0B0F)]
+              : const [Color(0xFFDDE6F3), Color(0xFFEDEFF4), Color(0xFFF6F1EA)],
+        ),
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: const Alignment(0.9, -0.85),
+            radius: 1.1,
+            colors: dark
+                ? const [Color(0x40FF9F0A), Color(0x00FF9F0A)]
+                : const [Color(0x55FFD7A8), Color(0x00FFD7A8)],
+          ),
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// Section header, like the room names in Apple Home.
 class SectionLabel extends StatelessWidget {
   const SectionLabel(this.text, {super.key, this.trailing, this.accent = false});
   final String text;
@@ -104,7 +212,7 @@ class SectionLabel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
       child: Row(
         children: [
-          Expanded(child: Text(text, style: NType.body(17, color: p.text, weight: 600))),
+          Expanded(child: Text(text, style: NType.body(20, color: p.text, weight: 700))),
           ?trailing,
         ],
       ),
@@ -112,7 +220,7 @@ class SectionLabel extends StatelessWidget {
   }
 }
 
-/// The colour of a device kind's icon when it is on, as in the site's phone demo.
+/// The colour of a device kind's icon when it is on, as in Apple Home.
 Color kindColor(DeviceKind kind) => switch (kind) {
       DeviceKind.light => KJPalette.yellow,
       DeviceKind.climate || DeviceKind.humidifier => KJPalette.orange,
@@ -126,44 +234,44 @@ Color kindColor(DeviceKind kind) => switch (kind) {
     };
 
 IconData deviceIcon(DeviceKind kind, {bool active = false}) => switch (kind) {
-      DeviceKind.light => active ? Icons.lightbulb : Icons.lightbulb_outline,
-      DeviceKind.outlet => active ? Icons.power : Icons.power_outlined,
-      DeviceKind.toggle => active ? Icons.toggle_on : Icons.toggle_off_outlined,
-      DeviceKind.sensor => Icons.sensors,
-      DeviceKind.climate => Icons.device_thermostat,
-      DeviceKind.cover => active ? Icons.blinds : Icons.blinds_closed,
-      DeviceKind.fan => Icons.air,
-      DeviceKind.lock => active ? Icons.lock_open : Icons.lock_outline,
-      DeviceKind.media => active ? Icons.tv : Icons.tv_off_outlined,
-      DeviceKind.camera => Icons.videocam_outlined,
-      DeviceKind.vacuum => Icons.cleaning_services_outlined,
-      DeviceKind.mower => Icons.grass,
-      DeviceKind.purifier => Icons.cyclone,
-      DeviceKind.humidifier => active ? Icons.water_drop : Icons.water_drop_outlined,
-      DeviceKind.appliance => Icons.local_laundry_service_outlined,
-      DeviceKind.alarm => active ? Icons.shield : Icons.shield_outlined,
-      DeviceKind.valve => Icons.plumbing,
-      DeviceKind.siren => active ? Icons.campaign : Icons.campaign_outlined,
-      DeviceKind.garage => active ? Icons.garage : Icons.garage_outlined,
-      DeviceKind.button => active ? Icons.touch_app : Icons.touch_app_outlined,
-      DeviceKind.router => Icons.router_outlined,
-      DeviceKind.other => Icons.devices_other_outlined,
+      DeviceKind.light => active ? CupertinoIcons.lightbulb_fill : CupertinoIcons.lightbulb,
+      DeviceKind.outlet => CupertinoIcons.power,
+      DeviceKind.toggle => active ? CupertinoIcons.bolt_fill : CupertinoIcons.bolt,
+      DeviceKind.sensor => CupertinoIcons.gauge,
+      DeviceKind.climate => CupertinoIcons.thermometer,
+      DeviceKind.cover => active ? CupertinoIcons.rectangle_split_3x1 : CupertinoIcons.rectangle_split_3x1_fill,
+      DeviceKind.fan => CupertinoIcons.wind,
+      DeviceKind.lock => active ? CupertinoIcons.lock_open_fill : CupertinoIcons.lock_fill,
+      DeviceKind.media => active ? CupertinoIcons.tv_fill : CupertinoIcons.tv,
+      DeviceKind.camera => active ? CupertinoIcons.videocam_fill : CupertinoIcons.videocam,
+      DeviceKind.vacuum => Icons.cleaning_services_rounded,
+      DeviceKind.mower => CupertinoIcons.leaf_arrow_circlepath,
+      DeviceKind.purifier => CupertinoIcons.tornado,
+      DeviceKind.humidifier => active ? CupertinoIcons.drop_fill : CupertinoIcons.drop,
+      DeviceKind.appliance => Icons.local_laundry_service_rounded,
+      DeviceKind.alarm => active ? CupertinoIcons.shield_fill : CupertinoIcons.shield,
+      DeviceKind.valve => Icons.plumbing_rounded,
+      DeviceKind.siren => active ? CupertinoIcons.bell_fill : CupertinoIcons.bell,
+      DeviceKind.garage => Icons.garage_rounded,
+      DeviceKind.button => active ? CupertinoIcons.hand_point_right_fill : CupertinoIcons.hand_point_right,
+      DeviceKind.router => CupertinoIcons.wifi,
+      DeviceKind.other => active ? CupertinoIcons.cube_box_fill : CupertinoIcons.cube_box,
     };
 
 /// An icon for what a network device probably is ("iPhone or iPad", "Printer", "Computer or laptop").
 IconData iconForGuess(String what, String? kind) {
   final w = what.toLowerCase();
-  if (RegExp(r'phone|ipad|tablet').hasMatch(w)) return Icons.smartphone;
-  if (w.contains('printer')) return Icons.print_outlined;
-  if (RegExp(r'computer|laptop|\bmac\b').hasMatch(w)) return Icons.laptop;
+  if (RegExp(r'phone|ipad|tablet').hasMatch(w)) return CupertinoIcons.device_phone_portrait;
+  if (w.contains('printer')) return CupertinoIcons.printer;
+  if (RegExp(r'computer|laptop|\bmac\b').hasMatch(w)) return CupertinoIcons.device_laptop;
   if (w.contains('nas') || w.contains('storage')) return Icons.storage;
-  if (w.contains('console')) return Icons.sports_esports_outlined;
+  if (w.contains('console')) return CupertinoIcons.gamecontroller;
   if (w.contains('watch') || w.contains('fitness')) return Icons.watch_outlined;
-  if (w.contains('router') || w.contains('access point')) return Icons.router_outlined;
-  if (w.contains('speaker') || w.contains('echo')) return Icons.speaker_outlined;
-  if (w.contains('plug') || w.contains('bulb')) return Icons.power_outlined;
+  if (w.contains('router') || w.contains('access point')) return CupertinoIcons.wifi;
+  if (w.contains('speaker') || w.contains('echo')) return CupertinoIcons.speaker_2;
+  if (w.contains('plug') || w.contains('bulb')) return CupertinoIcons.power;
   final k = DeviceKind.values.asNameMap()[kind];
-  return k == null ? Icons.devices_other : deviceIcon(k);
+  return k == null ? CupertinoIcons.cube_box : deviceIcon(k);
 }
 
 /// "Cleaning", "Going home", "Armed away"... for [DeviceState.activity].
@@ -292,10 +400,12 @@ Color? lightColor(Device d) {
   return null;
 }
 
-/// Square device tile. Devices that are on turn white with a coloured icon,
-/// like the tiles in the site's phone demo.
-/// Tap switches it; a sideways drag sets its level (brightness, blind,
-/// volume) when [onLevelEnd] is given; the arrow opens all its controls.
+/// Apple Home accessory tile: a wide rounded tile with the icon in a circle on
+/// the left and the name and state beside it. Off it is frosted glass, on it
+/// turns white with a coloured icon, and a level (brightness, blind, volume)
+/// fills it from the left.
+/// Tap switches it; a sideways drag sets its level when [onLevelEnd] is
+/// given; the arrow opens all its controls.
 class DeviceTile extends StatefulWidget {
   const DeviceTile({
     super.key,
@@ -307,6 +417,9 @@ class DeviceTile extends StatefulWidget {
     this.onLevel,
     this.onLevelEnd,
   });
+
+  /// Height of a tile in a grid.
+  static const height = 76.0;
 
   final Device device;
   final VoidCallback onTap;
@@ -369,120 +482,114 @@ class _DeviceTileState extends State<DeviceTile> {
     final d = widget.device;
     final level = _drag ?? _level;
     final active = d.state.isActive && d.state.reachable;
-    final fg = active ? p.onTileOn : p.text;
-    final dim = active ? p.onTileOn.withValues(alpha: 0.55) : p.textDim;
+    final lit = active || _drag != null;
+    final fg = lit ? p.onTileOn : p.text;
+    final dim = lit ? const Color(0x99000000) : p.textDim;
     final glow = lightColor(d);
-    final iconBg = active ? (glow ?? kindColor(d.kind)) : (p.isDark ? p.surfaceHigh : Colors.white);
+    final tint = glow ?? kindColor(d.kind);
+    final iconBg = active ? tint : (lit ? const Color(0x14000000) : p.text.withValues(alpha: p.isDark ? 0.14 : 0.08));
+    const radius = BorderRadius.all(Radius.circular(18));
     final tile = AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 240),
       curve: Curves.easeOut,
       decoration: BoxDecoration(
-        color: active ? p.tileOn : p.tileOff,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: active ? p.cardShadow : const [],
+        color: lit ? p.tileOn : p.tileOff,
+        borderRadius: radius,
+        boxShadow: lit ? p.cardShadow : const [],
       ),
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: widget.onTap,
-          onLongPress: widget.onLongPress,
-          child: Padding(
-      padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Stack(clipBehavior: Clip.none, children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: iconBg,
-                    border: active && glow != null && glow.computeLuminance() > 0.8
-                        ? Border.all(color: Colors.black.withValues(alpha: 0.1))
-                        : null,
-                  ),
-                  child: Icon(
-                    deviceIcon(d.kind, active: active),
-                    size: 20,
-                    color: active ? (iconBg.computeLuminance() > 0.6 ? p.onTileOn : Colors.white) : p.textDim,
-                  ),
-                ),
-                if (!d.state.reachable)
-                  Positioned(
-                    right: -2,
-                    top: -2,
-                    child: Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: KJPalette.danger,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: p.surface, width: 2),
-                      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            borderRadius: radius,
+            onTap: widget.onTap,
+            onLongPress: widget.onLongPress,
+            child: Stack(children: [
+              // The level fills the tile from the left, like the sliders in Control Center.
+              if (level != null && lit)
+                Positioned.fill(
+                  child: FractionallySizedBox(
+                    alignment: Alignment.centerLeft,
+                    widthFactor: level.clamp(0.0, 1.0),
+                    child: AnimatedContainer(
+                      duration: Duration(milliseconds: _drag != null ? 0 : 240),
+                      color: tint.withValues(alpha: 0.16),
                     ),
                   ),
-              ]),
-              const Spacer(),
-              if (widget.onOpen != null)
-                Semantics(
-                  button: true,
-                  label: 'All controls',
-                  child: GestureDetector(
-                    key: Key('open-${d.id}'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: widget.onOpen,
-                    child: SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: Align(
-                        alignment: Alignment.topRight,
+                ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 0, 8),
+                child: Row(children: [
+                  Stack(clipBehavior: Clip.none, children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 240),
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: iconBg,
+                        border: active && glow != null && glow.computeLuminance() > 0.8
+                            ? Border.all(color: Colors.black.withValues(alpha: 0.1))
+                            : null,
+                      ),
+                      child: Icon(
+                        deviceIcon(d.kind, active: active),
+                        size: 19,
+                        color: active ? (iconBg.computeLuminance() > 0.6 ? p.onTileOn : Colors.white) : dim,
+                      ),
+                    ),
+                    if (!d.state.reachable)
+                      Positioned(
+                        right: -2,
+                        top: -2,
                         child: Container(
-                          width: 30,
-                          height: 30,
+                          width: 13,
+                          height: 13,
                           decoration: BoxDecoration(
+                            color: KJPalette.danger,
                             shape: BoxShape.circle,
-                            color: active ? Colors.black.withValues(alpha: 0.05) : p.text.withValues(alpha: 0.06),
+                            border: Border.all(color: p.isDark ? const Color(0xFF3A3A3C) : Colors.white, width: 2),
                           ),
-                          child: Icon(Icons.chevron_right, size: 18, color: dim),
+                        ),
+                      ),
+                  ]),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(d.name,
+                          maxLines: 2, overflow: TextOverflow.ellipsis, style: NType.body(14, color: fg, weight: 600, height: 1.15)),
+                      const SizedBox(height: 1),
+                      Text(_drag != null ? levelLabel(d, _drag!) : (widget.subtitle ?? describeState(d)),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: NType.body(12.5, color: d.state.reachable ? dim : KJPalette.danger, height: 1.15)),
+                    ]),
+                  ),
+                  if (widget.onOpen != null)
+                    Semantics(
+                      button: true,
+                      label: 'All controls',
+                      child: GestureDetector(
+                        key: Key('open-${d.id}'),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: widget.onOpen,
+                        child: SizedBox(
+                          width: 26,
+                          height: 56,
+                          child: Icon(CupertinoIcons.chevron_right, size: 13, color: dim.withValues(alpha: 0.5)),
                         ),
                       ),
                     ),
-                  ),
-                ),
-            ],
-          ),
-          const Spacer(),
-          Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: Text(d.name,
-                maxLines: 2, overflow: TextOverflow.ellipsis, style: NType.body(15, color: fg, weight: 600, height: 1.15)),
-          ),
-          const SizedBox(height: 3),
-          Text(_drag != null ? levelLabel(d, _drag!) : (widget.subtitle ?? describeState(d)),
-              maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.body(12.5, color: dim)),
-          if (level != null) ...[
-            const SizedBox(height: 9),
-            Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: LevelBar(
-                value: level,
-                color: active ? (glow ?? kindColor(d.kind)) : p.textDim,
-                track: active ? Colors.black.withValues(alpha: 0.08) : p.text.withValues(alpha: 0.1),
+                ]),
               ),
-            ),
-          ],
-        ],
-      ),
+            ]),
           ),
         ),
       ),
     );
-    if (level == null) return tile;
+    final pressable = PressScale(child: tile);
+    if (level == null) return pressable;
     final pct = (level * 100).round();
     return Semantics(
       value: '$pct%',
@@ -495,11 +602,19 @@ class _DeviceTileState extends State<DeviceTile> {
         onHorizontalDragUpdate: _update,
         onHorizontalDragEnd: (_) => _end(),
         onHorizontalDragCancel: _end,
-        child: tile,
+        child: pressable,
       ),
     );
   }
 }
+
+/// A grid of [DeviceTile]s: two across on a phone, more on wider screens.
+SliverGridDelegate deviceGridDelegate(double width) => SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: (width / 190).floor().clamp(2, 6),
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
+      mainAxisExtent: DeviceTile.height,
+    );
 
 /// A slider with a round white knob on a thick track. [onChanged] fires while dragging,
 /// [onChangeEnd] once when the finger lifts (send that to the device).

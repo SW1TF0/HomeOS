@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -35,7 +36,7 @@ class HomeScreen extends StatelessWidget {
     final favorites = store.favorites;
     final active = store.activeCount;
 
-    return LayoutBuilder(builder: (context, c) {
+    return HomeWallpaper(child: LayoutBuilder(builder: (context, c) {
       final columns = (c.maxWidth / 190).floor().clamp(2, 6);
       return CustomScrollView(
         slivers: [
@@ -44,14 +45,13 @@ class HomeScreen extends StatelessWidget {
             sliver: SliverList.list(children: [
               Row(children: [
                 const Expanded(child: _Clock()),
-                IconButton(
+                GlassButton(
                   key: const Key('home-edit'),
                   tooltip: 'Edit home',
                   onPressed: () => showHomeEditor(context),
-                  style: IconButton.styleFrom(backgroundColor: p.surfaceHigh, foregroundColor: p.text),
-                  icon: const Icon(Icons.tune, size: 20),
+                  icon: CupertinoIcons.ellipsis,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 const ProfileButton(),
               ]),
               const SizedBox(height: 6),
@@ -64,8 +64,8 @@ class HomeScreen extends StatelessWidget {
                     child: Text(store.homeName,
                         maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.display(34, color: p.text)),
                   ),
-                  const SizedBox(width: 4),
-                  Icon(Icons.keyboard_arrow_down_rounded, size: 28, color: p.textDim),
+                  const SizedBox(width: 6),
+                  Icon(CupertinoIcons.chevron_down, size: 18, color: p.textDim),
                 ]),
               ),
               const SizedBox(height: 6),
@@ -102,6 +102,7 @@ class HomeScreen extends StatelessWidget {
                 const SizedBox(height: 18),
                 NCard(
                   key: const Key('sample-cleanup'),
+                  glass: true,
                   padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
                   child: Row(children: [
                     const Icon(Icons.blur_on),
@@ -134,6 +135,7 @@ class HomeScreen extends StatelessWidget {
               if (favorites.isEmpty)
                 NCard(
                   key: const Key('favourites-empty'),
+                  glass: true,
                   onTap: () => pickFavorites(context),
                   padding: const EdgeInsets.all(16),
                   child: Row(children: [
@@ -151,12 +153,10 @@ class HomeScreen extends StatelessWidget {
           if (favorites.isNotEmpty)
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              sliver: SliverGrid.count(
-                crossAxisCount: columns,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 1.05,
-                children: [for (final d in favorites) DeviceCard(device: d, subtitle: _withRoom(store, d))],
+              sliver: SliverGrid(
+                gridDelegate: deviceGridDelegate(c.maxWidth - 40),
+                delegate: SliverChildListDelegate(
+                    [for (final d in favorites) DeviceCard(device: d, subtitle: _withRoom(store, d))]),
               ),
             ),
           SliverPadding(
@@ -174,6 +174,7 @@ class HomeScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               sliver: SliverToBoxAdapter(
                 child: NCard(
+                  glass: true,
                   onTap: () => nav.openMap(edit: true),
                   padding: const EdgeInsets.all(16),
                   child: Row(children: [
@@ -191,15 +192,15 @@ class HomeScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
             sliver: SliverGrid.count(
               crossAxisCount: (columns / 1.5).ceil().clamp(1, 4),
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
               childAspectRatio: 1.6,
               children: [for (final r in store.rooms) _RoomCard(room: r)],
             ),
           ),
         ],
       );
-    });
+    }));
   }
 
   static String _withRoom(HomeStore store, Device d) {
@@ -248,9 +249,10 @@ class _AwayCard extends StatelessWidget {
       padding: const EdgeInsets.only(top: 14),
       child: NCard(
         key: const Key('away-card'),
+        glass: true,
         padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
         child: Row(children: [
-          const Icon(Icons.wifi_off, color: KJPalette.danger),
+          const Icon(CupertinoIcons.wifi_slash, color: KJPalette.danger),
           const SizedBox(width: 14),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -278,7 +280,7 @@ class _HeaderAction extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-          child: Text(label, style: NType.body(15, color: KJPalette.accent, weight: 500)),
+          child: Text(label, style: NType.body(17, color: KJPalette.accent)),
         ),
       );
 }
@@ -366,8 +368,10 @@ class _StatusStrip extends StatelessWidget {
       if (danger.isNotEmpty)
         _Pill(
           key: const Key('status-danger'),
-          icon: Icons.warning_amber_rounded,
-          label: '${danger.first.name}: ${danger.first.state.readings.values.firstWhere((v) => v.endsWith('!'))}'
+          icon: CupertinoIcons.exclamationmark_triangle_fill,
+          color: KJPalette.danger,
+          title: danger.first.name,
+          detail: '${danger.first.state.readings.values.firstWhere((v) => v.endsWith('!'))}'
               '${danger.length > 1 ? ' +${danger.length - 1}' : ''}',
           alert: true,
           onTap: () => danger.length == 1
@@ -377,22 +381,27 @@ class _StatusStrip extends StatelessWidget {
       if (cloud.away)
         _Pill(
           key: const Key('status-away'),
-          icon: Icons.public,
-          label: 'Away · through ${cloud.hubName ?? 'home device'}',
+          icon: CupertinoIcons.globe,
+          color: KJPalette.accent,
+          title: 'Away',
+          detail: 'through ${cloud.hubName ?? 'home device'}',
           onTap: () => showAccountSheet(context),
         ),
       _Pill(
         key: const Key('home-all-off'),
-        icon: Icons.power_settings_new,
-        label: 'All off',
-        filled: anyOn,
+        icon: CupertinoIcons.power,
+        color: anyOn ? KJPalette.danger : KJPalette.green,
+        title: 'All off',
+        detail: anyOn ? '${store.activeCount} on' : 'Everything off',
         onTap: anyOn ? store.allOff : null,
       ),
       if (lights.isNotEmpty)
         _Pill(
           key: const Key('status-lights'),
-          icon: litCount > 0 ? Icons.lightbulb : Icons.lightbulb_outline,
-          label: litCount == 0 ? 'Lights off' : '$litCount light${litCount == 1 ? '' : 's'} on',
+          icon: litCount > 0 ? CupertinoIcons.lightbulb_fill : CupertinoIcons.lightbulb,
+          color: KJPalette.yellow,
+          title: 'Lights',
+          detail: litCount == 0 ? 'Off' : '$litCount on',
           onTap: () => showDeviceListSheet(context,
               title: 'Lights',
               select: (s) => s.devices.where((d) => d.kind == DeviceKind.light).toList()
@@ -403,30 +412,36 @@ class _StatusStrip extends StatelessWidget {
       if (temp != null)
         _Pill(
           key: const Key('status-temp'),
-          icon: Icons.device_thermostat,
-          label: '${temp.toStringAsFixed(1)}° inside',
+          icon: CupertinoIcons.thermometer,
+          color: KJPalette.orange,
+          title: 'Climate',
+          detail: '${temp.toStringAsFixed(1)}° inside',
           onTap: () => showDeviceListSheet(context,
               title: 'Climate', select: (s) => s.devices.where((d) => temperatureOf(d) != null || d.kind == DeviceKind.climate).toList()),
         ),
       if (locks.isNotEmpty)
         _Pill(
           key: const Key('status-locks'),
-          icon: unlocked > 0 ? Icons.lock_open : Icons.lock_outline,
-          label: unlocked == 0 ? (locks.length == 1 ? 'Locked' : 'All locked') : '$unlocked unlocked',
+          icon: unlocked > 0 ? CupertinoIcons.lock_open_fill : CupertinoIcons.lock_fill,
+          color: KJPalette.teal,
+          title: 'Locks',
+          detail: unlocked == 0 ? (locks.length == 1 ? 'Locked' : 'All locked') : '$unlocked unlocked',
           alert: unlocked > 0,
           onTap: () => showDeviceListSheet(context,
               title: 'Locks',
               select: (s) => s.devices.where((d) => d.kind == DeviceKind.lock).toList(),
               actionLabel: 'Lock all',
-              actionIcon: Icons.lock_outline,
+              actionIcon: CupertinoIcons.lock,
               action: (s, list) => Future.wait(list.map((d) => s.command(d, const DeviceCommand(locked: true))))),
         ),
       if (alarms.isNotEmpty)
         _Pill(
           key: const Key('status-alarm'),
-          icon: sounding.isNotEmpty ? Icons.notifications_active : (armed.isEmpty ? Icons.shield_outlined : Icons.shield),
-          label: sounding.isNotEmpty
-              ? '${sounding.first.name}: ${activityLabel(DeviceKind.alarm, sounding.first.state.activity)}'
+          icon: sounding.isNotEmpty ? CupertinoIcons.bell_fill : (armed.isEmpty ? CupertinoIcons.shield : CupertinoIcons.shield_fill),
+          color: KJPalette.teal,
+          title: sounding.isNotEmpty ? sounding.first.name : 'Security',
+          detail: sounding.isNotEmpty
+              ? activityLabel(DeviceKind.alarm, sounding.first.state.activity)
               : armed.isEmpty
                   ? 'Alarm off'
                   : (alarms.length == 1 ? activityLabel(DeviceKind.alarm, armed.first.state.activity) : '${armed.length} armed'),
@@ -438,20 +453,24 @@ class _StatusStrip extends StatelessWidget {
       if (covers.isNotEmpty)
         _Pill(
           key: const Key('status-blinds'),
-          icon: open > 0 ? Icons.blinds : Icons.blinds_closed,
-          label: open == 0 ? 'Blinds closed' : '$open blind${open == 1 ? '' : 's'} open',
+          icon: deviceIcon(DeviceKind.cover, active: open > 0),
+          color: KJPalette.teal,
+          title: 'Blinds',
+          detail: open == 0 ? 'Closed' : '$open open',
           onTap: () => showDeviceListSheet(context,
               title: 'Blinds',
               select: (s) => s.devices.where((d) => d.kind == DeviceKind.cover).toList(),
               actionLabel: 'Close all',
-              actionIcon: Icons.blinds_closed,
+              actionIcon: deviceIcon(DeviceKind.cover),
               action: (s, list) => Future.wait(list.map((d) => s.command(d, const DeviceCommand(position: 0))))),
         ),
       if (playing.isNotEmpty)
         _Pill(
           key: const Key('status-media'),
-          icon: Icons.tv,
-          label: playing.length == 1 ? '${playing.first.name} on' : '${playing.length} playing',
+          icon: CupertinoIcons.tv_fill,
+          color: KJPalette.purple,
+          title: 'Media',
+          detail: playing.length == 1 ? '${playing.first.name} on' : '${playing.length} playing',
           onTap: () => showDeviceListSheet(context,
               title: 'Media',
               select: (s) => s.devices.where((d) => d.kind == DeviceKind.media).toList(),
@@ -462,17 +481,19 @@ class _StatusStrip extends StatelessWidget {
         _Pill(
           key: const Key('status-robots'),
           icon: deviceIcon(working.first.kind),
-          label: stuck.isNotEmpty
-              ? '${stuck.first.name} needs help'
+          color: KJPalette.indigo,
+          title: stuck.isNotEmpty ? stuck.first.name : (working.length == 1 ? working.first.name : 'Robots'),
+          detail: stuck.isNotEmpty
+              ? 'Needs help'
               : (working.length == 1
-                  ? '${working.first.name}: ${activityLabel(working.first.kind, working.first.state.activity).toLowerCase()}'
-                  : '${working.length} robots at work'),
+                  ? activityLabel(working.first.kind, working.first.state.activity)
+                  : '${working.length} at work'),
           alert: stuck.isNotEmpty,
           onTap: () => showDeviceListSheet(context,
               title: 'Robots',
               select: (s) => s.devices.where(isRobot).toList(),
               actionLabel: 'All go home',
-              actionIcon: Icons.home_outlined,
+              actionIcon: CupertinoIcons.house,
               action: (s, list) => Future.wait(list
                   .where((d) => d.has(Capability.dock))
                   .map((d) => s.command(d, const DeviceCommand(action: DeviceAction.dock))))),
@@ -480,8 +501,10 @@ class _StatusStrip extends StatelessWidget {
       if (offline > 0)
         _Pill(
           key: const Key('status-offline'),
-          icon: Icons.wifi_off,
-          label: '$offline not responding',
+          icon: CupertinoIcons.wifi_exclamationmark,
+          color: KJPalette.danger,
+          title: 'Not responding',
+          detail: counted(offline, 'device'),
           alert: true,
           onTap: () => showDeviceListSheet(context,
               title: 'Not responding',
@@ -499,41 +522,57 @@ class _StatusStrip extends StatelessWidget {
   }
 }
 
+/// A status capsule as at the top of Apple Home: a coloured icon, a bold
+/// title and what is going on underneath.
 class _Pill extends StatelessWidget {
-  const _Pill(
-      {super.key, required this.icon, required this.label, required this.onTap, this.alert = false, this.filled = false});
+  const _Pill({
+    super.key,
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.detail,
+    required this.onTap,
+    this.alert = false,
+  });
   final IconData icon;
-  final String label;
+  final Color color;
+  final String title;
+  final String detail;
   final VoidCallback? onTap;
   final bool alert;
-
-  /// Drawn inverted, for the one action pill (All off).
-  final bool filled;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    final color = filled
-        ? p.background
-        : (alert ? KJPalette.danger : (onTap == null ? p.textDim : p.text));
     return Semantics(
       button: true,
       enabled: onTap != null,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
-          decoration: BoxDecoration(
-            color: filled ? p.text : p.surface,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: filled ? p.text : (alert ? KJPalette.danger : p.border)),
+      child: PressScale(
+        enabled: onTap != null,
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
+            decoration: BoxDecoration(
+              color: p.glass,
+              borderRadius: BorderRadius.circular(999),
+              border: alert ? Border.all(color: KJPalette.danger.withValues(alpha: 0.7)) : null,
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(shape: BoxShape.circle, color: color.withValues(alpha: 0.18)),
+                child: Icon(icon, size: 16, color: onTap == null ? p.textDim : color),
+              ),
+              const SizedBox(width: 8),
+              Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Text(title, style: NType.body(13, color: p.text, weight: 600, height: 1.2)),
+                Text(detail, style: NType.body(12.5, color: alert ? KJPalette.danger : p.textDim, height: 1.2)),
+              ]),
+            ]),
           ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 7),
-            Text(label, style: NType.body(13, color: color, weight: 500)),
-          ]),
         ),
       ),
     );
@@ -555,6 +594,7 @@ class _RoomCard extends StatelessWidget {
     final temp = averageTemperature(devices);
     return NCard(
       key: Key('room-card-${room.id}'),
+      glass: true,
       onTap: () => showRoomSheet(context, room.id),
       padding: const EdgeInsets.fromLTRB(16, 12, 10, 14),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -582,10 +622,10 @@ class _RoomCard extends StatelessWidget {
                     height: 34,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: anyOn ? p.text : Colors.transparent,
-                      border: Border.all(color: anyOn ? p.text : p.border),
+                      color: anyOn ? KJPalette.yellow : p.text.withValues(alpha: p.isDark ? 0.14 : 0.08),
                     ),
-                    child: Icon(Icons.power_settings_new, size: 17, color: anyOn ? p.background : p.text),
+                    child: Icon(anyOn ? CupertinoIcons.lightbulb_fill : CupertinoIcons.lightbulb,
+                        size: 17, color: anyOn ? Colors.black : p.text),
                   ),
                 ),
               ),
@@ -602,7 +642,7 @@ class _RoomCard extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: !devices[i].state.reachable
                     ? KJPalette.danger
-                    : (devices[i].state.isActive ? p.text : p.border),
+                    : (devices[i].state.isActive ? kindColor(devices[i].kind) : p.text.withValues(alpha: 0.18)),
               ),
             ),
         ]),

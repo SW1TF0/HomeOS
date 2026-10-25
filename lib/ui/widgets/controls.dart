@@ -884,3 +884,132 @@ class RobotOrb extends StatelessWidget {
     );
   }
 }
+
+// ---- Apple Home pill ------------------------------------------------------------
+
+/// The tall rounded slider of Apple Home: it fills from the bottom with the
+/// light's colour. Drag up or down to set the level, tap to switch on or off.
+class PillSlider extends StatefulWidget {
+  const PillSlider({
+    super.key,
+    required this.value,
+    required this.color,
+    required this.icon,
+    required this.onChangeEnd,
+    this.onLive,
+    this.onTap,
+    this.semanticLabel,
+    this.width = 116,
+    this.height = 280,
+  });
+
+  final double value;
+  final Color color;
+  final IconData icon;
+  final ValueChanged<double> onChangeEnd;
+
+  /// Called a few times a second while dragging, for devices that follow the finger.
+  final ValueChanged<double>? onLive;
+  final VoidCallback? onTap;
+  final String? semanticLabel;
+  final double width;
+  final double height;
+
+  @override
+  State<PillSlider> createState() => _PillSliderState();
+}
+
+class _PillSliderState extends State<PillSlider> {
+  double? _drag;
+  double _from = 0;
+  double _dy = 0;
+  late final _sender = LiveSender<double>((v) => widget.onLive?.call(v));
+
+  @override
+  void dispose() {
+    _sender.cancel();
+    super.dispose();
+  }
+
+  void _start(DragStartDetails _) {
+    _from = widget.value.clamp(0.0, 1.0);
+    _dy = 0;
+    Haptics.selectionClick();
+    setState(() => _drag = _from);
+  }
+
+  void _update(DragUpdateDetails d) {
+    _dy -= d.delta.dy;
+    final v = (_from + _dy / widget.height).clamp(0.0, 1.0);
+    if (v == _drag) return;
+    if (v == 0 || v == 1) Haptics.selectionClick();
+    setState(() => _drag = v);
+    if (widget.onLive != null) _sender.add(v);
+  }
+
+  void _end() {
+    final v = _drag;
+    _sender.cancel();
+    if (v == null) return;
+    setState(() => _drag = null);
+    widget.onChangeEnd(v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final v = (_drag ?? widget.value).clamp(0.0, 1.0);
+    final pct = (v * 100).round();
+    final radius = BorderRadius.circular(widget.width * 0.3);
+    final iconOnFill = v > 0.18;
+    return Semantics(
+      slider: true,
+      label: widget.semanticLabel,
+      value: '$pct%',
+      increasedValue: '${math.min(100, pct + 10)}%',
+      decreasedValue: '${math.max(0, pct - 10)}%',
+      onIncrease: () => widget.onChangeEnd(math.min(1, v + 0.1)),
+      onDecrease: () => widget.onChangeEnd(math.max(0, v - 0.1)),
+      child: GestureDetector(
+        onVerticalDragStart: _start,
+        onVerticalDragUpdate: _update,
+        onVerticalDragEnd: (_) => _end(),
+        onVerticalDragCancel: _end,
+        onTap: widget.onTap,
+        child: PressScale(
+          scale: 0.98,
+          child: Container(
+            width: widget.width,
+            height: widget.height,
+            decoration: BoxDecoration(
+              color: p.isDark ? const Color(0xFF3A3A3C) : const Color(0xFFDCDCE0),
+              borderRadius: radius,
+              boxShadow: p.cardShadow,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(children: [
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: AnimatedContainer(
+                  duration: Duration(milliseconds: _drag != null ? 0 : 260),
+                  curve: Curves.easeOutCubic,
+                  height: widget.height * v,
+                  width: double.infinity,
+                  color: widget.color,
+                ),
+              ),
+              Align(
+                alignment: const Alignment(0, 0.78),
+                child: Icon(widget.icon,
+                    size: 30,
+                    color: iconOnFill
+                        ? (widget.color.computeLuminance() > 0.55 ? const Color(0xCC000000) : Colors.white)
+                        : p.textDim),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
+}

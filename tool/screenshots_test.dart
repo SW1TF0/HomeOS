@@ -34,6 +34,12 @@ Future<void> _loadFonts() async {
       ..addFont(Future.value(ByteData.sublistView(icons.readAsBytesSync())));
     await loader.load();
   }
+  final cupertino = File('${Platform.environment['HOME']}/.pub-cache/hosted/pub.dev/cupertino_icons-1.0.9/assets/CupertinoIcons.ttf');
+  if (cupertino.existsSync()) {
+    final loader = FontLoader('packages/cupertino_icons/CupertinoIcons')
+      ..addFont(Future.value(ByteData.sublistView(cupertino.readAsBytesSync())));
+    await loader.load();
+  }
 }
 
 Future<HomeStore> _app(WidgetTester tester, Size size,

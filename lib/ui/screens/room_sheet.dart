@@ -149,14 +149,11 @@ class DeviceGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
-        final columns = (c.maxWidth / 175).floor().clamp(2, 4);
-        return GridView.count(
+        return GridView(
           shrinkWrap: true,
+          padding: EdgeInsets.zero,
           physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: columns,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: aspect,
+          gridDelegate: deviceGridDelegate(c.maxWidth),
           children: [for (final d in devices) DeviceCard(device: d)],
         );
       });

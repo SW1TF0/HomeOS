@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -46,20 +47,19 @@ class _DevicesScreenState extends State<DevicesScreen> {
     final kinds = store.devices.map((d) => d.kind).toSet().toList()..sort((a, b) => a.index.compareTo(b.index));
 
     return LayoutBuilder(builder: (context, c) {
-      final columns = (c.maxWidth / 190).floor().clamp(2, 6);
       return CustomScrollView(slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
           sliver: SliverList.list(children: [
             Row(children: [
               const Expanded(child: DisplayText('Devices', size: 34)),
-              FilledButton.icon(
+              GlassButton(
                 key: const Key('add-device'),
+                tooltip: 'Add a device',
                 onPressed: () => _addDevice(context, store),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add'),
+                icon: CupertinoIcons.add,
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 10),
               const ProfileButton(),
             ]),
             const SizedBox(height: 4),
@@ -67,7 +67,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                 style: NType.body(14, color: p.textDim)),
             const SizedBox(height: 16),
             TextField(
-              decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search devices or rooms'),
+              decoration: const InputDecoration(prefixIcon: Icon(CupertinoIcons.search, size: 20), hintText: 'Search devices or rooms'),
               onChanged: (v) => setState(() => _query = v),
             ),
             const SizedBox(height: 12),
@@ -111,12 +111,9 @@ class _DevicesScreenState extends State<DevicesScreen> {
           ),
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            sliver: SliverGrid.count(
-              crossAxisCount: columns,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.05,
-              children: [for (final d in entry.value) DeviceCard(device: d)],
+            sliver: SliverGrid(
+              gridDelegate: deviceGridDelegate(c.maxWidth - 40),
+              delegate: SliverChildListDelegate([for (final d in entry.value) DeviceCard(device: d)]),
             ),
           ),
         ],

@@ -1,3 +1,6 @@
+import 'dart:ui' show ImageFilter;
+
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -39,6 +42,7 @@ class SmartMenuApp extends StatelessWidget {
         builder: (context, store, _) => MaterialApp(
           title: 'SmartHomeKJ',
           debugShowCheckedModeBanner: false,
+          scrollBehavior: const _AppleScroll(),
           theme: buildAppTheme(Brightness.light),
           darkTheme: buildAppTheme(Brightness.dark),
           themeMode: switch (store.themeMode) {
@@ -53,6 +57,17 @@ class SmartMenuApp extends StatelessWidget {
   }
 }
 
+/// iOS scrolling everywhere: lists stretch and bounce back at their ends.
+class _AppleScroll extends MaterialScrollBehavior {
+  const _AppleScroll();
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) => const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics());
+
+  @override
+  Widget buildOverscrollIndicator(BuildContext context, Widget child, ScrollableDetails details) => child;
+}
+
 class _Tab {
   const _Tab(this.label, this.icon, this.activeIcon);
   final String label;
@@ -61,10 +76,10 @@ class _Tab {
 }
 
 const _tabs = [
-  _Tab('Home', Icons.home_outlined, Icons.home_rounded),
-  _Tab('Map', Icons.grid_view_outlined, Icons.grid_view_rounded),
-  _Tab('Devices', Icons.lightbulb_outline, Icons.lightbulb),
-  _Tab('Connect', Icons.wifi_tethering, Icons.wifi_tethering),
+  _Tab('Home', CupertinoIcons.house, CupertinoIcons.house_fill),
+  _Tab('Map', CupertinoIcons.square_grid_2x2, CupertinoIcons.square_grid_2x2_fill),
+  _Tab('Devices', CupertinoIcons.lightbulb, CupertinoIcons.lightbulb_fill),
+  _Tab('Connect', CupertinoIcons.antenna_radiowaves_left_right, CupertinoIcons.antenna_radiowaves_left_right),
 ];
 
 class AppShell extends StatefulWidget {
@@ -145,14 +160,20 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             child: Row(children: [
               Container(
                 width: 92,
-                decoration: BoxDecoration(color: p.surface, border: Border(right: BorderSide(color: p.border))),
+                decoration: BoxDecoration(
+                    color: p.isDark ? p.surface : const Color(0xFFF9F9F9),
+                    border: Border(right: BorderSide(color: p.border, width: 0.5))),
                 child: Column(children: [
                   const SizedBox(height: 22),
                   Container(
                     width: 44,
                     height: 44,
-                    decoration: BoxDecoration(color: p.text, borderRadius: BorderRadius.circular(12)),
-                    child: Icon(Icons.home_rounded, color: p.background, size: 26),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                          begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF4DA3FF), Color(0xFF007AFF)]),
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: const Icon(CupertinoIcons.house_fill, color: Colors.white, size: 24),
                   ),
                   const SizedBox(height: 6),
                   const DisplayText('KJ', size: 15),
@@ -183,7 +204,8 @@ class _RailItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    return InkWell(
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -198,6 +220,7 @@ class _RailItem extends StatelessWidget {
   }
 }
 
+/// The iOS tab bar: frosted, a hairline on top, filled icons for the open tab.
 class _BottomBar extends StatelessWidget {
   const _BottomBar({required this.selected, required this.onTap});
   final int selected;
@@ -206,30 +229,46 @@ class _BottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    return Container(
-      decoration: BoxDecoration(
-          color: p.isDark ? const Color(0xF20D0D0D) : const Color(0xF2FFFFFF),
-          border: Border(top: BorderSide(color: p.border.withValues(alpha: 0.6), width: 0.5))),
-      child: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: 64,
-          child: Row(children: [
-            for (var i = 0; i < _tabs.length; i++)
-              Expanded(
-                child: InkWell(
-                  key: Key('tab-${_tabs[i].label.toLowerCase()}'),
-                  onTap: () => onTap(i),
-                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Icon(i == selected ? _tabs[i].activeIcon : _tabs[i].icon,
-                        size: 24, color: i == selected ? KJPalette.accent : p.textDim),
-                    const SizedBox(height: 4),
-                    Text(_tabs[i].label,
-                        style: NType.body(11, color: i == selected ? KJPalette.accent : p.textDim, weight: 500)),
-                  ]),
-                ),
-              ),
-          ]),
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+        child: Container(
+          decoration: BoxDecoration(
+              color: p.isDark ? const Color(0xE6161618) : const Color(0xEBF9F9F9),
+              border: Border(top: BorderSide(color: p.isDark ? const Color(0x33FFFFFF) : const Color(0x4D000000), width: 0.33))),
+          child: SafeArea(
+            top: false,
+            child: SizedBox(
+              height: 56,
+              child: Row(children: [
+                for (var i = 0; i < _tabs.length; i++)
+                  Expanded(
+                    child: GestureDetector(
+                      key: Key('tab-${_tabs[i].label.toLowerCase()}'),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => onTap(i),
+                      child: Semantics(
+                        button: true,
+                        selected: i == selected,
+                        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          AnimatedScale(
+                            scale: i == selected ? 1.08 : 1,
+                            duration: const Duration(milliseconds: 220),
+                            curve: Curves.easeOutBack,
+                            child: Icon(i == selected ? _tabs[i].activeIcon : _tabs[i].icon,
+                                size: 25, color: i == selected ? KJPalette.accent : const Color(0xFF8E8E93)),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(_tabs[i].label,
+                              style: NType.body(10.5,
+                                  color: i == selected ? KJPalette.accent : const Color(0xFF8E8E93), weight: 500)),
+                        ]),
+                      ),
+                    ),
+                  ),
+              ]),
+            ),
+          ),
         ),
       ),
     );

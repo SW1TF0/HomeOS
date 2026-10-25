@@ -57,6 +57,16 @@ Future<void> scrollHomeTo(WidgetTester tester, Finder f) async {
   await tester.pumpAndSettle();
 }
 
+/// Scrolls the open sheet until [f] shows, dragging near its left edge: a
+/// drag in the middle of a light's sheet sets the brightness instead.
+Future<void> scrollSheetTo(WidgetTester tester, Finder f) async {
+  final sheet = find.byType(Scrollable).last;
+  for (var i = 0; i < 30 && f.hitTestable().evaluate().isEmpty; i++) {
+    await tester.dragFrom(tester.getTopLeft(sheet) + const Offset(16, 200), const Offset(0, -200));
+    await tester.pumpAndSettle();
+  }
+}
+
 /// Opens a device's full controls from its tile on the home screen.
 Future<void> openControls(WidgetTester tester, String name) async {
   // Tiles far down are not built yet, and a .first finder cannot wait for them.
@@ -102,7 +112,7 @@ void main() {
     await openControls(tester, 'Desk lamp');
     expect(find.text('Brightness'), findsOneWidget);
     expect(find.text('White'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Rename'), 300, scrollable: find.byType(Scrollable).last);
+    await scrollSheetTo(tester, find.text('Rename'));
     expect(find.text('Rename'), findsOneWidget);
   });
 
@@ -178,7 +188,7 @@ void main() {
     await tester.pumpAndSettle();
     await openControls(tester, 'Floor lamp');
     final ring = find.byKey(const Key('color-ring'));
-    await tester.scrollUntilVisible(ring, 200, scrollable: find.byType(Scrollable).last);
+    await scrollSheetTo(tester, ring);
     await tester.pumpAndSettle();
     // The right-hand side of the ring is a hue of 90 degrees: yellow-green.
     final box = tester.getRect(ring);
@@ -398,7 +408,7 @@ void main() {
 
   testWidgets('the status strip lists the lights that are on and turns them off', (tester) async {
     final store = await pumpApp(tester);
-    expect(find.text('3 lights on'), findsOneWidget);
+    expect(find.text('3 on'), findsOneWidget);
     await tester.tap(find.byKey(const Key('status-lights')));
     await tester.pumpAndSettle();
     expect(find.text('Lights'), findsWidgets);
@@ -642,7 +652,7 @@ void main() {
     expect(find.byKey(const Key('status-robots')), findsNothing);
     await store.command(robot, const DeviceCommand(action: DeviceAction.start));
     await tester.pump();
-    expect(find.text('Robot vacuum: cleaning'), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('status-robots')), matching: find.text('Cleaning')), findsOneWidget);
     await tester.ensureVisible(find.byKey(const Key('status-robots')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('status-robots')));
@@ -659,7 +669,7 @@ void main() {
     sensor.state = sensor.state.merge(const DeviceState(readings: {'Smoke': 'Smoke!'}));
     store.notifyListeners();
     await tester.pump();
-    expect(find.text('Bedroom sensor: Smoke!'), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('status-danger')), matching: find.text('Smoke!')), findsOneWidget);
     await tester.tap(find.byKey(const Key('status-danger')));
     await tester.pumpAndSettle();
     expect(find.text('Smoke'), findsOneWidget, reason: 'the sensor opens with its readings');
@@ -1060,6 +1070,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(cloud.isHub, isTrue);
     expect(find.textContaining('This device keeps My home online'), findsWidgets);
+    await tester.ensureVisible(find.byKey(const Key('account-sign-out')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('account-sign-out')));
     await tester.pumpAndSettle();
     expect(cloud.signedIn, isFalse);

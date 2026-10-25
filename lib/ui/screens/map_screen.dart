@@ -394,17 +394,15 @@ class MapScreenState extends State<MapScreen> {
             Padding(
               padding: EdgeInsets.only(right: editing ? 12 : 4),
               child: editing
-                  ? FilledButton(
+                  ? TextButton(
                       key: const Key('map-done'),
-                      style: FilledButton.styleFrom(backgroundColor: KJPalette.danger, foregroundColor: Colors.white),
                       onPressed: () => setState(() => _endEditing(store)),
-                      child: const Text('Done'),
+                      child: Text('Done', style: NType.body(17, weight: 600)),
                     )
-                  : OutlinedButton.icon(
+                  : TextButton(
                       key: const Key('map-edit'),
                       onPressed: () => setState(() => _beginEditing(store)),
-                      icon: const Icon(Icons.edit_outlined, size: 18),
-                      label: const Text('Edit'),
+                      child: const Text('Edit'),
                     ),
             ),
             if (!editing) const Padding(padding: EdgeInsets.only(right: 10), child: ProfileButton()),
