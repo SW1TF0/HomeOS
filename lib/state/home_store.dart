@@ -818,6 +818,9 @@ class HomeStore extends ChangeNotifier {
     }
     if (on == _offHomeNetwork) {
       _offHomeNetwork = !on;
+      for (final driver in _drivers.values) {
+        driver.away = _offHomeNetwork;
+      }
       _changed(save: false);
     }
     return on;
@@ -825,6 +828,10 @@ class HomeStore extends ChangeNotifier {
 
   /// Whether [d] is reached over the network, rather than living only in the app.
   bool networked(Device d) => integration(d.integrationId)?.type != 'demo';
+
+  /// Whether [d] can be switched from anywhere with nothing left at home: through its maker's cloud (Shelly, Tuya,
+  /// Imou) or Home Assistant's outside address. Everything else needs a device at home to pass commands on.
+  bool worksAnywhere(Device d) => !networked(d) || (_drivers[d.integrationId]?.reachesAnywhere(d) ?? false);
 
   /// New states from the device at home. They show for the devices this device cannot reach itself.
   void applyHubStates(Map<String, DeviceState> states) {
@@ -864,8 +871,13 @@ class HomeStore extends ChangeNotifier {
     _changed();
     final driver = _drivers[d.integrationId];
     final hub = _hub;
-    if (hub != null && (driver == null || viaHub.contains(d.id))) return _sendViaHub(hub, d, c, before);
-    if (hub != null && networked(d) && !await checkHomeNetwork()) return _sendViaHub(hub, d, c, before);
+    final anywhere = driver != null && driver.reachesAnywhere(d);
+    if (hub != null && (driver == null || (viaHub.contains(d.id) && !anywhere))) return _sendViaHub(hub, d, c, before);
+    if ((hub != null || anywhere) && networked(d)) {
+      // Off the home Wi-Fi, a device with its own way in from outside is reached that way, the others through home.
+      final atHome = await checkHomeNetwork();
+      if (!atHome && !anywhere) return _sendViaHub(hub!, d, c, before);
+    }
     if (driver == null) {
       d.state = before;
       _changed(save: false);
@@ -884,9 +896,9 @@ class HomeStore extends ChangeNotifier {
       if (overtaken()) return false;
       d.state = before.merge(DeviceState.unreachable);
       _changed(save: false);
-      toast(_offHomeNetwork && networked(d)
-          ? '${d.name} only answers on your home Wi-Fi. To switch it from anywhere, keep a device at home online: '
-              'tap your profile, then Manage account.'
+      toast(_offHomeNetwork && networked(d) && !anywhere
+          ? '${d.name} only answers on your home Wi-Fi. To switch it from anywhere, see Connect, then Control from '
+              'anywhere.'
           : '${d.name}: $e');
       return false;
     }
@@ -1076,6 +1088,7 @@ class HomeStore extends ChangeNotifier {
       _changed(save: false);
     };
     driver.onSettings = _changed;
+    driver.away = _offHomeNetwork;
     _drivers[cfg.id] = driver;
     driver.attach(data.devices.where((d) => d.integrationId == cfg.id));
     _starting[cfg.id] = driver.start().then((_) {

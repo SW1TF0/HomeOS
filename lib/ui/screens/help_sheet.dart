@@ -103,9 +103,11 @@ const _topics = [
   (
     Icons.public,
     'Control from anywhere',
-    'Sign in from the profile button. On a phone, tablet or computer that stays at home and plugged in, open your '
-        'account and turn on Keep online from this device. Your other devices signed in to the same account can then '
-        'switch things from anywhere.',
+    'Devices with a cloud of their own answer from anywhere with nothing left at home: Shelly with the Shelly Cloud key, '
+        'Tuya and Smart Life, Imou cameras, and everything in Home Assistant once its outside address is added. Open '
+        'Connect, Control from anywhere, to see which of yours do. The rest only listen on your home Wi-Fi, as in Apple '
+        'Home, which needs an Apple TV or HomePod at home. For them, sign in from the profile button and, on a phone, '
+        'tablet or computer that stays at home and plugged in, turn on Keep online from this device.',
   ),
   (
     Icons.wifi_off,

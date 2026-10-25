@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:clock/clock.dart';
+
 import '../models/device.dart';
 import '../util/color_math.dart';
 import 'integration.dart';
@@ -11,11 +13,61 @@ import 'integration.dart';
 class HomeAssistantDriver extends IntegrationDriver {
   HomeAssistantDriver(super.config, super.client);
 
-  String get baseUrl {
-    var url = config.setting('url');
-    if (url.isEmpty) return url;
-    if (!url.startsWith('http')) url = 'http://$url';
-    return url.replaceAll(RegExp(r'/+$'), '');
+  static String _clean(String url) {
+    var u = url.trim();
+    if (u.isEmpty) return u;
+    if (!u.startsWith('http')) u = 'http://$u';
+    return u.replaceAll(RegExp(r'/+$'), '');
+  }
+
+  /// The address at home.
+  String get localUrl => _clean(config.setting('url'));
+
+  /// The address from outside (Home Assistant Cloud or the user's own), when one is set.
+  String get remoteUrl => _clean(config.setting('remote_url'));
+
+  /// The address in use: the one that answered last, or the outside one while away.
+  String get baseUrl => _base ?? (away && remoteUrl.isNotEmpty ? remoteUrl : localUrl);
+  String? _base;
+  DateTime? _baseAt;
+
+  /// The addresses to try, best first. The one that answered last goes first for a while, so a phone on someone
+  /// else's Wi-Fi does not wait for the home address every time.
+  List<String> get _bases {
+    final fresh = _base != null && _baseAt != null && clock.now().difference(_baseAt!) < const Duration(minutes: 2);
+    return {if (fresh) _base!, ...(away ? [remoteUrl, localUrl] : [localUrl, remoteUrl])}.where((u) => u.isNotEmpty).toList();
+  }
+
+  /// Runs [call] against the home address, then the outside one.
+  Future<T> _reach<T>(Future<T> Function(String base) call) async {
+    Object? error;
+    for (final base in _bases) {
+      try {
+        final out = await call(base);
+        _base = base;
+        _baseAt = clock.now();
+        return out;
+      } catch (e) {
+        error = e;
+      }
+    }
+    throw error ?? IntegrationException('Enter the server address.');
+  }
+
+  @override
+  bool reachesAnywhere(Device device) => remoteUrl.isNotEmpty || isPublicAddress(localUrl);
+
+  /// Whether [url] can be reached from outside the home: not a private or local address.
+  static bool isPublicAddress(String url) {
+    final host = Uri.tryParse(url)?.host.toLowerCase() ?? '';
+    if (host.isEmpty || host == 'localhost' || !host.contains('.')) return false;
+    if (RegExp(r'\.(local|lan|home|internal|localdomain)$').hasMatch(host)) return false;
+    final ip = host.split('.').map(int.tryParse).toList();
+    if (ip.length == 4 && ip.every((n) => n != null)) {
+      final [a, b, ..._] = ip.cast<int>();
+      return !(a == 10 || a == 127 || (a == 192 && b == 168) || (a == 172 && b >= 16 && b < 32) || (a == 169 && b == 254));
+    }
+    return true;
   }
 
   Map<String, String> get _headers => {'Authorization': 'Bearer ${config.setting('token')}'};
@@ -31,10 +83,10 @@ class HomeAssistantDriver extends IntegrationDriver {
   static const _purifierWords = ['purif', 'air clean', 'luftrein', 'пречиств', 'очист', 'depurat', 'oczyszcz'];
 
   Future<List<Map<String, dynamic>>> _states() async {
-    if (baseUrl.isEmpty || config.setting('token').isEmpty) {
+    if (_bases.isEmpty || config.setting('token').isEmpty) {
       throw IntegrationException('Enter the server address and a long-lived access token (Profile > Security in Home Assistant).');
     }
-    final res = await getJson(Uri.parse('$baseUrl/api/states'), headers: _headers);
+    final res = await _reach((base) => getJson(Uri.parse('$base/api/states'), headers: _headers));
     return (res as List).map((e) => Map<String, dynamic>.from(e as Map)).toList();
   }
 
@@ -358,7 +410,7 @@ class HomeAssistantDriver extends IntegrationDriver {
 
   @override
   Future<DeviceState?> refresh(Device device) async {
-    final e = await getJson(Uri.parse('$baseUrl/api/states/${device.externalId}'), headers: _headers);
+    final e = await _reach((base) => getJson(Uri.parse('$base/api/states/${device.externalId}'), headers: _headers));
     return parseState(Map<String, dynamic>.from(e as Map));
   }
 
@@ -366,7 +418,7 @@ class HomeAssistantDriver extends IntegrationDriver {
   Future<Uint8List?> snapshot(Device device) async {
     if (device.props['snapshotUrl'] != null) return super.snapshot(device);
     if (!device.externalId.startsWith('camera.')) return null;
-    return getImage(Uri.parse('$baseUrl/api/camera_proxy/${device.externalId}'), headers: _headers);
+    return _reach((base) => getImage(Uri.parse('$base/api/camera_proxy/${device.externalId}'), headers: _headers));
   }
 
   /// Home Assistant turns every camera into moving pictures (MJPEG) that play on any device.
@@ -378,7 +430,7 @@ class HomeAssistantDriver extends IntegrationDriver {
           : null);
 
   Future<void> _call(String domain, String service, Map<String, dynamic> data) =>
-      sendJson('POST', Uri.parse('$baseUrl/api/services/$domain/$service'), data, headers: _headers);
+      _reach((base) => sendJson('POST', Uri.parse('$base/api/services/$domain/$service'), data, headers: _headers));
 
   @override
   Future<DeviceState?> send(Device device, DeviceCommand c) async {

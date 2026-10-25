@@ -16,6 +16,7 @@ import '../nav.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/kj_widgets.dart';
 import 'account_sheet.dart';
+import 'anywhere_sheet.dart';
 import 'automations.dart';
 import 'backup_restore.dart';
 import 'device_sheet.dart';
@@ -218,32 +219,39 @@ class _AwayCard extends StatelessWidget {
     final store = context.watch<HomeStore>();
     final cloud = context.watch<CloudSync>();
     final p = context.palette;
-    if (!store.offHomeNetwork || cloud.online || !store.devices.any(store.networked)) return const SizedBox.shrink();
+    if (!store.offHomeNetwork || cloud.online || !store.devices.any((d) => !store.worksAnywhere(d))) {
+      return const SizedBox.shrink();
+    }
     final home = store.homeName;
-    final (text, action) = !cloud.available
-        ? ('Your devices only answer on your home Wi-Fi.', null)
+    // Each case: what to say, the button, and whether it opens the account (or the ways to reach devices from anywhere).
+    final (text, action, account) = !cloud.available
+        ? ('Some of your devices only answer on your home Wi-Fi.', 'How', false)
         : !cloud.signedIn
             ? (
-                'Your devices only answer on your home Wi-Fi. To switch them from here, sign in and keep a second '
-                    'device at home online.',
-                'Set up'
+                'Some of your devices only answer on your home Wi-Fi. To switch them from here, add their cloud, or '
+                    'sign in and keep a second device at home online.',
+                'How',
+                false
               )
             : cloud.isHub
                 ? (
                     'This phone is the one keeping $home online, but it has left the home Wi-Fi. Turn that on on a '
                         'device that stays at home instead.',
-                    'Account'
+                    'Account',
+                    true
                   )
                 : cloud.hubSeen != null
                     ? (
                         '${cloud.hubName ?? 'The device at home'} is not answering, so $home cannot be reached from '
                             'here. Check that it is on, plugged in and on the Wi-Fi, with SmartHomeKJ open.',
-                        'Details'
+                        'Details',
+                        true
                       )
                     : (
-                        'Your devices only answer on your home Wi-Fi. To switch them from here, keep a second phone, '
-                            'tablet or computer at home online with this account.',
-                        'How'
+                        'Some of your devices only answer on your home Wi-Fi. To switch them from here, add their '
+                            'cloud, or keep a second phone, tablet or computer at home online with this account.',
+                        'How',
+                        false
                       );
     return Padding(
       padding: const EdgeInsets.only(top: 14),
@@ -261,8 +269,11 @@ class _AwayCard extends StatelessWidget {
               Text(text, style: NType.body(14, color: p.textDim)),
             ]),
           ),
-          if (action != null)
-            TextButton(key: const Key('away-set-up'), onPressed: () => showAccountSheet(context), child: Text(action)),
+          TextButton(
+            key: const Key('away-set-up'),
+            onPressed: () => account ? showAccountSheet(context) : showAnywhereSheet(context),
+            child: Text(action),
+          ),
         ]),
       ),
     );

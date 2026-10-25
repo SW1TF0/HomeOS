@@ -14,6 +14,7 @@ import '../../theme/app_theme.dart';
 import '../../util/text.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/kj_widgets.dart';
+import 'anywhere_sheet.dart';
 import 'camera_sheet.dart';
 import 'device_sheet.dart';
 import 'matter_sheet.dart';
@@ -72,6 +73,23 @@ class ConnectScreen extends StatelessWidget {
                   ]),
                 ),
                 const Icon(Icons.add),
+              ]),
+            ),
+            const SizedBox(height: 10),
+            NCard(
+              key: const Key('control-anywhere'),
+              onTap: () => showAnywhereSheet(context),
+              child: Row(children: [
+                const Icon(Icons.public, size: 28),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('Control from anywhere', style: NType.body(17, color: p.text, weight: 600)),
+                    Text('Which devices work away from home, and how to add the rest',
+                        style: NType.body(13, color: p.textDim)),
+                  ]),
+                ),
+                const Icon(Icons.arrow_forward),
               ]),
             ),
             if (store.integrations.isNotEmpty) const SectionLabel('Your connections', accent: true),

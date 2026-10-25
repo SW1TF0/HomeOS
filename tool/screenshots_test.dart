@@ -174,6 +174,19 @@ void main() {
     await _shot(tester, 'phone-connect');
   });
 
+  testWidgets('phone control from anywhere', (tester) async {
+    final store = await _app(tester, phone);
+    final shelly = store.addIntegration('shelly',
+        settings: {'hosts': '192.168.1.40', 'cloud_server': 'shelly-49-eu.shelly.cloud', 'cloud_key': 'key'});
+    store.addVirtualDevice(shelly.id, 'Porch light', DeviceKind.outlet,
+        props: {'host': '192.168.1.40', 'mac': 'a8032ab12345', 'gen': 2, 'component': 'switch', 'channel': 0});
+    store.addIntegration('tuya', settings: {'access_id': 'id', 'access_secret': 'secret', 'region': 'eu'});
+    await tester.tap(find.byKey(const Key('tab-connect')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('control-anywhere')));
+    await _shot(tester, 'phone-anywhere');
+  });
+
   testWidgets('phone matter pairing', (tester) async {
     await _app(tester, phone);
     await tester.tap(find.byKey(const Key('tab-connect')));

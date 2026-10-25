@@ -451,6 +451,28 @@ void main() {
     expect(store.integrations.firstWhere((i) => i.type == 'shelly').setting('hosts'), '10.0.0.5');
   });
 
+  testWidgets('connect: control from anywhere shows what answers away and opens each cloud', (tester) async {
+    final store = await pumpApp(tester);
+    final shelly = store.addIntegration('shelly', settings: {'hosts': '10.0.0.5'});
+    store.addVirtualDevice(shelly.id, 'Hall light', DeviceKind.outlet,
+        props: {'host': '10.0.0.5', 'mac': 'a8032ab12345', 'gen': 2, 'component': 'switch', 'channel': 0});
+    await tester.tap(find.byKey(const Key('tab-connect')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('control-anywhere')));
+    await tester.pumpAndSettle();
+    expect(find.text('Add the Shelly Cloud key'), findsOneWidget);
+    expect(find.textContaining('of ${store.devices.where(store.networked).length} devices answer away from home'),
+        findsOneWidget);
+    await store.updateIntegration(shelly, settings: {'cloud_server': 'shelly-49-eu.shelly.cloud', 'cloud_key': 'KEY'});
+    await tester.pumpAndSettle();
+    expect(find.text('Add the Shelly Cloud key'), findsNothing);
+    expect(store.worksAnywhere(store.devices.firstWhere((d) => d.name == 'Hall light')), isTrue);
+    await tester.tap(find.byKey(const Key('anywhere-tuya')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('field-access_id')), findsOneWidget);
+    expect(find.textContaining('Link App Account'), findsOneWidget);
+  });
+
   testWidgets('a TV opens with a remote and volume', (tester) async {
     final store = await pumpApp(tester);
     final tv = store.devices.firstWhere((d) => d.name == 'TV');
@@ -1104,6 +1126,12 @@ void main() {
     expect(find.byKey(const Key('away-card')), findsOneWidget);
     expect(find.textContaining('sign in and keep a second device at home online'), findsOneWidget);
     await tester.tap(find.byKey(const Key('away-set-up')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('0 of 1 devices answer away from home'), findsOneWidget);
+    expect(find.textContaining('Porch plug needs it'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const Key('anywhere-hub')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('anywhere-hub')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('account-email')), findsOneWidget);
     cloud.dispose();

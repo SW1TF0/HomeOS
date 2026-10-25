@@ -69,6 +69,13 @@ abstract class IntegrationDriver {
   /// Called when the driver changed [config]'s settings itself (keys it was given), so they get saved.
   void Function()? onSettings;
 
+  /// Whether this phone or computer is off the home network right now (on mobile data), as the store last saw it.
+  /// Connections with a way in from outside go that way at once instead of waiting for the home address first.
+  bool away = false;
+
+  /// Whether [device] answers from anywhere through its maker's cloud or an outside address, with nothing left at home.
+  bool reachesAnywhere(Device device) => false;
+
   /// Opens long-lived connections, if the integration has any.
   Future<void> start() async {}
 
