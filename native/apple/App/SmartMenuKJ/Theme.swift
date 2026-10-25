@@ -1,30 +1,30 @@
 import SwiftUI
 import SmartMenuCore
 
-/// Colours from smarthomekj.eu: soft white and black surfaces, near-black text, one blue accent.
+/// Apple-style colours: iOS system greys, black or white text, system blue for actions.
 struct Palette: Equatable {
     var background: Color, surface: Color, surfaceHigh: Color, border: Color, text: Color, textDim: Color, dot: Color
     var dark: Bool
 
     /// Buttons, links, switches and anything selected.
-    static let accent = Color(hex: 0x0071E3)
+    static let accent = Color(hex: 0x007AFF)
     /// Errors, deletes and devices that don't answer.
     static let red = Color(hex: 0xFF3B30)
-    static let green = Color(hex: 0x34C759), yellow = Color(hex: 0xFFB800), orange = Color(hex: 0xFF9500)
+    static let green = Color(hex: 0x34C759), yellow = Color(hex: 0xFFCC00), orange = Color(hex: 0xFF9500)
     static let purple = Color(hex: 0xAF52DE), blue = Color(hex: 0x007AFF), teal = Color(hex: 0x30B0C7)
     static let indigo = Color(hex: 0x5856D6), pink = Color(hex: 0xFF2D55)
 
     static let darkMode = Palette(background: Color(hex: 0x000000), surface: Color(hex: 0x1C1C1E), surfaceHigh: Color(hex: 0x2C2C2E),
-                                  border: Color(hex: 0x38383A), text: Color(hex: 0xF5F5F7), textDim: Color(hex: 0x98989D),
+                                  border: Color(hex: 0x38383A), text: Color(hex: 0xFFFFFF), textDim: Color(hex: 0x98989F),
                                   dot: Color(hex: 0x2C2C2E), dark: true)
-    static let lightMode = Palette(background: Color(hex: 0xF5F5F7), surface: .white, surfaceHigh: Color(hex: 0xE8E8ED),
-                                   border: Color(hex: 0xD2D2D7), text: Color(hex: 0x1D1D1F), textDim: Color(hex: 0x6E6E73),
-                                   dot: Color(hex: 0xD2D2D7), dark: false)
+    static let lightMode = Palette(background: Color(hex: 0xF2F2F7), surface: .white, surfaceHigh: Color(hex: 0xE5E5EA),
+                                   border: Color(hex: 0xD1D1D6), text: Color(hex: 0x000000), textDim: Color(hex: 0x6C6C70),
+                                   dot: Color(hex: 0xD1D1D6), dark: false)
 
-    /// A device tile that is off, one that is on (white, like the site's phone demo), and the text on it.
-    var tileOff: Color { dark ? Color(hex: 0x1C1C1E) : Color(hex: 0xE3E3E8) }
-    var tileOn: Color { dark ? Color(hex: 0xF5F5F7) : .white }
-    var onTileOn: Color { Color(hex: 0x1D1D1F) }
+    /// A device tile that is off (frosted grey), one that is on (white), and the text on it, as in Apple Home.
+    var tileOff: Color { dark ? Color(hex: 0x3A3A3C).opacity(0.7) : Color.black.opacity(0.08) }
+    var tileOn: Color { .white }
+    var onTileOn: Color { .black }
 }
 
 private struct PaletteKey: EnvironmentKey { static let defaultValue = Palette.darkMode }

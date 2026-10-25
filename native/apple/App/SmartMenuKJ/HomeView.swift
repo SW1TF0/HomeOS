@@ -7,7 +7,7 @@ struct HomeView: View {
     @Environment(\.palette) var p
     @EnvironmentObject var store: HomeStore
     @EnvironmentObject var nav: Nav
-    private let columns = [GridItem(.adaptive(minimum: 160), spacing: 12)]
+    private let columns = [GridItem(.adaptive(minimum: 165), spacing: 10)]
 
     var body: some View {
         let d = store.data

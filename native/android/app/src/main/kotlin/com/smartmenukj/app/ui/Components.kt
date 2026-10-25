@@ -20,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -216,20 +217,30 @@ fun DeviceTile(
     val level = Describe.level(device)
     var dragging by remember { mutableStateOf<Double?>(null) }
     val shown = dragging ?: level
-    val fg = if (active) p.onTileOn else p.text
-    val dim = if (active) p.onTileOn.copy(alpha = 0.55f) else p.textDim
+    val lit = active || dragging != null
+    val fg = if (lit) p.onTileOn else p.text
+    val dim = if (lit) Color.Black.copy(alpha = 0.6f) else p.textDim
     val glow = Describe.lightColor(device)?.asColor()
-    val iconBg = if (active) glow ?: kindColor(device.kind) else if (p.dark) p.surfaceHigh else Color.White
-    val shape = RoundedCornerShape(20.dp)
+    val tint = glow ?: kindColor(device.kind)
+    val iconBg = if (active) tint else if (lit) Color.Black.copy(alpha = 0.08f) else p.text.copy(alpha = if (p.dark) 0.14f else 0.08f)
+    val shape = RoundedCornerShape(18.dp)
     var width by remember { mutableIntStateOf(1) }
+    // Shrinks a little under the finger and springs back, like iOS.
+    var down by remember { mutableStateOf(false) }
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        if (down) 0.96f else 1f,
+        androidx.compose.animation.core.spring(dampingRatio = 0.55f, stiffness = 600f), label = "press")
+    // Apple Home accessory tile: wide, icon on the left, the level fills it from the left.
     Box(
         modifier
-            .aspectRatio(1.05f)
+            .height(76.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(shape)
-            .background(if (active) p.tileOn else p.tileOff)
+            .background(if (lit) p.tileOn else p.tileOff)
             .onSizeChanged { width = it.width }
             .pointerInput(device.id) {
                 detectTapGestures(
+                    onPress = { down = true; tryAwaitRelease(); down = false },
                     onTap = { if (Describe.tapToggles(device)) { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove); onToggle() } else onOpen() },
                     onLongPress = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onOpen() },
                 )
@@ -246,27 +257,24 @@ fun DeviceTile(
                 }
             } else Modifier),
     ) {
-        if (shown != null && (dragging != null || (active && level != null))) {
-            Box(Modifier.fillMaxHeight().fillMaxWidth(shown.toFloat().coerceIn(0f, 1f))
-                .background((if (active) Color.Black else p.text).copy(alpha = 0.06f)))
+        if (shown != null && lit) {
+            Box(Modifier.fillMaxHeight().fillMaxWidth(shown.toFloat().coerceIn(0f, 1f)).background(tint.copy(alpha = 0.16f)))
         }
-        Column(Modifier.fillMaxSize().padding(16.dp)) {
-            Row(verticalAlignment = Alignment.Top) {
-                Box(Modifier.size(38.dp).clip(CircleShape).background(iconBg), contentAlignment = Alignment.Center) {
+        Row(Modifier.fillMaxSize().padding(start = 10.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box {
+                Box(Modifier.size(36.dp).clip(CircleShape).background(iconBg), contentAlignment = Alignment.Center) {
                     Icon(deviceIcon(device.kind, active), null,
-                        tint = if (!active) p.textDim else if (iconBg.luminance() > 0.6f) p.onTileOn else Color.White,
-                        modifier = Modifier.size(20.dp))
+                        tint = if (!active) dim else if (iconBg.luminance() > 0.6f) p.onTileOn else Color.White,
+                        modifier = Modifier.size(19.dp))
                 }
-                Spacer(Modifier.weight(1f))
-                if (!device.state.reachable) Box(Modifier.size(8.dp).background(Palette.Red, CircleShape))
-                else if (shown != null && (dragging != null || active)) {
-                    Text("${(shown * 100).toInt()}", style = NType.dot(22.sp, fg))
-                }
+                if (!device.state.reachable) Box(Modifier.align(Alignment.TopEnd).size(11.dp).background(Palette.Red, CircleShape))
             }
-            Spacer(Modifier.weight(1f))
-            Text(device.name, style = NType.body(15.sp, fg, 600), maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(2.dp))
-            Text(subtitle, style = NType.body(12.sp, dim), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.width(9.dp))
+            Column(Modifier.weight(1f)) {
+                Text(device.name, style = NType.body(14.sp, fg, 600), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(if (dragging != null) "${(dragging!! * 100).toInt()}%" else subtitle,
+                    style = NType.body(12.5.sp, if (device.state.reachable) dim else Palette.Red), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }

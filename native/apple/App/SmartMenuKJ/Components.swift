@@ -280,39 +280,40 @@ struct DeviceTile: View {
         let active = device.countsAsOn
         let level = Describe.level(device)
         let shown = dragging ?? level
-        let fg = active ? p.onTileOn : p.text
+        let fg = active || dragging != nil ? p.onTileOn : p.text
         let glow = Describe.lightColor(device)
-        let iconBg = active ? (glow?.color ?? kindColor(device.kind)) : (p.dark ? p.surfaceHigh : Color.white)
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
+        let tint = glow?.color ?? kindColor(device.kind)
+        let iconBg = active ? tint : p.text.opacity(p.dark ? 0.14 : 0.08)
+        // Apple Home accessory tile: wide, the icon on the left, the level filling it from the left.
+        HStack(spacing: 9) {
+            ZStack(alignment: .topTrailing) {
                 ZStack {
                     Circle().fill(iconBg)
-                    Image(systemName: deviceIcon(device.kind, active: active)).font(.system(size: 17))
+                    Image(systemName: deviceIcon(device.kind, active: active)).font(.system(size: 16, weight: .medium))
                         .foregroundStyle(active ? (glow == nil ? Color.white : p.onTileOn) : p.textDim)
                 }
-                .frame(width: 38, height: 38)
-                Spacer()
-                if !device.state.reachable { Circle().fill(Palette.red).frame(width: 7, height: 7) }
-                else if device.favorite { Image(systemName: "star.fill").font(.system(size: 10)).foregroundStyle(active ? fg.opacity(0.5) : p.textDim) }
+                .frame(width: 36, height: 36)
+                if !device.state.reachable { Circle().fill(Palette.red).frame(width: 10, height: 10) }
             }
-            Spacer(minLength: 14)
-            Text(device.name).font(NType.body(15, .semibold)).foregroundStyle(fg).lineLimit(1)
-            Text(dragging.map(Describe.pct) ?? Describe.state(device)).font(NType.body(12)).foregroundStyle(fg.opacity(0.65)).lineLimit(1)
-            if let roomName { Text(roomName).font(NType.body(11)).foregroundStyle(fg.opacity(0.45)).lineLimit(1) }
-            if let shown, dragging != nil || (active && level != nil) {
-                GeometryReader { g in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(fg.opacity(0.1))
-                        Capsule().fill(active ? (glow?.color ?? kindColor(device.kind)) : p.textDim).frame(width: g.size.width * shown)
-                    }
-                }
-                .frame(height: 5).padding(.top, 8)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(device.name).font(NType.body(14, .semibold)).foregroundStyle(fg).lineLimit(2)
+                Text(dragging.map(Describe.pct) ?? ([roomName, Describe.state(device)].compactMap { $0 }.joined(separator: " · ")))
+                    .font(NType.body(12.5)).foregroundStyle(device.state.reachable ? fg.opacity(0.6) : Palette.red).lineLimit(1)
             }
+            Spacer(minLength: 0)
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, minHeight: 132, alignment: .leading)
-        .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(active ? p.tileOn : p.tileOff)
-            .shadow(color: .black.opacity(active && !p.dark ? 0.06 : 0), radius: 12, y: 4))
+        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity, minHeight: 76, maxHeight: 76, alignment: .leading)
+        .background(alignment: .leading) {
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 18, style: .continuous).fill(active || dragging != nil ? p.tileOn : p.tileOff)
+                if let shown, active || dragging != nil {
+                    GeometryReader { g in Rectangle().fill(tint.opacity(0.16)).frame(width: g.size.width * shown) }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .shadow(color: .black.opacity(active && !p.dark ? 0.07 : 0), radius: 8, y: 2)
+        }
         .background(GeometryReader { g in Color.clear.onAppear { width = g.size.width } })
         .contentShape(Rectangle())
         .onTapGesture { Describe.tapToggles(device) ? store.toggle(device.id) : onOpen() }

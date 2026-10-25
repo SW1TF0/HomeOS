@@ -7,7 +7,7 @@ struct DevicesView: View {
     @EnvironmentObject var nav: Nav
     @State private var query = ""
     @State private var kind: DeviceKind?
-    private let columns = [GridItem(.adaptive(minimum: 160), spacing: 12)]
+    private let columns = [GridItem(.adaptive(minimum: 165), spacing: 10)]
 
     var body: some View {
         let d = store.data

@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.smartmenukj.app.R
 
-/** Colours from smarthomekj.eu: soft white and black surfaces, near-black text, one blue accent. */
+/** Apple-style colours: iOS system greys, black or white text, system blue for actions. */
 @Immutable
 data class Palette(
     val background: Color,
@@ -32,19 +32,19 @@ data class Palette(
 ) {
     val accent get() = Accent
 
-    /** Background of a device tile that is off, and of one that is on (white, like the site's phone demo). */
-    val tileOff get() = if (dark) Color(0xFF1C1C1E) else Color(0xFFE3E3E8)
-    val tileOn get() = if (dark) Color(0xFFF5F5F7) else Color.White
-    val onTileOn get() = Color(0xFF1D1D1F)
+    /** Background of a device tile that is off (frosted grey) and of one that is on (white), as in Apple Home. */
+    val tileOff get() = if (dark) Color(0xB33A3A3C) else Color(0x14000000)
+    val tileOn get() = Color.White
+    val onTileOn get() = Color.Black
 
     companion object {
         /** Buttons, links, switches and anything selected. */
-        val Accent = Color(0xFF0071E3)
+        val Accent = Color(0xFF007AFF)
 
         /** Errors, deletes and devices that don't answer. */
         val Red = Color(0xFFFF3B30)
         val Green = Color(0xFF34C759)
-        val Yellow = Color(0xFFFFB800)
+        val Yellow = Color(0xFFFFCC00)
         val Orange = Color(0xFFFF9500)
         val Purple = Color(0xFFAF52DE)
         val Blue = Color(0xFF007AFF)
@@ -57,20 +57,20 @@ data class Palette(
             surface = Color(0xFF1C1C1E),
             surfaceHigh = Color(0xFF2C2C2E),
             border = Color(0xFF38383A),
-            text = Color(0xFFF5F5F7),
-            textDim = Color(0xFF98989D),
+            text = Color(0xFFFFFFFF),
+            textDim = Color(0xFF98989F),
             dot = Color(0xFF2C2C2E),
             dark = true,
         )
 
         val Light = Palette(
-            background = Color(0xFFF5F5F7),
+            background = Color(0xFFF2F2F7),
             surface = Color(0xFFFFFFFF),
-            surfaceHigh = Color(0xFFE8E8ED),
-            border = Color(0xFFD2D2D7),
-            text = Color(0xFF1D1D1F),
-            textDim = Color(0xFF6E6E73),
-            dot = Color(0xFFD2D2D7),
+            surfaceHigh = Color(0xFFE5E5EA),
+            border = Color(0xFFD1D1D6),
+            text = Color(0xFF000000),
+            textDim = Color(0xFF6C6C70),
+            dot = Color(0xFFD1D1D6),
             dark = false,
         )
     }
@@ -78,7 +78,7 @@ data class Palette(
 
 val LocalPalette = staticCompositionLocalOf { Palette.Dark }
 
-/** Type styles. Inter (SIL OFL) for everything, close to the Apple font the site uses: bold headings, tight spacing. */
+/** Type styles. Inter (SIL OFL), the closest free font to Apple's San Francisco: bold headings, tight spacing. */
 object NType {
     val Body = FontFamily(
         Font(R.font.inter_400, FontWeight.Normal),
