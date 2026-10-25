@@ -1542,6 +1542,8 @@ class HomeStore extends ChangeNotifier {
     if (next.floors.isEmpty) throw const FormatException('That backup has no floors.');
     await _stopDrivers();
     _undo.clear();
+    // The theme belongs to the app, not to a backup.
+    next.themeMode = data.themeMode;
     data = next;
     _forgetAutomationState();
     _startDrivers();
@@ -1603,7 +1605,7 @@ class HomeStore extends ChangeNotifier {
     final current = next.where((e) => e.$1.id == j['current']).firstOrNull ?? next.first;
     homeList = HomeList(homes: [for (final e in next) e.$1], current: current.$1.id);
     await repository.saveHomes(homeList);
-    data = current.$2;
+    data = current.$2..themeMode = data.themeMode;
     viaHub.clear();
     _undo.clear();
     _forgetAutomationState();

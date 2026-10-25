@@ -44,10 +44,11 @@ class KJPalette extends ThemeExtension<KJPalette> {
     shadow: Color(0x00000000),
   );
 
+  /// White, like Apple Home in light mode: white pages, light grey cards.
   static const light = KJPalette(
-    background: Color(0xFFF2F2F7),
-    surface: Color(0xFFFFFFFF),
-    surfaceHigh: Color(0xFFE5E5EA),
+    background: Color(0xFFFFFFFF),
+    surface: Color(0xFFF4F4F7),
+    surfaceHigh: Color(0xFFE8E8ED),
     border: Color(0xFFD1D1D6),
     text: Color(0xFF000000),
     textDim: Color(0xFF6C6C70),
@@ -71,7 +72,7 @@ class KJPalette extends ThemeExtension<KJPalette> {
   bool get isDark => background.computeLuminance() < 0.2;
 
   /// Background of a device tile that is off: frosted glass, as in Apple Home.
-  Color get tileOff => isDark ? const Color(0xB33A3A3C) : const Color(0x14000000);
+  Color get tileOff => isDark ? const Color(0xB33A3A3C) : const Color(0xFFF2F2F5);
 
   /// The white tile of a device that is on, as in Apple Home.
   Color get tileOn => const Color(0xFFFFFFFF);
@@ -80,7 +81,7 @@ class KJPalette extends ThemeExtension<KJPalette> {
   Color get onTileOn => const Color(0xFF000000);
 
   /// Cards and buttons laid on the home wallpaper.
-  Color get glass => isDark ? const Color(0x8C2C2C2E) : const Color(0xA6FFFFFF);
+  Color get glass => isDark ? const Color(0x8C2C2C2E) : const Color(0xFFF2F2F5);
 
   List<BoxShadow> get cardShadow =>
       shadow.a == 0 ? const [] : [BoxShadow(color: shadow, blurRadius: 10, offset: const Offset(0, 2))];
@@ -245,7 +246,7 @@ ThemeData buildAppTheme(Brightness brightness) {
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: p.isDark ? p.surfaceHigh : const Color(0xFFEFEFF4),
+      fillColor: p.isDark ? p.surfaceHigh : const Color(0xFFF0F0F3),
       labelStyle: NType.body(14, color: p.textDim),
       hintStyle: NType.body(14, color: p.textDim),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
@@ -256,7 +257,7 @@ ThemeData buildAppTheme(Brightness brightness) {
     ),
     // iOS sheets: grouped grey background, a small grabber and a dimmed page behind.
     bottomSheetTheme: BottomSheetThemeData(
-      backgroundColor: p.isDark ? p.surface : p.background,
+      backgroundColor: p.isDark ? p.surface : Colors.white,
       surfaceTintColor: Colors.transparent,
       modalBarrierColor: Colors.black.withValues(alpha: 0.35),
       showDragHandle: true,

@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -151,7 +152,7 @@ class _RouterScreenState extends State<RouterScreen> {
                     key: const Key('router-back'),
                     tooltip: 'Back',
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back),
+                    icon: const Icon(CupertinoIcons.back, color: KJPalette.accent, size: 28),
                   ),
                   const SizedBox(width: 6),
                   Expanded(child: DisplayText(snap?.identity.isNotEmpty == true ? snap!.identity : (d?.name ?? 'Router'), size: 30, maxLines: 1)),

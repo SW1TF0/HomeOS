@@ -103,7 +103,7 @@ class HomeData {
     List<IntegrationConfig>? integrations,
     List<Scene>? scenes,
     List<Automation>? automations,
-    this.themeMode = 'dark',
+    this.themeMode = 'light',
   })  : scenes = scenes ?? [],
         automations = automations ?? [],
         floors = floors ?? [],
@@ -137,7 +137,7 @@ class HomeData {
     List<Map<String, dynamic>> list(String k) =>
         ((j[k] as List?) ?? const []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
     return HomeData(
-      themeMode: j['themeMode'] as String? ?? 'dark',
+      themeMode: j['themeMode'] as String? ?? 'light',
       floors: list('floors').map(Floor.fromJson).toList(),
       rooms: list('rooms').map(Room.fromJson).toList(),
       devices: list('devices').map(Device.fromJson).toList(),

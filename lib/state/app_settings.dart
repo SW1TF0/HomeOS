@@ -44,6 +44,11 @@ class AppSettings extends ChangeNotifier {
   bool _restoreAsked = false;
   set restoreAsked(bool v) => _set(() => _restoreAsked = v);
 
+  /// Whether the white Apple look was switched on once for this device (1.16.0); dark stays a choice in Settings.
+  bool get whiteLook => _whiteLook;
+  bool _whiteLook = false;
+  set whiteLook(bool v) => _set(() => _whiteLook = v);
+
   Duration get checkEvery => Duration(seconds: _checkSeconds);
 
   void _set(void Function() change) {
@@ -59,6 +64,7 @@ class AppSettings extends ChangeNotifier {
         'checkSeconds': _checkSeconds,
         'autoBackup': _autoBackup,
         'restoreAsked': _restoreAsked,
+        'whiteLook': _whiteLook,
       };
 
   void _read(Map<String, dynamic> j) {
@@ -68,6 +74,7 @@ class AppSettings extends ChangeNotifier {
     _checkSeconds = ((j['checkSeconds'] as num?)?.toInt() ?? 10).clamp(2, 600);
     _autoBackup = j['autoBackup'] as bool? ?? true;
     _restoreAsked = j['restoreAsked'] as bool? ?? false;
+    _whiteLook = j['whiteLook'] as bool? ?? false;
     Haptics.enabled = _haptics;
   }
 

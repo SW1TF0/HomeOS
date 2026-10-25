@@ -30,6 +30,11 @@ Future<void> main() async {
     onHomeNetwork: hasHomeNetwork,
   );
   await store.load();
+  // 1.16.0 makes the app white, like Apple Home in light mode, once; Settings > Theme still offers dark.
+  if (!settings.whiteLook) {
+    store.themeMode = 'light';
+    settings.whiteLook = true;
+  }
   if (SceneAlarms.supported) SceneAlarms().follow(store);
   if (backups.available) backups.follow(store, settings);
   if (ScenesWidget.supported) const ScenesWidget().follow(store);

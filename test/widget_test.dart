@@ -1209,6 +1209,7 @@ void main() {
         'checkSeconds': 30,
         'autoBackup': true,
         'restoreAsked': false,
+        'whiteLook': false,
       });
       again.haptics = true;
     });

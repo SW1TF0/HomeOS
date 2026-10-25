@@ -46,9 +46,9 @@ class SmartMenuApp extends StatelessWidget {
           theme: buildAppTheme(Brightness.light),
           darkTheme: buildAppTheme(Brightness.dark),
           themeMode: switch (store.themeMode) {
-            'light' => ThemeMode.light,
+            'dark' => ThemeMode.dark,
             'system' => ThemeMode.system,
-            _ => ThemeMode.dark,
+            _ => ThemeMode.light,
           },
           home: AppShell(poll: poll, initialTab: settings.startTab),
         ),
@@ -161,7 +161,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               Container(
                 width: 92,
                 decoration: BoxDecoration(
-                    color: p.isDark ? p.surface : const Color(0xFFF9F9F9),
+                    color: p.isDark ? p.surface : Colors.white,
                     border: Border(right: BorderSide(color: p.border, width: 0.5))),
                 child: Column(children: [
                   const SizedBox(height: 22),
@@ -234,7 +234,7 @@ class _BottomBar extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
         child: Container(
           decoration: BoxDecoration(
-              color: p.isDark ? const Color(0xE6161618) : const Color(0xEBF9F9F9),
+              color: p.isDark ? const Color(0xE6161618) : const Color(0xF2FFFFFF),
               border: Border(top: BorderSide(color: p.isDark ? const Color(0x33FFFFFF) : const Color(0x4D000000), width: 0.33))),
           child: SafeArea(
             top: false,

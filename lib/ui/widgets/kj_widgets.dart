@@ -115,7 +115,7 @@ class NCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: inverted ? p.tileOn : (glass ? p.glass : p.surface),
           borderRadius: BorderRadius.circular(radius),
-          boxShadow: glass && !inverted ? const [] : p.cardShadow,
+          boxShadow: inverted ? p.cardShadow : const [],
         ),
         child: Material(
           type: MaterialType.transparency,
@@ -153,7 +153,7 @@ class GlassButton extends StatelessWidget {
           child: Container(
             width: size,
             height: size,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: p.isDark ? p.glass : p.surface, boxShadow: p.cardShadow),
+            decoration: BoxDecoration(shape: BoxShape.circle, color: p.isDark ? p.glass : p.surface),
             child: Icon(icon, size: size * 0.5, color: p.text),
           ),
         ),
@@ -179,7 +179,7 @@ class HomeWallpaper extends StatelessWidget {
           end: Alignment.bottomCenter,
           colors: dark
               ? const [Color(0xFF1F2A3A), Color(0xFF12141C), Color(0xFF0B0B0F)]
-              : const [Color(0xFFDDE6F3), Color(0xFFEDEFF4), Color(0xFFF6F1EA)],
+              : const [Color(0xFFF3F6FB), Color(0xFFFFFFFF), Color(0xFFFFFFFF)],
         ),
       ),
       child: DecoratedBox(
@@ -189,7 +189,7 @@ class HomeWallpaper extends StatelessWidget {
             radius: 1.1,
             colors: dark
                 ? const [Color(0x40FF9F0A), Color(0x00FF9F0A)]
-                : const [Color(0x55FFD7A8), Color(0x00FFD7A8)],
+                : const [Color(0x26FFD7A8), Color(0x00FFD7A8)],
           ),
         ),
         child: child,
@@ -495,6 +495,7 @@ class _DeviceTileState extends State<DeviceTile> {
       decoration: BoxDecoration(
         color: lit ? p.tileOn : p.tileOff,
         borderRadius: radius,
+        border: lit && !p.isDark ? Border.all(color: const Color(0x14000000), width: 0.5) : null,
         boxShadow: lit ? p.cardShadow : const [],
       ),
       child: ClipRRect(

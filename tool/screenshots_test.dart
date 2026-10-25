@@ -43,7 +43,7 @@ Future<void> _loadFonts() async {
 }
 
 Future<HomeStore> _app(WidgetTester tester, Size size,
-    {String theme = 'dark', CloudSync? cloud, http.Client? client, BackupFiles? backups}) async {
+    {String theme = 'light', CloudSync? cloud, http.Client? client, BackupFiles? backups}) async {
   tester.view.physicalSize = size * 2;
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
@@ -72,6 +72,11 @@ void main() {
   testWidgets('phone home', (tester) async {
     await _app(tester, phone);
     await _shot(tester, 'phone-home');
+  });
+
+  testWidgets('phone home dark', (tester) async {
+    await _app(tester, phone, theme: 'dark');
+    await _shot(tester, 'phone-home-dark');
   });
 
   testWidgets('phone restore', (tester) async {

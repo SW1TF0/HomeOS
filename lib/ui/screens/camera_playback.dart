@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -171,7 +172,7 @@ class _CameraPlaybackScreenState extends State<CameraPlaybackScreen> {
                     key: const Key('playback-back'),
                     tooltip: 'Back',
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back),
+                    icon: const Icon(CupertinoIcons.back, color: KJPalette.accent, size: 28),
                   ),
                   const SizedBox(width: 6),
                   const Expanded(child: DisplayText('Recordings', size: 30)),
