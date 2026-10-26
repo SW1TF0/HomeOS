@@ -260,6 +260,186 @@ void main() {
     });
   });
 
+  group('Home Assistant robots, alarms and the rest', () {
+    final png = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0];
+    late List<String> calls;
+    late List<Map> bodies;
+    final states = [
+      {
+        'entity_id': 'vacuum.roborock_s8',
+        'state': 'cleaning',
+        'attributes': {
+          'friendly_name': 'Roborock S8',
+          'supported_features': 4 | 8 | 16 | 32 | 512 | 4096 | 8192,
+          'fan_speed': 'balanced',
+          'fan_speed_list': ['quiet', 'balanced', 'turbo', 'max'],
+        },
+      },
+      {
+        'entity_id': 'sensor.roborock_s8_battery',
+        'state': '64',
+        'attributes': {'device_class': 'battery', 'unit_of_measurement': '%'},
+      },
+      {'entity_id': 'lawn_mower.lawn', 'state': 'docked', 'attributes': {'supported_features': 7}},
+      {
+        'entity_id': 'alarm_control_panel.home',
+        'state': 'armed_away',
+        'attributes': {'supported_features': 1 | 2 | 4, 'code_format': 'number', 'code_arm_required': false},
+      },
+      {
+        'entity_id': 'fan.bedroom_purifier',
+        'state': 'on',
+        'attributes': {'supported_features': 1 | 8 | 16 | 32, 'percentage': 40, 'preset_mode': 'auto', 'preset_modes': ['auto', 'sleep']},
+      },
+      {
+        'entity_id': 'humidifier.nursery',
+        'state': 'on',
+        'attributes': {'humidity': 50, 'current_humidity': 41, 'min_humidity': 35, 'max_humidity': 65, 'available_modes': ['normal', 'eco']},
+      },
+      {
+        'entity_id': 'climate.living',
+        'state': 'cool',
+        'attributes': {'hvac_modes': ['off', 'heat', 'cool', 'auto'], 'temperature': 23, 'current_temperature': 25},
+      },
+      {
+        'entity_id': 'media_player.tv',
+        'state': 'playing',
+        'attributes': {
+          'supported_features': 1 | 4 | 8 | 16 | 32 | 128 | 256 | 2048,
+          'volume_level': 0.3,
+          'is_volume_muted': false,
+          'source': 'HDMI 1',
+          'source_list': ['HDMI 1', 'Netflix'],
+          'media_title': 'Dune',
+        },
+      },
+      {'entity_id': 'cover.garage', 'state': 'closed', 'attributes': {'device_class': 'garage', 'supported_features': 3}},
+      {'entity_id': 'valve.main_water', 'state': 'open', 'attributes': {'supported_features': 3}},
+      {'entity_id': 'scene.movie', 'state': '2026-10-17T10:00:00', 'attributes': {'friendly_name': 'Movie'}},
+      {'entity_id': 'button.router_restart', 'state': 'unknown', 'attributes': {}},
+      {'entity_id': 'camera.door', 'state': 'idle', 'attributes': {'friendly_name': 'Door camera'}},
+    ];
+    late HomeAssistantDriver ha;
+
+    setUp(() {
+      calls = [];
+      bodies = [];
+      final client = MockClient((req) async {
+        calls.add('${req.method} ${req.url.path}');
+        if (req.body.isNotEmpty) bodies.add(jsonDecode(req.body) as Map);
+        if (req.url.path == '/api/states') return http.Response(jsonEncode(states), 200);
+        if (req.url.path == '/api/camera_proxy/camera.door') {
+          expect(req.headers['Authorization'], 'Bearer t0k');
+          return http.Response.bytes(png, 200, headers: {'content-type': 'image/png'});
+        }
+        if (req.url.path.startsWith('/api/services/')) return http.Response('[]', 200);
+        return http.Response('not found', 404);
+      });
+      ha = HomeAssistantDriver(cfg('homeassistant', {'url': 'ha.local:8123', 'token': 't0k'}), client);
+    });
+
+    test('imports robots, alarms, purifiers, scenes and cameras, but not restart buttons', () async {
+      final byId = {for (final d in await ha.discover()) d.externalId: d};
+      expect(byId.keys, isNot(contains('button.router_restart')));
+      expect(byId.keys, isNot(contains('sensor.roborock_s8_battery')), reason: 'the battery shows on the robot');
+
+      final robot = byId['vacuum.roborock_s8']!;
+      expect(robot.kind, DeviceKind.vacuum);
+      expect(robot.capabilities, {Capability.run, Capability.dock, Capability.locate, Capability.mode});
+      expect(robot.state.activity, Activity.running);
+      expect(robot.state.battery, closeTo(0.64, 1e-9));
+      expect(robot.modes, ['quiet', 'balanced', 'turbo', 'max']);
+
+      final mower = byId['lawn_mower.lawn']!;
+      expect((mower.kind, mower.state.activity), (DeviceKind.mower, Activity.docked));
+      expect(mower.capabilities, {Capability.run, Capability.dock});
+
+      final alarm = byId['alarm_control_panel.home']!;
+      expect((alarm.kind, alarm.state.activity), (DeviceKind.alarm, Activity.armedAway));
+      expect(alarm.props['arms'], ['home', 'away', 'night']);
+      expect(alarm.props['codeFormat'], 'number');
+
+      final purifier = byId['fan.bedroom_purifier']!;
+      expect(purifier.kind, DeviceKind.purifier);
+      expect(purifier.capabilities, {Capability.onOff, Capability.speed, Capability.mode});
+      expect((purifier.state.speed, purifier.state.mode), (0.4, 'auto'));
+
+      final humidifier = byId['humidifier.nursery']!;
+      expect((humidifier.state.targetHumidity, humidifier.state.currentHumidity), (50, 41));
+      expect((humidifier.props['minHumidity'], humidifier.props['maxHumidity']), (35, 65));
+
+      final ac = byId['climate.living']!;
+      expect(ac.modes, ['heat', 'cool', 'auto']);
+      expect(ac.state.mode, 'cool');
+
+      final tv = byId['media_player.tv']!;
+      expect(tv.capabilities, containsAll([Capability.onOff, Capability.volume, Capability.remote, Capability.mode]));
+      expect((tv.state.volume, tv.state.mode, tv.state.readings['Playing']), (0.3, 'HDMI 1', 'Dune'));
+      expect(tv.props['keys'], containsAll(['volumeUp', 'mute', 'playPause', 'forward']));
+
+      expect(byId['cover.garage']!.kind, DeviceKind.garage);
+      expect(byId['valve.main_water']!.state.on, isTrue);
+      expect(byId['scene.movie']!.capabilities, {Capability.press});
+      expect(byId['camera.door']!.capabilities, {Capability.snapshot});
+    });
+
+    test('sends robot, alarm, fan, humidifier and media commands as services', () async {
+      final byId = {for (final d in await ha.discover()) d.externalId: d};
+      calls.clear();
+      bodies.clear();
+      await ha.send(byId['vacuum.roborock_s8']!, const DeviceCommand(action: DeviceAction.dock));
+      await ha.send(byId['vacuum.roborock_s8']!, const DeviceCommand(mode: 'max', action: DeviceAction.start));
+      await ha.send(byId['lawn_mower.lawn']!, const DeviceCommand(action: DeviceAction.start));
+      await ha.send(byId['alarm_control_panel.home']!, const DeviceCommand(action: DeviceAction.disarm, code: '1234'));
+      await ha.send(byId['fan.bedroom_purifier']!, const DeviceCommand(speed: 0.75));
+      await ha.send(byId['humidifier.nursery']!, const DeviceCommand(targetHumidity: 55));
+      await ha.send(byId['climate.living']!, const DeviceCommand(mode: 'heat'));
+      await ha.send(byId['media_player.tv']!, const DeviceCommand(mode: 'Netflix'));
+      await ha.send(byId['media_player.tv']!, const DeviceCommand(key: RemoteKey.forward));
+      await ha.send(byId['valve.main_water']!, const DeviceCommand(on: false));
+      await ha.send(byId['scene.movie']!, const DeviceCommand(action: DeviceAction.press));
+      expect(calls, [
+        'POST /api/services/vacuum/return_to_base',
+        'POST /api/services/vacuum/set_fan_speed',
+        'POST /api/services/vacuum/start',
+        'POST /api/services/lawn_mower/start_mowing',
+        'POST /api/services/alarm_control_panel/alarm_disarm',
+        'POST /api/services/fan/set_percentage',
+        'POST /api/services/humidifier/set_humidity',
+        'POST /api/services/climate/set_hvac_mode',
+        'POST /api/services/media_player/select_source',
+        'POST /api/services/media_player/media_next_track',
+        'POST /api/services/valve/close_valve',
+        'POST /api/services/scene/turn_on',
+      ]);
+      expect(bodies[1], {'entity_id': 'vacuum.roborock_s8', 'fan_speed': 'max'});
+      expect(bodies[4], {'entity_id': 'alarm_control_panel.home', 'code': '1234'});
+      expect(bodies[5], {'entity_id': 'fan.bedroom_purifier', 'percentage': 75});
+      expect(bodies[6], {'entity_id': 'humidifier.nursery', 'humidity': 55});
+    });
+
+    test('a purifier that leaves its preset and a robot whose problem is fixed are shown as they are now', () async {
+      final devices = await ha.discover();
+      final purifier = devices.firstWhere((d) => d.externalId == 'fan.bedroom_purifier');
+      final robot = devices.firstWhere((d) => d.externalId == 'vacuum.roborock_s8')
+        ..state = const DeviceState(activity: Activity.error, readings: {'Error': 'Brush jammed'});
+      expect(purifier.state.mode, 'auto');
+      final fan = states.firstWhere((e) => e['entity_id'] == 'fan.bedroom_purifier');
+      final before = Map.of(fan['attributes'] as Map);
+      (fan['attributes'] as Map).remove('preset_mode');
+      final now = await ha.refreshAll([purifier, robot]);
+      fan['attributes'] = before;
+      expect(now[purifier.id]!.mode, isNull);
+      expect(now[robot.id]!.activity, Activity.running);
+      expect(now[robot.id]!.readings.containsKey('Error'), isFalse);
+    });
+
+    test('a camera picture comes through the camera proxy', () async {
+      final cam = (await ha.discover()).firstWhere((d) => d.externalId == 'camera.door');
+      expect(await ha.snapshot(cam), png);
+    });
+  });
+
   group('MQTT', () {
     test('Zigbee2MQTT devices, states and commands', () {
       final m = MqttModel();
@@ -352,6 +532,128 @@ void main() {
       m.register('manual:1', {'component': 'sensor', 'state_topic': 'garden/temp', 'name': 'Garden', 'unit_of_measurement': '°C'});
       final (changed, _) = m.handle('garden/temp', '14.2');
       expect(changed['manual:1']!.readings, {'Garden': '14.2 °C'});
+    });
+
+    List<Device> devicesOf(MqttModel m) => m.devices((id, name, kind, caps, props, state) =>
+        Device(id: id, name: name, kind: kind, integrationId: 'mqtt', externalId: id, capabilities: caps, props: props, state: state));
+
+    test('a Valetudo robot vacuum cleans, changes suction, goes home and shows its battery', () {
+      final m = MqttModel();
+      const dev = {
+        'ids': ['valetudo_rocky'],
+        'name': 'Rocky',
+        'mf': 'Roborock',
+      };
+      final (_, topics) = m.handle(
+          'homeassistant/vacuum/rocky/rocky_vacuum/config',
+          jsonEncode({
+            '~': 'valetudo/rocky',
+            'uniq_id': 'rocky_vacuum',
+            'dev': dev,
+            'schema': 'state',
+            'stat_t': '~/hass/rocky_vacuum/state',
+            'cmd_t': '~/BasicControlCapability/operation/set',
+            'set_fan_spd_t': '~/FanSpeedControlCapability/preset/set',
+            'fanspd_lst': ['low', 'medium', 'high', 'max'],
+            'sup_feat': ['start', 'stop', 'pause', 'return_home', 'battery', 'status', 'locate', 'fan_speed'],
+            'pl_strt': 'START',
+            'pl_paus': 'PAUSE',
+            'pl_stop': 'STOP',
+            'pl_ret': 'HOME',
+          }));
+      expect(topics, ['valetudo/rocky/hass/rocky_vacuum/state']);
+      m.handle(
+          'homeassistant/sensor/rocky/rocky_battery_level/config',
+          jsonEncode({
+            '~': 'valetudo/rocky',
+            'name': 'Battery level',
+            'dev': dev,
+            'dev_cla': 'battery',
+            'unit_of_meas': '%',
+            'stat_t': '~/BatteryStateAttribute/level',
+          }));
+
+      final (changed, _) = m.handle('valetudo/rocky/BatteryStateAttribute/level', '61');
+      expect(changed['ha:vacuum/rocky/rocky_vacuum']!.battery, closeTo(0.61, 1e-9));
+      m.handle('valetudo/rocky/hass/rocky_vacuum/state', jsonEncode({'state': 'cleaning', 'fan_speed': 'max'}));
+
+      final robot = devicesOf(m).single; // the battery shows on the robot, not as a sensor of its own
+      expect(robot.name, 'Rocky');
+      expect(robot.kind, DeviceKind.vacuum);
+      expect(robot.capabilities, {Capability.run, Capability.dock, Capability.locate, Capability.mode});
+      expect(robot.modes, ['low', 'medium', 'high', 'max']);
+      expect(robot.props['noStop'], isNull);
+      expect(robot.state.activity, Activity.running);
+      expect(robot.state.battery, closeTo(0.61, 1e-9));
+      expect(robot.state.mode, 'max');
+
+      expect(m.commandsFor(robot, const DeviceCommand(mode: 'high', action: DeviceAction.start)).map((o) => '$o'), [
+        'valetudo/rocky/FanSpeedControlCapability/preset/set <- high',
+        'valetudo/rocky/BasicControlCapability/operation/set <- START',
+      ]);
+      expect(m.commandsFor(robot, const DeviceCommand(action: DeviceAction.dock)).single.payload, 'HOME');
+      expect(m.commandsFor(robot, const DeviceCommand(action: DeviceAction.locate)).single.payload, 'locate');
+
+      m.handle('valetudo/rocky/hass/rocky_vacuum/state', jsonEncode({'state': 'docked', 'battery_level': 100}));
+      expect(m.states['ha:vacuum/rocky/rocky_vacuum']!.activity, Activity.docked);
+      expect(m.states['ha:vacuum/rocky/rocky_vacuum']!.battery, 1);
+    });
+
+    test('a vacuum that cannot stop, a lawn mower, a water valve, a siren and a button', () {
+      final m = MqttModel();
+      m.handle(
+          'homeassistant/vacuum/basic/config',
+          jsonEncode({
+            'name': 'Hall robot',
+            'cmd_t': 'robot/cmd',
+            'stat_t': 'robot/state',
+            'sup_feat': ['start', 'pause', 'return_home', 'status'],
+          }));
+      m.handle(
+          'homeassistant/lawn_mower/mower/config',
+          jsonEncode({
+            'name': 'Mower',
+            'activity_state_topic': 'mower/activity',
+            'activity_value_template': '{{ value_json.activity }}',
+            'start_mowing_command_topic': 'mower/start',
+            'pause_command_topic': 'mower/pause',
+            'dock_command_topic': 'mower/dock',
+          }));
+      m.handle('homeassistant/valve/tap/config',
+          jsonEncode({'name': 'Garden tap', 'cmd_t': 'tap/set', 'stat_t': 'tap/state', 'dev_cla': 'water'}));
+      m.handle('homeassistant/siren/siren/config', jsonEncode({'name': 'Siren', 'cmd_t': 'siren/set', 'stat_t': 'siren/state'}));
+      m.handle('homeassistant/button/chime/config', jsonEncode({'name': 'Chime', 'cmd_t': 'chime/ring', 'pl_prs': 'RING'}));
+      m.handle('homeassistant/cover/garage/config',
+          jsonEncode({'name': 'Garage', 'cmd_t': 'garage/set', 'stat_t': 'garage/state', 'dev_cla': 'garage'}));
+
+      m.handle('mower/activity', jsonEncode({'activity': 'mowing'}));
+      m.handle('tap/state', 'opening');
+      m.handle('siren/state', 'ON');
+      m.handle('robot/state', jsonEncode({'state': 'error'}));
+
+      final byName = {for (final d in devicesOf(m)) d.name: d};
+      expect(byName.keys, ['Hall robot', 'Mower', 'Garden tap', 'Siren', 'Chime', 'Garage']);
+      expect(byName['Hall robot']!.capabilities, {Capability.run, Capability.dock});
+      expect(byName['Hall robot']!.props['noStop'], isTrue);
+      expect(byName['Hall robot']!.state.activity, Activity.error);
+      expect(byName['Mower']!.kind, DeviceKind.mower);
+      expect(byName['Mower']!.capabilities, {Capability.run, Capability.dock});
+      expect(byName['Mower']!.state.activity, Activity.running);
+      expect(byName['Garden tap']!.kind, DeviceKind.valve);
+      expect(byName['Garden tap']!.state.on, isTrue);
+      expect(byName['Siren']!.kind, DeviceKind.siren);
+      expect(byName['Siren']!.state.on, isTrue);
+      expect(byName['Chime']!.kind, DeviceKind.button);
+      expect(byName['Chime']!.capabilities, {Capability.press});
+      expect(byName['Garage']!.kind, DeviceKind.garage);
+
+      String send(String name, DeviceCommand c) => m.commandsFor(byName[name]!, c).join(', ');
+      expect(send('Mower', const DeviceCommand(action: DeviceAction.start)), 'mower/start <- start_mowing');
+      expect(send('Mower', const DeviceCommand(action: DeviceAction.dock)), 'mower/dock <- dock');
+      expect(send('Garden tap', const DeviceCommand(on: false)), 'tap/set <- CLOSE');
+      expect(send('Siren', const DeviceCommand(on: false)), 'siren/set <- OFF');
+      expect(send('Chime', const DeviceCommand(action: DeviceAction.press)), 'chime/ring <- RING');
+      expect(send('Hall robot', const DeviceCommand(action: DeviceAction.pause)), 'robot/cmd <- pause');
     });
   });
 
