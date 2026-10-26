@@ -8,6 +8,7 @@ import '../../theme/app_theme.dart';
 import '../../util/color_math.dart';
 import '../../util/haptics.dart';
 import 'kj_widgets.dart';
+import '../../util/sounds.dart';
 
 // ---- The one level a quick drag changes ---------------------------------------
 
@@ -140,6 +141,7 @@ class PresetChip extends StatelessWidget {
       child: GestureDetector(
         onTap: () {
           Haptics.selectionClick();
+          Sounds.tick();
           onTap();
         },
         child: AnimatedContainer(
@@ -952,6 +954,7 @@ class _PillSliderState extends State<PillSlider> {
     _sender.cancel();
     if (v == null) return;
     setState(() => _drag = null);
+    Sounds.tick();
     widget.onChangeEnd(v);
   }
 
@@ -975,7 +978,12 @@ class _PillSliderState extends State<PillSlider> {
         onVerticalDragUpdate: _update,
         onVerticalDragEnd: (_) => _end(),
         onVerticalDragCancel: _end,
-        onTap: widget.onTap,
+        onTap: widget.onTap == null
+            ? null
+            : () {
+                Sounds.power(widget.value <= 0.005);
+                widget.onTap!();
+              },
         child: PressScale(
           scale: 0.98,
           child: Container(

@@ -15,6 +15,7 @@ import 'ui/screens/home_screen.dart';
 import 'ui/nav.dart';
 import 'ui/screens/map_screen.dart';
 import 'ui/widgets/kj_widgets.dart';
+import 'util/sounds.dart';
 
 class SmartMenuApp extends StatelessWidget {
   SmartMenuApp(
@@ -246,7 +247,10 @@ class _BottomBar extends StatelessWidget {
                     child: GestureDetector(
                       key: Key('tab-${_tabs[i].label.toLowerCase()}'),
                       behavior: HitTestBehavior.opaque,
-                      onTap: () => onTap(i),
+                      onTap: () {
+                        if (i != selected) Sounds.tick();
+                        onTap(i);
+                      },
                       child: Semantics(
                         button: true,
                         selected: i == selected,

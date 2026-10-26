@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../util/haptics.dart';
+import '../util/sounds.dart';
 
 /// Choices for the app on this device, the same in every home. The theme is
 /// kept by the home store, as it always was.
@@ -21,6 +22,11 @@ class AppSettings extends ChangeNotifier {
   bool get haptics => _haptics;
   bool _haptics = true;
   set haptics(bool v) => _set(() => Haptics.enabled = _haptics = v);
+
+  /// Sounds for taps, switching things on and off and running scenes.
+  bool get sounds => _sounds;
+  bool _sounds = true;
+  set sounds(bool v) => _set(() => Sounds.enabled = _sounds = v);
 
   /// The tab the app opens on: 0 home, 1 map, 2 devices.
   int get startTab => _startTab;
@@ -60,6 +66,7 @@ class AppSettings extends ChangeNotifier {
   Map<String, Object?> toJson() => {
         'clock24': _clock24,
         'haptics': _haptics,
+        'sounds': _sounds,
         'startTab': _startTab,
         'checkSeconds': _checkSeconds,
         'autoBackup': _autoBackup,
@@ -75,7 +82,9 @@ class AppSettings extends ChangeNotifier {
     _autoBackup = j['autoBackup'] as bool? ?? true;
     _restoreAsked = j['restoreAsked'] as bool? ?? false;
     _whiteLook = j['whiteLook'] as bool? ?? false;
+    _sounds = j['sounds'] as bool? ?? true;
     Haptics.enabled = _haptics;
+    Sounds.enabled = _sounds;
   }
 
   Future<void> load() async {

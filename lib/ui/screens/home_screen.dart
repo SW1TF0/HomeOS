@@ -24,6 +24,7 @@ import 'homes_sheet.dart';
 import 'profile_menu.dart';
 import 'room_sheet.dart';
 import 'scenes.dart';
+import '../../util/sounds.dart';
 
 /// Overview: clock, what's going on, scenes, favourites and rooms.
 class HomeScreen extends StatelessWidget {
@@ -404,7 +405,12 @@ class _StatusStrip extends StatelessWidget {
         color: anyOn ? KJPalette.danger : KJPalette.green,
         title: 'All off',
         detail: anyOn ? '${store.activeCount} on' : 'Everything off',
-        onTap: anyOn ? store.allOff : null,
+        onTap: anyOn
+            ? () {
+                Sounds.power(false);
+                store.allOff();
+              }
+            : null,
       ),
       if (lights.isNotEmpty)
         _Pill(
@@ -561,7 +567,12 @@ class _Pill extends StatelessWidget {
       child: PressScale(
         enabled: onTap != null,
         child: GestureDetector(
-          onTap: onTap,
+          onTap: onTap == null || title == 'All off'
+              ? onTap
+              : () {
+                  Sounds.tap();
+                  onTap!();
+                },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.fromLTRB(10, 8, 14, 8),
@@ -624,7 +635,10 @@ class _RoomCard extends StatelessWidget {
               child: GestureDetector(
                 key: Key('room-power-${room.id}'),
                 behavior: HitTestBehavior.opaque,
-                onTap: () => store.toggleRoom(room.id),
+                onTap: () {
+                  Sounds.power(!anyOn);
+                  store.toggleRoom(room.id);
+                },
                 child: Padding(
                   padding: const EdgeInsets.only(left: 6),
                   child: AnimatedContainer(

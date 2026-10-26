@@ -153,6 +153,14 @@ class SettingsScreen extends StatelessWidget {
                           value: settings.haptics,
                           onChanged: (v) => settings.haptics = v,
                         ),
+                        SwitchListTile(
+                          key: const Key('settings-sounds'),
+                          secondary: const Icon(Icons.volume_up_outlined),
+                          title: const Text('Sounds'),
+                          subtitle: const Text('A soft click on taps, a tone when things switch on or off'),
+                          value: settings.sounds,
+                          onChanged: (v) => settings.sounds = v,
+                        ),
                         ListTile(
                           leading: const Icon(Icons.refresh),
                           title: const Text('Refresh all devices'),

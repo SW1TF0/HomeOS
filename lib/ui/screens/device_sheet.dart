@@ -25,6 +25,7 @@ import '../widgets/controls.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/kj_widgets.dart';
 import '../widgets/remote_pad.dart';
+import '../../util/sounds.dart';
 
 Future<void> showDeviceSheet(BuildContext context, Device device) => showModalBottomSheet(
       context: context,
@@ -49,7 +50,14 @@ class DeviceCard extends StatelessWidget {
     return DeviceTile(
       device: d,
       subtitle: subtitle,
-      onTap: () => HomeStore.tapControls(d) ? store.toggle(d) : showDeviceSheet(context, d),
+      onTap: () {
+        if (!HomeStore.tapControls(d)) {
+          showDeviceSheet(context, d);
+          return;
+        }
+        Sounds.power(!d.state.isActive);
+        store.toggle(d);
+      },
       onLongPress: () => showDeviceSheet(context, d),
       onOpen: () => showDeviceSheet(context, d),
       onLevel: sendsLive(d) ? (v) => store.command(d, levelCommand(d, v)) : null,

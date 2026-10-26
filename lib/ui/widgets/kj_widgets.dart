@@ -8,6 +8,7 @@ import '../../theme/app_theme.dart';
 import '../../util/color_math.dart';
 import '../../util/haptics.dart';
 import 'controls.dart';
+import '../../util/sounds.dart';
 
 /// The faint dotted grid behind the floor plan.
 class DotGridPainter extends CustomPainter {
@@ -121,7 +122,12 @@ class NCard extends StatelessWidget {
           type: MaterialType.transparency,
           child: InkWell(
             borderRadius: BorderRadius.circular(radius),
-            onTap: onTap,
+            onTap: onTap == null
+                ? null
+                : () {
+                    Sounds.tap();
+                    onTap!();
+                  },
             onLongPress: onLongPress,
             child: Padding(padding: padding, child: child),
           ),
@@ -149,7 +155,12 @@ class GlassButton extends StatelessWidget {
         enabled: onPressed != null,
         scale: 0.9,
         child: GestureDetector(
-          onTap: onPressed,
+          onTap: onPressed == null
+              ? null
+              : () {
+                  Sounds.tap();
+                  onPressed!();
+                },
           child: Container(
             width: size,
             height: size,
@@ -473,6 +484,7 @@ class _DeviceTileState extends State<DeviceTile> {
     _sender.cancel();
     if (v == null) return;
     setState(() => _drag = null);
+    Sounds.tick();
     widget.onLevelEnd?.call(v);
   }
 
@@ -769,7 +781,12 @@ class PowerOrb extends StatelessWidget {
       button: onTap != null,
       toggled: on,
       child: GestureDetector(
-        onTap: onTap,
+        onTap: onTap == null
+            ? null
+            : () {
+                Sounds.power(!on);
+                onTap!();
+              },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),
           width: size,
@@ -825,7 +842,10 @@ class NChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        Sounds.tick();
+        onTap();
+      },
       onLongPress: onLongPress,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),

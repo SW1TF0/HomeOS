@@ -10,6 +10,7 @@ import '../widgets/controls.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/kj_widgets.dart';
 import 'device_sheet.dart';
+import '../../util/sounds.dart';
 
 const sceneIcons = <String, IconData>{
   'auto': Icons.auto_awesome_outlined,
@@ -104,6 +105,7 @@ class _ScenesRowState extends State<ScenesRow> {
 
   Future<void> _run(HomeStore store, Scene s) async {
     setState(() => _running = s.id);
+    Sounds.scene();
     await store.runScene(s);
     if (mounted) setState(() => _running = null);
   }

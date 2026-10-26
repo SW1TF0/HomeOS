@@ -13,6 +13,7 @@ import 'package:smartmenukj/integrations/network_scan.dart';
 import 'package:smartmenukj/models/device.dart';
 import 'package:smartmenukj/state/app_settings.dart';
 import 'package:smartmenukj/util/haptics.dart';
+import 'package:smartmenukj/util/sounds.dart';
 import 'package:smartmenukj/ui/screens/camera_playback.dart';
 import 'package:smartmenukj/ui/screens/connect_screen.dart';
 import 'package:smartmenukj/ui/screens/home_screen.dart';
@@ -1195,6 +1196,11 @@ void main() {
       await tester.tap(find.byKey(const Key('settings-haptics')));
       await tester.pumpAndSettle();
       expect(Haptics.enabled, isFalse);
+      await tester.ensureVisible(find.byKey(const Key('settings-sounds')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('settings-sounds')));
+      await tester.pumpAndSettle();
+      expect(Sounds.enabled, isFalse);
 
       await tester.tap(find.byKey(const Key('settings-back')));
       await tester.pumpAndSettle();
@@ -1205,6 +1211,7 @@ void main() {
       expect(again.toJson(), {
         'clock24': false,
         'haptics': false,
+        'sounds': false,
         'startTab': 0,
         'checkSeconds': 30,
         'autoBackup': true,
@@ -1212,6 +1219,7 @@ void main() {
         'whiteLook': false,
       });
       again.haptics = true;
+      again.sounds = true;
     });
 
     testWidgets('the app opens on the tab picked in settings', (tester) async {

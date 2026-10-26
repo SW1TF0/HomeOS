@@ -86,6 +86,8 @@ object HomeEngine {
         BackupFiles.attach(app, messenger)
         // The home-screen widget shows the open home's scenes.
         ScenesWidget.attach(app, messenger)
+        // Sounds for taps and switches.
+        UiSounds.attach(app, messenger)
         // Keeping a home online: the app runs on in the background with a notification.
         MethodChannel(messenger, "smartmenukj/hub").setMethodCallHandler { call, result ->
             when (call.method) {
