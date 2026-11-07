@@ -40,10 +40,16 @@ Everything is free and local-first. There is no subscription and no paywall, and
 | --- | --- | --- | --- |
 | ![Activity](docs/screenshots/phone-activity.png) | ![Sensor history](docs/screenshots/phone-sensor-history.png) | ![Home in Bulgarian](docs/screenshots/phone-home-bg.png) | ![Settings in Bulgarian](docs/screenshots/phone-settings-bg.png) |
 
+| Opening | Welcome | Your name | Create an account |
+| --- | --- | --- | --- |
+| ![The opening animation](docs/screenshots/phone-launch.png) | ![Welcome](docs/screenshots/phone-welcome.png) | ![Your name](docs/screenshots/phone-welcome-name.png) | ![Create an account](docs/screenshots/phone-sign-up.png) |
+
 ![Desktop](docs/screenshots/desktop-map.png)
 
 ## What it does
 
+- **Opening and welcome.** The app opens with a short animation: the house mark draws itself, its door lights up, your devices fly out around it and switch on, and the door opens into your home (tap to skip it). A new install then shows three moving welcome pages, asks your name, and offers to make a free account, sign in, or carry on without one. The home screen greets you by name ("Good evening, Krasimir"), and screens and tiles glide in as they open. **Settings → Animations** turns all of it off (so does the phone's own "remove animations"), and **Settings → Welcome tour** shows the welcome again.
+- **Sign up and sign in.** A screen of its own with Sign in and Create account side by side, your name, a password meter, a shake when something is wrong, a reset link, and a tick when you are in. A new account gets an email to confirm the address, and its name comes along to every phone you sign in on.
 - **Floor plan.** Add a ready-made room (Kitchen, Bedroom, Garage...) and it drops into a free spot, or draw one by dragging on the dotted grid. Move rooms; resize them from any corner or wall, with two fingers, or one square at a time with + and -; duplicate or delete them, and undo any change. Devices that are not on the plan wait in a tray at the bottom: drag one into a room and it joins that room. Tap a device on the plan to switch it, hold it for full controls, tap a room to open it.
 - **Controls.** Sliders with one-tap presets for brightness and white (Warm, Neutral, Cool, Daylight), a colour ring, a thermostat dial with Eco / Comfort / Warm, blinds you slide open, volume, locks that only open when you hold them, and sensor readings, each shown only when the device supports it. Robot vacuums and mowers get start / pause ringed by their battery, send home, stop, find and suction or cleaning mode; washers, dryers and dishwashers show what they are doing and the time left; alarms arm home / away / night and ask before disarming (the code is never saved); purifiers and fans get speed and presets, humidifiers a dial, and valves, sirens, garage doors, buttons and cameras their own controls. Drag sideways across a light's tile to dim it without opening anything.
 - **Home screen.** The home's name, the time and a status strip (lights on, temperature inside, locks, open blinds, offline devices) where each pill opens the devices behind it, next to one button that switches everything off. Smoke, carbon monoxide and leaks show first, in red. Then your favourites and your rooms. **Edit home** picks and orders the favourites and rooms.

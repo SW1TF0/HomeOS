@@ -108,8 +108,19 @@ class MemoryCloud {
     }
     final uid = _accounts[email.trim().toLowerCase()]!.$2;
     return CloudSession(
-        uid: uid, email: email.trim(), idToken: 'token', refreshToken: 'refresh', expires: DateTime.now().add(const Duration(hours: 1)));
+        uid: uid,
+        email: email.trim(),
+        idToken: 'token',
+        refreshToken: 'refresh',
+        expires: DateTime.now().add(const Duration(hours: 1)),
+        name: names[uid]);
   }
+
+  /// Names given to accounts, by uid.
+  final names = <String, String>{};
+
+  /// Addresses sent a link to confirm them.
+  final emailChecks = <String>[];
 }
 
 class _Listener {
@@ -162,6 +173,21 @@ class MemoryCloudApi implements CloudApi {
 
   @override
   Future<void> sendPasswordReset(String email) async {}
+
+  @override
+  Future<void> setName(String name) async {
+    final s = session;
+    if (s == null) return;
+    cloud.names[s.uid] = name.trim();
+    s.name = name.trim();
+    onSession?.call(s);
+  }
+
+  @override
+  Future<void> sendEmailCheck() async {
+    final s = session;
+    if (s != null) cloud.emailChecks.add(s.email);
+  }
 
   @override
   void signOut() => _set(null);

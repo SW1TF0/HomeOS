@@ -27,6 +27,7 @@ import 'package:smartmenukj/ui/screens/device_sheet.dart';
 import 'package:smartmenukj/ui/screens/home_screen.dart';
 import 'package:smartmenukj/ui/screens/router_screen.dart';
 import 'package:smartmenukj/ui/widgets/camera_live.dart';
+import 'package:smartmenukj/ui/widgets/motion.dart';
 
 Future<void> _loadFonts() async {
   final inter = FontLoader('Inter');
@@ -515,6 +516,61 @@ void main() {
     await _app(tester, phone, language: 'bg');
     await openControls(tester, 'Настолна лампа');
     await _shot(tester, 'phone-device-bg');
+  });
+
+  /// A new install with its opening animation and welcome, which never stand still, so pictures are taken at a
+  /// moment rather than once everything settles.
+  Future<CloudSync> firstOpen(WidgetTester tester) async {
+    tester.view.physicalSize = phone * 2;
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    // ignore: invalid_use_of_visible_for_testing_member
+    SharedPreferences.setMockInitialValues({});
+    Motion.allowed = true;
+    addTearDown(() {
+      Motion.allowed = false;
+      Motion.revealed.value = true;
+    });
+    final store = HomeStore(repository: MemoryHomeRepository(), client: MockClient((_) async => http.Response('[]', 200)));
+    await store.load();
+    final cloud = CloudSync(store: store, api: MemoryCloud().app(), delay: const Duration(milliseconds: 10));
+    await cloud.start();
+    await tester.pumpWidget(SmartMenuApp(store: store, cloud: cloud, settings: AppSettings(), poll: false, intro: true));
+    return cloud;
+  }
+
+  Future<void> run(WidgetTester tester, int ms) async {
+    for (var i = 0; i < ms ~/ 100; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
+  Future<void> still(WidgetTester tester, String name) =>
+      expectLater(find.byType(MaterialApp), matchesGoldenFile('../docs/screenshots/$name.png'));
+
+  testWidgets('phone opening animation and welcome', (tester) async {
+    final cloud = await firstOpen(tester);
+    await tester.pump(const Duration(milliseconds: 1420));
+    await still(tester, 'phone-launch');
+    await run(tester, 2400);
+    await still(tester, 'phone-welcome');
+    await tester.tap(find.byKey(const Key('welcome-skip')));
+    await run(tester, 2000);
+    await tester.enterText(find.byKey(const Key('welcome-name')), 'Krasimir');
+    await run(tester, 300);
+    FocusManager.instance.primaryFocus?.unfocus();
+    await run(tester, 300);
+    await still(tester, 'phone-welcome-name');
+    await tester.tap(find.byKey(const Key('welcome-create')));
+    await run(tester, 1200);
+    await tester.enterText(find.byKey(const Key('account-email')), 'krasimir@example.com');
+    await tester.enterText(find.byKey(const Key('account-password')), 'Sofia-2026!');
+    FocusManager.instance.primaryFocus?.unfocus();
+    await run(tester, 600);
+    await still(tester, 'phone-sign-up');
+    await tester.tap(find.byKey(const Key('auth-close')));
+    await run(tester, 600);
+    await signOff(tester, cloud);
   });
 
   testWidgets('phone settings in Bulgarian', (tester) async {

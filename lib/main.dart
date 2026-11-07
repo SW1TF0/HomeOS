@@ -18,6 +18,7 @@ import 'state/repository.dart';
 import 'state/scene_alarms.dart';
 import 'state/scenes_widget.dart';
 import 'state/updates.dart';
+import 'ui/widgets/motion.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,7 +51,8 @@ Future<void> main() async {
   unawaited(cloud.start());
   final updates = UpdateCheck();
   await updates.load();
-  runApp(SmartMenuApp(store: store, cloud: cloud, settings: settings, backups: backups, updates: updates));
+  Motion.allowed = true;
+  runApp(SmartMenuApp(store: store, cloud: cloud, settings: settings, backups: backups, updates: updates, intro: true));
   // A little after opening, so it does not hold up the first look at the home.
   unawaited(Future<void>.delayed(const Duration(seconds: 5), updates.check));
 }

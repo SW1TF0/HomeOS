@@ -1050,6 +1050,41 @@ const bgWords = <String, String>{
   'Your real devices are here. Remove the sample home?': 'Истинските ви устройства са тук. Да премахна ли примерния дом?',
   'Yours': 'Вашите',
   'Zigbee2MQTT base topic': 'Основна тема на Zigbee2MQTT',
+  // 1.19: welcome, sign-in and greeting.
+  'Create your account': 'Създайте профил',
+  'Welcome back': 'Добре дошли отново',
+  'Free. Your homes on every phone and computer, and control from anywhere.':
+      'Безплатно. Домовете ви на всеки телефон и компютър и управление отвсякъде.',
+  'Sign in to bring your homes to this device.': 'Влезте, за да вземете домовете си на това устройство.',
+  'Your name': 'Вашето име',
+  'Without an account everything still works on your Wi-Fi.': 'И без профил всичко работи във вашата Wi-Fi мрежа.',
+  'Too short': 'Твърде кратка',
+  'Weak@password': 'Слаба',
+  'Fair@password': 'Средна',
+  'Good@password': 'Добра',
+  'Strong@password': 'Силна',
+  'Welcome!': 'Добре дошли!',
+  'Welcome back!': 'Добре дошли отново!',
+  'Skip': 'Пропусни',
+  'Continue': 'Продължи',
+  'Every device, one app': 'Всяко устройство, едно приложение',
+  'Lights, plugs, TVs, cameras, robots and thermostats from any brand, on your Wi-Fi. No hub, no fees.':
+      'Лампи, контакти, телевизори, камери, роботи и термостати от всяка марка, във вашата Wi-Fi мрежа. Без хъб, без такси.',
+  'Lay out your rooms on a floor plan, put each device where it really is, and tap it to switch it.':
+      'Подредете стаите си на план, сложете всяко устройство там, където е наистина, и го докоснете, за да го включите.',
+  'Control it from anywhere': 'Управлявайте го отвсякъде',
+  'Sign in to keep your homes on every phone and computer, and switch things from wherever you are.':
+      'Влезте, за да имате домовете си на всеки телефон и компютър и да включвате неща, където и да сте.',
+  'Make it yours': 'Направете го свое',
+  'What should we call you? The home screen will greet you by name.':
+      'Как да ви наричаме? Началният екран ще ви поздравява по име.',
+  'Continue without an account': 'Продължи без профил',
+  'Not given. The home screen greets you by it.': 'Не е въведено. Началният екран ви поздравява с него.',
+  'Animations': 'Анимации',
+  'The opening animation, and screens and tiles gliding in':
+      'Анимацията при отваряне и плавното появяване на екрани и плочки',
+  'Welcome tour': 'Обиколка за начинаещи',
+  'The screens a new install opens with': 'Екраните, с които започва нова инсталация',
 };
 
 const bgPatterns = <String, String>{
@@ -1298,4 +1333,12 @@ const bgPatterns = <String, String>{
   '{0}H': '{0}Ч',
   '{0}K': '{0}K',
   '{0}° inside': '{0}° вътре',
+  // 1.19
+  'Welcome, {0}!': 'Добре дошли, {0}!',
+  'Welcome back, {0}!': 'Добре дошли отново, {0}!',
+  'We sent a link to {0} to confirm it.': 'Изпратихме връзка до {0}, за да го потвърдите.',
+  'Good morning, {0}': 'Добро утро, {0}',
+  'Good afternoon, {0}': 'Добър ден, {0}',
+  'Good evening, {0}': 'Добър вечер, {0}',
+  'Good night, {0}': 'Лека нощ, {0}',
 };

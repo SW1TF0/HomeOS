@@ -1156,15 +1156,21 @@ void main() {
     await tester.tap(find.byKey(const Key('profile-sign-in')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('profile-menu')), findsNothing);
+    expect(find.text('Welcome back'), findsOneWidget, reason: 'the sign-in screen opens on Sign in');
+    await tester.tap(find.byKey(const Key('auth-mode-create')));
+    await tester.pumpAndSettle();
+    expect(find.text('Create your account'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('account-email')), 'me@example.com');
     await tester.enterText(find.byKey(const Key('account-password')), '123');
-    await tester.tap(find.byKey(const Key('account-create')));
+    await tester.tap(find.byKey(const Key('auth-submit')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('account-error')), findsOneWidget, reason: 'too short');
+    expect(cloud.signedIn, isFalse);
     await tester.enterText(find.byKey(const Key('account-password')), 'secret1');
-    await tester.tap(find.byKey(const Key('account-create')));
+    await tester.tap(find.byKey(const Key('auth-submit')));
     await tester.pumpAndSettle();
     expect(cloud.signedIn, isTrue);
+    expect(find.byKey(const Key('auth-submit')), findsNothing, reason: 'the sign-in screen closed, and the account opened');
     expect(find.text('me@example.com'), findsWidgets);
     expect(store.homes.single.cloudId, isNotNull);
     expect(find.byKey(const Key('account-hub-status')), findsOneWidget, reason: 'nothing at home yet');
@@ -1302,6 +1308,9 @@ void main() {
         'restoreAsked': false,
         'whiteLook': false,
         'language': 'auto',
+        'name': '',
+        'welcomed': false,
+        'animations': true,
       });
       again.haptics = true;
       again.sounds = true;

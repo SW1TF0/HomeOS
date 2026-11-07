@@ -134,14 +134,22 @@ class CloudSync extends ChangeNotifier implements RemoteControl {
     _follow();
   }
 
-  /// Signs in, or makes a new account with [create]. Throws a [CloudException] with a message for the user.
-  Future<void> signIn(String email, String password, {bool create = false}) async {
+  /// Signs in, or makes a new account with [create], called [name] when one is given, and sends it a link that
+  /// confirms the email. Throws a [CloudException] with a message for the user.
+  Future<void> signIn(String email, String password, {bool create = false, String name = ''}) async {
     final api = this.api!;
     busy = true;
     problem = null;
     notifyListeners();
     try {
-      create ? await api.signUp(email, password) : await api.signIn(email, password);
+      if (create) {
+        await api.signUp(email, password);
+        // Neither is needed to use the account, so a failure here does not stop it.
+        if (name.trim().isNotEmpty) await api.setName(name).catchError((Object e) => debugPrint('Account name: $e'));
+        await api.sendEmailCheck().catchError((Object e) => debugPrint('Email check: $e'));
+      } else {
+        await api.signIn(email, password);
+      }
     } finally {
       busy = false;
       notifyListeners();

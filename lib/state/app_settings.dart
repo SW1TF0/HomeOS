@@ -61,6 +61,21 @@ class AppSettings extends ChangeNotifier {
   String _language = 'auto';
   set language(String v) => _set(() => L10n.use(_language = L10n.choices.containsKey(v) ? v : 'auto'));
 
+  /// What the app calls the person using it: the home screen greets them by it. Empty when not given.
+  String get name => _name;
+  String _name = '';
+  set name(String v) => _set(() => _name = v.trim().length > 40 ? v.trim().substring(0, 40) : v.trim());
+
+  /// Whether the welcome screens were gone through once on this device.
+  bool get welcomed => _welcomed;
+  bool _welcomed = false;
+  set welcomed(bool v) => _set(() => _welcomed = v);
+
+  /// The opening animation, and screens and tiles gliding in.
+  bool get animations => _animations;
+  bool _animations = true;
+  set animations(bool v) => _set(() => _animations = v);
+
   Duration get checkEvery => Duration(seconds: _checkSeconds);
 
   void _set(void Function() change) {
@@ -79,6 +94,9 @@ class AppSettings extends ChangeNotifier {
         'restoreAsked': _restoreAsked,
         'whiteLook': _whiteLook,
         'language': _language,
+        'name': _name,
+        'welcomed': _welcomed,
+        'animations': _animations,
       };
 
   void _read(Map<String, dynamic> j) {
@@ -92,6 +110,9 @@ class AppSettings extends ChangeNotifier {
     _sounds = j['sounds'] as bool? ?? true;
     final lang = j['language'] as String? ?? 'auto';
     _language = L10n.choices.containsKey(lang) ? lang : 'auto';
+    _name = j['name'] as String? ?? '';
+    _welcomed = j['welcomed'] as bool? ?? false;
+    _animations = j['animations'] as bool? ?? true;
     Haptics.enabled = _haptics;
     Sounds.enabled = _sounds;
   }

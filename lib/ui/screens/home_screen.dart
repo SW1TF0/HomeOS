@@ -31,6 +31,7 @@ import 'room_sheet.dart';
 import 'scenes.dart';
 import '../../util/sounds.dart';
 import '../../l10n/text.dart';
+import '../widgets/motion.dart';
 
 /// Overview: clock, what's going on, scenes, favourites and rooms.
 class HomeScreen extends StatelessWidget {
@@ -51,51 +52,60 @@ class HomeScreen extends StatelessWidget {
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
             sliver: SliverList.list(children: [
-              Row(children: [
-                const Expanded(child: _Clock()),
-                GlassButton(
-                  key: const Key('home-edit'),
-                  tooltip: tr('Edit home'),
-                  onPressed: () => showHomeEditor(context),
-                  icon: CupertinoIcons.ellipsis,
-                ),
-                const SizedBox(width: 10),
-                const ProfileButton(),
-              ]),
-              const SizedBox(height: 6),
-              InkWell(
-                key: const Key('home-switch'),
-                onTap: () => showHomesSheet(context),
-                borderRadius: BorderRadius.circular(10),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Flexible(
-                    child: Text(store.homeName,
-                        maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.display(34, color: p.text)),
+              Entrance(
+                child: Row(children: [
+                  const Expanded(child: _Clock()),
+                  GlassButton(
+                    key: const Key('home-edit'),
+                    tooltip: tr('Edit home'),
+                    onPressed: () => showHomeEditor(context),
+                    icon: CupertinoIcons.ellipsis,
                   ),
-                  const SizedBox(width: 6),
-                  Icon(CupertinoIcons.chevron_down, size: 18, color: p.textDim),
+                  const SizedBox(width: 10),
+                  const ProfileButton(),
                 ]),
               ),
               const SizedBox(height: 6),
-              Row(children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: store.devices.any((d) => !d.state.reachable) ? KJPalette.orange : KJPalette.green,
-                    shape: BoxShape.circle,
-                  ),
+              const Entrance(index: 1, child: _Greeting()),
+              Entrance(
+                index: 1,
+                child: InkWell(
+                  key: const Key('home-switch'),
+                  onTap: () => showHomesSheet(context),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Flexible(
+                      child: Text(store.homeName,
+                          maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.display(34, color: p.text)),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(CupertinoIcons.chevron_down, size: 18, color: p.textDim),
+                  ]),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    active == 0 ? 'Everything is off.' : '$active of ${store.devices.length} devices active.',
-                    style: NType.body(15, color: p.textDim),
+              ),
+              const SizedBox(height: 6),
+              Entrance(
+                index: 2,
+                child: Row(children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: store.devices.any((d) => !d.state.reachable) ? KJPalette.orange : KJPalette.green,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-              ]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      active == 0 ? 'Everything is off.' : '$active of ${store.devices.length} devices active.',
+                      style: NType.body(15, color: p.textDim),
+                    ),
+                  ),
+                ]),
+              ),
               const SizedBox(height: 14),
-              const _StatusStrip(),
+              const Entrance(index: 3, child: _StatusStrip()),
               const _AwayCard(),
             ]),
           ),
@@ -139,7 +149,7 @@ class HomeScreen extends StatelessWidget {
                       key: const Key('automations-open'),
                       label: store.automations.isEmpty ? 'Automations' : 'Automations · ${store.automations.length}',
                       onTap: () => showAutomations(context))),
-              const ScenesRow(),
+              const Entrance(index: 4, child: ScenesRow()),
               SectionLabel('Favourites',
                   accent: true,
                   trailing: _HeaderAction(
@@ -167,8 +177,10 @@ class HomeScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               sliver: SliverGrid(
                 gridDelegate: deviceGridDelegate(c.maxWidth - 40),
-                delegate: SliverChildListDelegate(
-                    [for (final d in favorites) DeviceCard(device: d, subtitle: _withRoom(store, d))]),
+                delegate: SliverChildListDelegate([
+                  for (final (i, d) in favorites.indexed)
+                    Entrance(index: 5 + i, child: DeviceCard(device: d, subtitle: _withRoom(store, d))),
+                ]),
               ),
             ),
           SliverPadding(
@@ -207,7 +219,10 @@ class HomeScreen extends StatelessWidget {
               mainAxisSpacing: 10,
               crossAxisSpacing: 10,
               childAspectRatio: 1.6,
-              children: [for (final r in store.rooms) _RoomCard(room: r)],
+              children: [
+                for (final (i, r) in store.rooms.indexed)
+                  Entrance(index: 6 + favorites.length + i, child: _RoomCard(room: r)),
+              ],
             ),
           ),
         ],
@@ -218,6 +233,32 @@ class HomeScreen extends StatelessWidget {
   static String _withRoom(HomeStore store, Device d) {
     final room = store.room(d.roomId);
     return room == null ? describeState(d) : '${room.name} · ${describeState(d)}';
+  }
+}
+
+/// "Good evening, Krasimir", by the name given in the welcome screens or Settings; nothing without one.
+class _Greeting extends StatelessWidget {
+  const _Greeting();
+
+  static String line(int hour, String name) => switch (hour) {
+        >= 5 && < 12 => 'Good morning, $name',
+        >= 12 && < 18 => 'Good afternoon, $name',
+        >= 18 && < 23 => 'Good evening, $name',
+        _ => 'Good night, $name',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final name = context.select<AppSettings, String>((s) => s.name).split(' ').first;
+    if (name.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Text(line(DateTime.now().hour, name),
+          key: const Key('home-greeting'),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: NType.body(17, color: KJPalette.accent, weight: 600)),
+    );
   }
 }
 

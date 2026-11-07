@@ -18,7 +18,10 @@ import 'ui/screens/devices_screen.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/nav.dart';
 import 'ui/screens/map_screen.dart';
+import 'ui/screens/welcome_screen.dart';
 import 'ui/widgets/kj_widgets.dart';
+import 'ui/widgets/launch_curtain.dart';
+import 'ui/widgets/motion.dart';
 import 'util/sounds.dart';
 import 'l10n/text.dart';
 
@@ -30,7 +33,8 @@ class SmartMenuApp extends StatelessWidget {
       AppSettings? settings,
       BackupFiles? backups,
       UpdateCheck? updates,
-      this.poll = true})
+      this.poll = true,
+      this.intro = false})
       : cloud = cloud ?? CloudSync.disabled(store),
         settings = settings ?? AppSettings(),
         backups = backups ?? BackupFiles(),
@@ -51,6 +55,9 @@ class SmartMenuApp extends StatelessWidget {
   final AppSettings settings;
   final BackupFiles backups;
   final bool poll;
+
+  /// The opening animation, and the welcome screens on a new install. Off in tests.
+  final bool intro;
 
   @override
   Widget build(BuildContext context) {
@@ -81,10 +88,36 @@ class SmartMenuApp extends StatelessWidget {
               'system' => ThemeMode.system,
               _ => ThemeMode.light,
             },
-            home: AppShell(poll: poll, initialTab: settings.startTab),
+            builder: intro ? (context, child) => LaunchCurtain(child: child!) : null,
+            home: _Start(intro: intro, poll: poll, initialTab: settings.startTab),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// The welcome screens the first time, then the app, which zooms in as they go.
+class _Start extends StatelessWidget {
+  const _Start({required this.intro, required this.poll, required this.initialTab});
+  final bool intro;
+  final bool poll;
+  final int initialTab;
+
+  @override
+  Widget build(BuildContext context) {
+    final welcome = intro && !context.select<AppSettings, bool>((s) => s.welcomed);
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 650),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, a) => FadeTransition(
+        opacity: a,
+        child: ScaleTransition(scale: Tween(begin: 0.92, end: 1.0).animate(a), child: child),
+      ),
+      child: welcome
+          ? WelcomeScreen(key: const ValueKey('start-welcome'), onDone: () => context.read<AppSettings>().welcomed = true)
+          : AppShell(key: const ValueKey('start-app'), poll: poll, initialTab: initialTab),
     );
   }
 }
@@ -182,7 +215,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     ];
     final body = ToastListener(
       message: context.read<HomeStore>().message,
-      child: KeyedSubtree(key: ValueKey(homeId), child: IndexedStack(index: nav.tab, children: pages)),
+      child: KeyedSubtree(
+          key: ValueKey(homeId), child: _TabFade(index: nav.tab, child: IndexedStack(index: nav.tab, children: pages))),
     );
 
     return LayoutBuilder(builder: (context, c) {
@@ -226,6 +260,46 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       );
     });
   }
+}
+
+/// The tab just opened fades and settles in.
+class _TabFade extends StatefulWidget {
+  const _TabFade({required this.index, required this.child});
+  final int index;
+  final Widget child;
+
+  @override
+  State<_TabFade> createState() => _TabFadeState();
+}
+
+class _TabFadeState extends State<_TabFade> with SingleTickerProviderStateMixin {
+  late final _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 280), value: 1);
+
+  @override
+  void didUpdateWidget(_TabFade old) {
+    super.didUpdateWidget(old);
+    if (old.index != widget.index && Motion.on(context)) _c.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: _c,
+        child: widget.child,
+        builder: (context, child) {
+          final t = Curves.easeOutCubic.transform(_c.value);
+          if (t >= 1) return child!;
+          return Opacity(
+            opacity: 0.35 + 0.65 * t,
+            child: Transform.translate(offset: Offset(0, 10 * (1 - t)), child: child),
+          );
+        },
+      );
 }
 
 class _RailItem extends StatelessWidget {

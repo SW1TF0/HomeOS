@@ -21,6 +21,7 @@ import 'backup_restore.dart';
 import 'help_sheet.dart';
 import 'home_screen.dart';
 import 'homes_sheet.dart';
+import 'welcome_screen.dart';
 import '../../l10n/text.dart';
 
 Future<void> openSettings(BuildContext context) =>
@@ -103,6 +104,24 @@ class SettingsScreen extends StatelessWidget {
                     NCard(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Column(children: [
+                        ListTile(
+                          key: const Key('settings-name'),
+                          leading: const Icon(CupertinoIcons.person_crop_circle),
+                          title: const Text('Your name'),
+                          subtitle: Text(settings.name.isEmpty ? 'Not given. The home screen greets you by it.' : settings.name),
+                          onTap: () async {
+                            final name = await promptText(context, title: 'Your name', initial: settings.name);
+                            if (name != null) settings.name = name;
+                          },
+                        ),
+                        SwitchListTile(
+                          key: const Key('settings-animations'),
+                          secondary: const Icon(CupertinoIcons.sparkles),
+                          title: const Text('Animations'),
+                          subtitle: const Text('The opening animation, and screens and tiles gliding in'),
+                          value: settings.animations,
+                          onChanged: (v) => settings.animations = v,
+                        ),
                         _Choices(
                           icon: Icons.contrast,
                           title: 'Theme',
@@ -293,6 +312,13 @@ class SettingsScreen extends StatelessWidget {
                           title: const Text('Help'),
                           subtitle: const Text('How to add devices, draw rooms and more'),
                           onTap: () => showHelpSheet(context),
+                        ),
+                        ListTile(
+                          key: const Key('settings-welcome'),
+                          leading: const Icon(CupertinoIcons.play_circle),
+                          title: const Text('Welcome tour'),
+                          subtitle: const Text('The screens a new install opens with'),
+                          onTap: () => replayWelcome(context),
                         ),
                         ListTile(
                           key: const Key('settings-updates'),

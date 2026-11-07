@@ -51,10 +51,14 @@ class CloudException implements Exception {
 
 /// A signed-in account.
 class CloudSession {
-  CloudSession({required this.uid, required this.email, required this.idToken, required this.refreshToken, required this.expires});
+  CloudSession(
+      {required this.uid, required this.email, required this.idToken, required this.refreshToken, required this.expires, this.name});
 
   final String uid;
   final String email;
+
+  /// The name given when the account was made, if any.
+  String? name;
   String idToken;
   String refreshToken;
   DateTime expires;
@@ -62,7 +66,7 @@ class CloudSession {
   bool get fresh => DateTime.now().isBefore(expires.subtract(const Duration(minutes: 2)));
 
   Map<String, dynamic> toJson() =>
-      {'uid': uid, 'email': email, 'idToken': idToken, 'refreshToken': refreshToken, 'expires': expires.toIso8601String()};
+      {'uid': uid, 'email': email, 'idToken': idToken, 'refreshToken': refreshToken, 'expires': expires.toIso8601String(), 'name': ?name};
 
   factory CloudSession.fromJson(Map<String, dynamic> j) => CloudSession(
         uid: j['uid'] as String,
@@ -70,6 +74,7 @@ class CloudSession {
         idToken: j['idToken'] as String? ?? '',
         refreshToken: j['refreshToken'] as String,
         expires: DateTime.tryParse(j['expires'] as String? ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0),
+        name: j['name'] as String?,
       );
 }
 
@@ -96,6 +101,12 @@ abstract class CloudApi {
   Future<CloudSession> signUp(String email, String password);
   Future<CloudSession> signIn(String email, String password);
   Future<void> sendPasswordReset(String email);
+
+  /// Gives the signed-in account a name, kept with the account so other devices learn it at sign-in.
+  Future<void> setName(String name);
+
+  /// Emails the signed-in account a link that confirms its address.
+  Future<void> sendEmailCheck();
   void signOut();
 
   Future<Object?> get(String path, {bool shallow = false});
@@ -140,9 +151,26 @@ class FirebaseClient implements CloudApi {
       idToken: j['idToken'] as String,
       refreshToken: j['refreshToken'] as String,
       expires: DateTime.now().add(Duration(seconds: int.tryParse('${j['expiresIn']}') ?? 3600)),
+      name: (j['displayName'] as String?)?.trim().isEmpty ?? true ? null : (j['displayName'] as String).trim(),
     );
     _setSession(s);
     return s;
+  }
+
+  @override
+  Future<void> setName(String name) async {
+    final s = session;
+    if (s == null) return;
+    await _authPost('${config.authHost}/v1/accounts:update',
+        {'idToken': await token(), 'displayName': name.trim(), 'returnSecureToken': false});
+    s.name = name.trim();
+    onSession?.call(s);
+  }
+
+  @override
+  Future<void> sendEmailCheck() async {
+    if (session == null) return;
+    await _authPost('${config.authHost}/v1/accounts:sendOobCode', {'requestType': 'VERIFY_EMAIL', 'idToken': await token()});
   }
 
   @override

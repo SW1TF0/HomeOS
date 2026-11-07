@@ -3,20 +3,27 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../cloud/cloud_sync.dart';
-import '../../cloud/firebase.dart';
 import '../../state/home_store.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/dialogs.dart';
+import 'auth_screen.dart';
 import '../widgets/kj_widgets.dart';
 import '../../l10n/text.dart';
 
-Future<void> showAccountSheet(BuildContext context) => showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      constraints: const BoxConstraints(maxWidth: 640),
-      builder: (_) => const AccountSheet(),
-    );
+/// The account: signing in first, on its own screen, when no one is signed in.
+Future<void> showAccountSheet(BuildContext context) async {
+  final cloud = context.read<CloudSync>();
+  if (cloud.available && !cloud.signedIn) {
+    if (!await openAuth(context) || !context.mounted) return;
+  }
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    constraints: const BoxConstraints(maxWidth: 640),
+    builder: (_) => const AccountSheet(),
+  );
+}
 
 /// The account in Settings: sign in, or what it is doing.
 class AccountCard extends StatelessWidget {
@@ -72,36 +79,6 @@ class AccountSheet extends StatefulWidget {
 }
 
 class _AccountSheetState extends State<AccountSheet> {
-  final _email = TextEditingController();
-  final _password = TextEditingController();
-  bool _hide = true;
-  bool _working = false;
-  String? _error;
-  String? _note;
-
-  @override
-  void dispose() {
-    _email.dispose();
-    _password.dispose();
-    super.dispose();
-  }
-
-  Future<void> _go(Future<void> Function() action) async {
-    setState(() {
-      _working = true;
-      _error = null;
-      _note = null;
-    });
-    try {
-      await action();
-    } on CloudException catch (e) {
-      _error = e.message;
-    } catch (e) {
-      _error = '$e';
-    }
-    if (mounted) setState(() => _working = false);
-  }
-
   @override
   Widget build(BuildContext context) {
     final cloud = context.watch<CloudSync>();
@@ -114,87 +91,25 @@ class _AccountSheetState extends State<AccountSheet> {
       builder: (context, scroll) => ListView(
         controller: scroll,
         padding: EdgeInsets.fromLTRB(20, 0, 20, 32 + MediaQuery.viewInsetsOf(context).bottom),
-        children: cloud.signedIn ? _account(context, cloud, store, p) : _signIn(context, cloud, p),
+        children: cloud.signedIn ? _account(context, cloud, store, p) : _signedOut(context, p),
       ),
     );
   }
 
-  List<Widget> _signIn(BuildContext context, CloudSync cloud, KJPalette p) => [
+  List<Widget> _signedOut(BuildContext context, KJPalette p) => [
         const DisplayText('Account', size: 30),
         const SizedBox(height: 6),
-        Text(
-            'Sign in to keep your homes on every phone and computer, and to switch things on and off from anywhere. '
-            'Without an account everything still works on your Wi-Fi.',
-            style: NType.body(14, color: p.textDim)),
+        Text('Signed out. Your homes stay on this device.', style: NType.body(14, color: p.textDim)),
         const SizedBox(height: 18),
-        TextField(
-          key: const Key('account-email'),
-          controller: _email,
-          keyboardType: TextInputType.emailAddress,
-          autocorrect: false,
-          enableSuggestions: false,
-          autofillHints: const [AutofillHints.email],
-          decoration: InputDecoration(labelText: tr('Email')),
+        FilledButton(
+          key: const Key('account-sign-in'),
+          onPressed: () async {
+            final nav = Navigator.of(context);
+            nav.pop();
+            await openAuth(nav.context);
+          },
+          child: const Text('Sign in'),
         ),
-        const SizedBox(height: 12),
-        TextField(
-          key: const Key('account-password'),
-          controller: _password,
-          obscureText: _hide,
-          autocorrect: false,
-          enableSuggestions: false,
-          autofillHints: const [AutofillHints.password],
-          decoration: InputDecoration(
-            labelText: tr('Password'),
-            helperText: tr('At least 6 characters'),
-            suffixIcon: IconButton(
-              tooltip: tr(_hide ? 'Show password' : 'Hide password'),
-              onPressed: () => setState(() => _hide = !_hide),
-              icon: Icon(_hide ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-            ),
-          ),
-          onSubmitted: (_) => _go(() => cloud.signIn(_email.text, _password.text)),
-        ),
-        if (_error != null) ...[
-          const SizedBox(height: 12),
-          Text(_error!, key: const Key('account-error'), style: NType.body(14, color: KJPalette.danger)),
-        ],
-        if (_note != null) ...[
-          const SizedBox(height: 12),
-          Text(_note!, style: NType.body(14, color: p.text)),
-        ],
-        const SizedBox(height: 18),
-        Row(children: [
-          Expanded(
-            child: FilledButton(
-              key: const Key('account-sign-in'),
-              onPressed: _working ? null : () => _go(() => cloud.signIn(_email.text, _password.text)),
-              child: const Text('Sign in'),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: OutlinedButton(
-              key: const Key('account-create'),
-              onPressed: _working ? null : () => _go(() => cloud.signIn(_email.text, _password.text, create: true)),
-              child: const Text('Create account'),
-            ),
-          ),
-        ]),
-        const SizedBox(height: 6),
-        Align(
-          child: TextButton(
-            onPressed: _working
-                ? null
-                : () => _go(() async {
-                      if (!_email.text.contains('@')) throw const CloudException('Type your email first.');
-                      await cloud.resetPassword(_email.text);
-                      _note = 'Check your email for a link to set a new password.';
-                    }),
-            child: const Text('Forgot password?'),
-          ),
-        ),
-        if (_working) const LinearProgressIndicator(),
       ];
 
   List<Widget> _account(BuildContext context, CloudSync cloud, HomeStore store, KJPalette p) {

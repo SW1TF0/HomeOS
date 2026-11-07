@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smartmenukj/app.dart';
+import 'package:smartmenukj/cloud/cloud_sync.dart';
+import 'package:smartmenukj/cloud/memory_cloud.dart';
 import 'package:smartmenukj/l10n/bg.dart';
 import 'package:smartmenukj/l10n/text.dart';
 import 'package:smartmenukj/state/app_settings.dart';
@@ -73,6 +75,7 @@ void main() {
     addTearDown(tester.view.reset);
     final settings = AppSettings();
     settings.language = 'bg';
+    settings.name = 'Krasimir';
     L10n.missing = {};
     final store = HomeStore(repository: MemoryHomeRepository(), client: MockClient((_) async => http.Response('[]', 200)));
     await store.load();
@@ -81,6 +84,7 @@ void main() {
     expect(find.text('Изключи всичко'), findsOneWidget);
     expect(find.text('Начало'), findsWidgets, reason: 'the tab bar');
     expect(find.text('Любими'), findsOneWidget);
+    expect(find.byKey(const Key('home-greeting')), findsOneWidget);
 
     final ctx = tester.element(find.byType(HomeScreen));
     for (final tab in ['tab-map', 'tab-devices', 'tab-connect', 'tab-home']) {
@@ -127,10 +131,62 @@ void main() {
     expect(find.text('Settings'), findsOneWidget);
     expect(L10n.code, 'en');
 
-    final gaps = L10n.missing!.where((s) => !_notWords(s) && !store.devices.any((d) => d.name == s)).toList()..sort();
+    final gaps = L10n.missing!
+        .where((s) => !_notWords(s) && s != settings.name && !store.devices.any((d) => d.name == s))
+        .toList()
+      ..sort();
     // ignore: avoid_print
     if (gaps.isNotEmpty) print('Not translated yet:\n${gaps.join('\n')}');
     expect(gaps, isEmpty);
+  });
+
+  testWidgets('in Bulgarian, the welcome and the sign-in screens show Bulgarian', (tester) async {
+    tester.view.physicalSize = const Size(840, 1800);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    final settings = AppSettings();
+    settings.language = 'bg';
+    L10n.missing = {};
+    final store = HomeStore(repository: MemoryHomeRepository(), client: MockClient((_) async => http.Response('[]', 200)));
+    await store.load();
+    final cloud = CloudSync(store: store, api: MemoryCloud().app(), delay: const Duration(milliseconds: 10), storageKey: 'w');
+    await cloud.start();
+    await tester.pumpWidget(SmartMenuApp(store: store, cloud: cloud, settings: settings, poll: false, intro: true));
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.byKey(const Key('welcome-next')));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('Продължи без профил'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('welcome-create')));
+    await tester.pumpAndSettle();
+    for (final password in ['abc', 'abcdef', 'abcdef12', 'Abcdefgh12', 'Abcdefghij12']) {
+      await tester.enterText(find.byKey(const Key('account-password')), password);
+      await tester.pump();
+    }
+    await tester.tap(find.byKey(const Key('auth-submit')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('account-error')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('auth-mode-signin')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('auth-forgot')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('account-email')), 'k@example.com');
+    await tester.tap(find.byKey(const Key('auth-forgot')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('auth-note')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('auth-close')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('welcome-start')));
+    await tester.pumpAndSettle();
+    expect(settings.welcomed, isTrue);
+
+    final gaps = L10n.missing!.where((s) => !_notWords(s)).toList()..sort();
+    // ignore: avoid_print
+    if (gaps.isNotEmpty) print('Not translated yet:\n${gaps.join('\n')}');
+    expect(gaps, isEmpty);
+    cloud.dispose();
+    await tester.pump(const Duration(seconds: 1));
   });
 }
 

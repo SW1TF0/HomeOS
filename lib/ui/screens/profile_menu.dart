@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../app_info.dart';
 import '../../cloud/cloud_sync.dart';
+import '../../state/app_settings.dart';
 import '../../state/home_store.dart';
 import '../../theme/app_theme.dart';
 import 'account_sheet.dart';
@@ -37,8 +38,10 @@ class ProfileAvatar extends StatelessWidget {
   Widget build(BuildContext context) {
     final cloud = context.watch<CloudSync>();
     final p = context.palette;
+    final name = context.select<AppSettings?, String>((s) => s?.name ?? '');
     final email = cloud.signedIn ? cloud.account!.email.trim() : '';
-    final letter = email.isEmpty ? null : email.characters.first.toUpperCase();
+    final source = name.isNotEmpty ? name : email;
+    final letter = source.isEmpty ? null : source.characters.first.toUpperCase();
     return SizedBox(
       width: size,
       height: size,
