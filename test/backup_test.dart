@@ -199,10 +199,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('Downloads/SmartHomeKJ'), findsOneWidget);
 
+      await tester.ensureVisible(find.byKey(const Key('settings-backup-file')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('settings-backup-file')));
       await tester.pumpAndSettle();
       expect(settings.autoBackup, isFalse);
 
+      await tester.ensureVisible(find.byKey(const Key('settings-restore-file')));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('settings-restore-file')));
       await tester.pumpAndSettle();
       expect(find.text('Restore from a file?'), findsOneWidget);

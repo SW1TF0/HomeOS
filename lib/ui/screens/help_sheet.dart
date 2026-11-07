@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../../theme/app_theme.dart';
 import '../widgets/kj_widgets.dart';
+import '../../l10n/text.dart';
 
 Future<void> showHelpSheet(BuildContext context) => showModalBottomSheet(
       context: context,

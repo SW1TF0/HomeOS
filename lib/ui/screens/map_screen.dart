@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart' show DragStartBehavior;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 
 import '../../models/device.dart';
@@ -14,6 +14,7 @@ import '../widgets/kj_widgets.dart';
 import 'device_sheet.dart';
 import 'profile_menu.dart';
 import 'room_sheet.dart';
+import '../../l10n/text.dart';
 
 /// Ready-made rooms for Add room: name, icon, width and height in map cells.
 const roomTemplates = <(String, IconData, double, double)>[
@@ -379,7 +380,7 @@ class MapScreenState extends State<MapScreen> {
             if (editing)
               IconButton(
                 key: const Key('map-undo'),
-                tooltip: 'Undo',
+                tooltip: tr('Undo'),
                 onPressed: store.canUndoLayout
                     ? () {
                         store.undoLayout();
@@ -390,7 +391,7 @@ class MapScreenState extends State<MapScreen> {
                     : null,
                 icon: const Icon(Icons.undo),
               ),
-            IconButton(tooltip: 'Fit to screen', onPressed: () => fit(store), icon: const Icon(Icons.fit_screen_outlined)),
+            IconButton(tooltip: tr('Fit to screen'), onPressed: () => fit(store), icon: const Icon(Icons.fit_screen_outlined)),
             Padding(
               padding: EdgeInsets.only(right: editing ? 12 : 4),
               child: editing
@@ -670,7 +671,7 @@ class MapScreenState extends State<MapScreen> {
           Text(label, style: NType.label(color: p.textDim)),
           IconButton(
             key: Key('$key-less'),
-            tooltip: 'Smaller',
+            tooltip: tr('Smaller'),
             visualDensity: VisualDensity.compact,
             onPressed: value > HomeStore.minRoomSize ? () => set(value - 1) : null,
             icon: const Icon(Icons.remove),
@@ -682,7 +683,7 @@ class MapScreenState extends State<MapScreen> {
           ),
           IconButton(
             key: Key('$key-more'),
-            tooltip: 'Bigger',
+            tooltip: tr('Bigger'),
             visualDensity: VisualDensity.compact,
             onPressed: () => set(value + 1),
             icon: const Icon(Icons.add),
@@ -712,7 +713,7 @@ class MapScreenState extends State<MapScreen> {
         ),
       ),
       IconButton(
-        tooltip: 'Rename room',
+        tooltip: tr('Rename room'),
         visualDensity: VisualDensity.compact,
         onPressed: () async {
           final name = await promptText(context, title: 'Rename room', initial: selected.name);
@@ -722,7 +723,7 @@ class MapScreenState extends State<MapScreen> {
       ),
       IconButton(
         key: const Key('room-duplicate'),
-        tooltip: 'Duplicate room',
+        tooltip: tr('Duplicate room'),
         visualDensity: VisualDensity.compact,
         onPressed: () {
           final copy = store.duplicateRoom(selected);
@@ -734,14 +735,14 @@ class MapScreenState extends State<MapScreen> {
         icon: const Icon(Icons.content_copy),
       ),
       IconButton(
-        tooltip: 'Place a device here',
+        tooltip: tr('Place a device here'),
         visualDensity: VisualDensity.compact,
         onPressed: () => _placeDevice(store),
         icon: const Icon(Icons.add_location_alt_outlined),
       ),
       IconButton(
         key: const Key('room-delete'),
-        tooltip: 'Delete room',
+        tooltip: tr('Delete room'),
         visualDensity: VisualDensity.compact,
         onPressed: () async {
           if (await confirm(context,

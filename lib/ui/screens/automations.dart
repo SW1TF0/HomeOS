@@ -1,5 +1,5 @@
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 
 import '../../models/automation.dart';
@@ -12,6 +12,7 @@ import '../../util/clock_text.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/kj_widgets.dart';
 import 'scenes.dart';
+import '../../l10n/text.dart';
 
 /// Opens the list of automations.
 Future<void> showAutomations(BuildContext context) =>
@@ -20,15 +21,15 @@ Future<void> showAutomations(BuildContext context) =>
 /// "When Hall sensor detects motion".
 String whenText(HomeStore store, AutomationTrigger t) {
   final name = store.device(t.deviceId)?.name;
-  return 'When ${name ?? 'a removed device'} ${t.eventFor(name ?? '')}';
+  return trf('When {0} {1}', [name ?? tr('a removed device'), tr(t.eventFor(name ?? ''))]);
 }
 
 /// "Turn Hall light on, off again after 5 min", "Run Movie night".
 String thenText(HomeStore store, AutomationStep step) {
   if (step.sceneId case final id?) return 'Run ${store.scene(id)?.name ?? 'a removed scene'}';
-  final name = store.device(step.deviceId ?? '')?.name ?? 'a removed device';
-  final after = step.offAfter == null ? '' : ', off again after ${_minutes(step.offAfter!)}';
-  return 'Turn $name ${step.on ? 'on' : 'off'}$after';
+  final name = store.device(step.deviceId ?? '')?.name ?? tr('a removed device');
+  final after = step.offAfter == null ? '' : tr(', off again after ${_minutes(step.offAfter!)}');
+  return trf(step.on ? 'Turn {0} on{1}' : 'Turn {0} off{1}', [name, after]);
 }
 
 String _minutes(int m) => m < 60 ? '$m min' : '${m ~/ 60} h${m % 60 == 0 ? '' : ' ${m % 60} min'}';
@@ -163,7 +164,7 @@ class AutomationsScreen extends StatelessWidget {
                 child: Row(children: [
                   IconButton(
                     key: const Key('automations-back'),
-                    tooltip: 'Back',
+                    tooltip: tr('Back'),
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(CupertinoIcons.back, color: KJPalette.accent, size: 28),
                   ),
@@ -293,13 +294,13 @@ class AutomationSheet extends StatelessWidget {
     Future<void> pickHours() async {
       final from = await showTimePicker(
         context: context,
-        helpText: 'From',
+        helpText: tr('From'),
         initialTime: TimeOfDay(hour: (a.from ?? 22 * 60) ~/ 60, minute: (a.from ?? 0) % 60),
       );
       if (from == null || !context.mounted) return;
       final to = await showTimePicker(
         context: context,
-        helpText: 'Until',
+        helpText: tr('Until'),
         initialTime: TimeOfDay(hour: (a.to ?? 6 * 60) ~/ 60, minute: (a.to ?? 0) % 60),
       );
       if (to == null) return;

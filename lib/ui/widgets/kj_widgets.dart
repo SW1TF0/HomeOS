@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../../models/device.dart';
 import '../../theme/app_theme.dart';
@@ -9,6 +9,7 @@ import '../../util/color_math.dart';
 import '../../util/haptics.dart';
 import 'controls.dart';
 import '../../util/sounds.dart';
+import '../../l10n/text.dart';
 
 /// The faint dotted grid behind the floor plan.
 class DotGridPainter extends CustomPainter {
@@ -170,7 +171,7 @@ class GlassButton extends StatelessWidget {
         ),
       ),
     );
-    return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
+    return tooltip == null ? button : Tooltip(message: tr(tooltip!), child: button);
   }
 }
 
@@ -316,7 +317,10 @@ String activityLabel(DeviceKind kind, String? activity) => switch (activity) {
 String modeLabel(String mode) {
   final m = mode.trim();
   if (m.isEmpty) return m;
-  const known = {'heat_cool': 'Heat/cool', 'fan_only': 'Fan', 'dry': 'Dry', 'auto': 'Auto', 'off': 'Off'};
+  const known = {
+    'heat_cool': 'Heat/cool', 'fan_only': 'Fan', 'dry': 'Dry', 'auto': 'Auto', 'off': 'Off', 'heat': 'Heating',
+    'cool': 'Cooling',
+  };
   final k = known[m.toLowerCase()];
   if (k != null) return k;
   final words = m.replaceAll('_', ' ');

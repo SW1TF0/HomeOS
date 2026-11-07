@@ -1,5 +1,5 @@
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 
 import '../../integrations/camera/playback.dart';
@@ -10,6 +10,7 @@ import '../../theme/app_theme.dart';
 import '../../util/clock_text.dart';
 import '../widgets/camera_live.dart';
 import '../widgets/kj_widgets.dart';
+import '../../l10n/text.dart';
 
 /// Tests set this to a fixed time. Always null in the app.
 DateTime Function()? debugPlaybackClock;
@@ -170,7 +171,7 @@ class _CameraPlaybackScreenState extends State<CameraPlaybackScreen> {
                 child: Row(children: [
                   IconButton(
                     key: const Key('playback-back'),
-                    tooltip: 'Back',
+                    tooltip: tr('Back'),
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(CupertinoIcons.back, color: KJPalette.accent, size: 28),
                   ),
@@ -220,14 +221,14 @@ class _CameraPlaybackScreenState extends State<CameraPlaybackScreen> {
                               child: Row(children: [
                                 IconButton(
                                   key: const Key('playback-mute'),
-                                  tooltip: _muted ? 'Sound on' : 'Sound off',
+                                  tooltip: tr(_muted ? 'Sound on' : 'Sound off'),
                                   color: Colors.white,
                                   onPressed: () => setState(() => _muted = !_muted),
                                   icon: Icon(_muted ? Icons.volume_off : Icons.volume_up),
                                 ),
                                 IconButton(
                                   key: const Key('playback-fullscreen'),
-                                  tooltip: 'Full screen',
+                                  tooltip: tr('Full screen'),
                                   color: Colors.white,
                                   onPressed: _away ? null : _fullScreen,
                                   icon: const Icon(Icons.fullscreen),
@@ -242,19 +243,19 @@ class _CameraPlaybackScreenState extends State<CameraPlaybackScreen> {
                   Row(children: [
                     IconButton(
                       key: const Key('playback-rewind'),
-                      tooltip: 'Back 30 seconds',
+                      tooltip: tr('Back 30 seconds'),
                       onPressed: now == null ? null : () => _skip(const Duration(seconds: -30)),
                       icon: const Icon(Icons.replay_30),
                     ),
                     IconButton(
                       key: const Key('playback-pause'),
-                      tooltip: _paused ? 'Play' : 'Pause',
+                      tooltip: tr(_paused ? 'Play' : 'Pause'),
                       onPressed: now == null ? null : () => setState(() => _paused = !_paused),
                       icon: Icon(_paused ? Icons.play_arrow : Icons.pause),
                     ),
                     IconButton(
                       key: const Key('playback-forward'),
-                      tooltip: 'Forward 30 seconds',
+                      tooltip: tr('Forward 30 seconds'),
                       onPressed: now == null ? null : () => _skip(const Duration(seconds: 30)),
                       icon: const Icon(Icons.forward_30),
                     ),
@@ -306,13 +307,12 @@ class _CameraPlaybackScreenState extends State<CameraPlaybackScreen> {
     );
   }
 
-  static const _days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   static String _dayName(DateTime day, DateTime today) {
     final ago = today.difference(day).inHours ~/ 24;
     if (ago == 0) return 'Today';
     if (ago == 1) return 'Yesterday';
-    return '${_days[day.weekday - 1]} ${day.day}';
+    return '${weekdayShort(day.weekday)} ${day.day}';
   }
 
   Widget _list(BuildContext context, bool h24) {

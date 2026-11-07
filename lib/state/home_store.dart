@@ -19,6 +19,7 @@ import '../models/automation.dart';
 import '../models/device.dart';
 import '../models/home.dart';
 import '../models/scene.dart';
+import 'history.dart';
 import 'repository.dart';
 import 'seed.dart';
 
@@ -112,6 +113,7 @@ class HomeStore extends ChangeNotifier {
     if (_disposed) return;
     notifyListeners();
     _watchAutomations();
+    _watchHistory();
     if (save) {
       _saveTimer?.cancel();
       _saveTimer = Timer(const Duration(milliseconds: 400), saveNow);
@@ -121,6 +123,7 @@ class HomeStore extends ChangeNotifier {
   Future<void> saveNow() async {
     _saveTimer?.cancel();
     await repository.save(homeId, data);
+    await history?.save();
   }
 
   String newId(String prefix) =>
@@ -190,6 +193,8 @@ class HomeStore extends ChangeNotifier {
     homeList.current = id;
     data = next;
     _forgetAutomationState();
+    _forgetHistoryState();
+    unawaited(history?.open(id));
     _undo.clear();
     _startDrivers();
     _changed();
@@ -542,6 +547,7 @@ class HomeStore extends ChangeNotifier {
       s.actions.removeWhere((a) => a.deviceId == d.id);
     }
     data.automations.removeWhere((a) => a.trigger.deviceId == d.id || a.then.deviceId == d.id);
+    history?.forgetDevice(d.id);
     _changed();
     _forgetMatter(d);
   }
@@ -625,12 +631,16 @@ class HomeStore extends ChangeNotifier {
 
   /// Puts every device of [s] in its saved state. Returns how many answered.
   Future<int> runScene(Scene s, {bool quiet = false}) async {
+    final by = Zone.current[historyCause] as String?;
+    history?.add(HomeEvent(at: clock.now(), type: EventType.scene, name: s.name, value: s.id, by: by));
     final jobs = <Future<bool>>[];
-    for (final a in s.actions) {
-      final d = device(a.deviceId);
-      if (d == null) continue;
-      jobs.add(command(d, a.command));
-    }
+    runZoned(() {
+      for (final a in s.actions) {
+        final d = device(a.deviceId);
+        if (d == null) continue;
+        jobs.add(command(d, a.command));
+      }
+    }, zoneValues: {historyCause: by ?? 'scene:${s.id}'});
     final ok = (await Future.wait(jobs)).where((r) => r).length;
     if (!quiet || ok < jobs.length) {
       toast(ok == jobs.length ? '${s.name}: done.' : '${s.name}: ${jobs.length - ok} of ${jobs.length} devices did not answer.');
@@ -719,7 +729,13 @@ class HomeStore extends ChangeNotifier {
   }
 
   /// Does what [a] does, whatever happened.
-  Future<void> runAutomation(Automation a) async {
+  Future<void> runAutomation(Automation a) {
+    final name = device(a.trigger.deviceId)?.name;
+    history?.add(HomeEvent(at: clock.now(), type: EventType.automation, name: name, label: a.trigger.eventFor(name ?? ''), value: a.id));
+    return runZoned(() => _runAutomation(a), zoneValues: {historyCause: 'automation:${a.id}'});
+  }
+
+  Future<void> _runAutomation(Automation a) async {
     final step = a.then;
     if (step.sceneId case final id?) {
       final s = scene(id);
@@ -738,6 +754,79 @@ class HomeStore extends ChangeNotifier {
         final off = still == null ? null : SceneAction.turn(still, false);
         if (still != null && off != null) unawaited(command(still, off.command));
       });
+    }
+  }
+
+  // ---- Activity ----------------------------------------------------------------------------
+
+  /// What happened in the open home, and how its readings went. Only the app on the screen keeps one; the short
+  /// background runs for timers and widgets do not.
+  HomeHistory? get history => _history;
+  HomeHistory? _history;
+
+  Future<void> keepHistory(HomeHistory h) async {
+    _history = h;
+    _forgetHistoryState();
+    await h.open(homeId);
+  }
+
+  /// Who asked for the commands sent inside a zone with this key: a scene, an automation, another phone.
+  static const historyCause = #smartHomeCause;
+
+  /// Each device's state when the history last looked, the latest command sent to it and by whom, the commands
+  /// still on their way (their changes are noted once the device answers) and when each device stopped answering.
+  final Map<String, DeviceState> _histSeen = {};
+  final Map<String, (String, DateTime)> _causes = {};
+  final Map<String, int> _inFlight = {};
+  final Map<String, DateTime> _offSince = {};
+  final Set<String> _offLogged = {};
+
+  /// Off until the first check of every device after opening a home, so what changed while the app was closed is
+  /// not shown as happening now.
+  bool _historyArmed = false;
+
+  void _forgetHistoryState() {
+    _histSeen.clear();
+    _causes.clear();
+    _offSince.clear();
+    _offLogged.clear();
+    _historyArmed = false;
+  }
+
+  /// Notes what changed on every device since the last look. Called after every change to the home.
+  void _watchHistory() {
+    final h = _history;
+    if (h == null || !loaded) return;
+    final now = clock.now();
+    for (final d in data.devices) {
+      if (_inFlight.containsKey(d.id)) continue;
+      final s = d.state;
+      if (!s.reachable) {
+        // A device that misses one answer has not gone: it is noted after a minute without answers.
+        final since = _offSince[d.id] ??= now;
+        if (_historyArmed &&
+            _histSeen.containsKey(d.id) &&
+            !_offLogged.contains(d.id) &&
+            now.difference(since) >= const Duration(minutes: 1)) {
+          _offLogged.add(d.id);
+          h.add(HomeEvent(at: since, type: EventType.offline, deviceId: d.id, name: d.name, kind: d.kind));
+        }
+        continue;
+      }
+      _offSince.remove(d.id);
+      if (_offLogged.remove(d.id)) {
+        h.add(HomeEvent(at: now, type: EventType.online, deviceId: d.id, name: d.name, kind: d.kind));
+      }
+      final before = _histSeen[d.id];
+      _histSeen[d.id] = s;
+      if (before == null || identical(before, s) || !_historyArmed) continue;
+      final cause = _causes[d.id];
+      final by = cause != null && now.difference(cause.$2) < const Duration(seconds: 30) ? cause.$1 : null;
+      final found = HomeHistory.changes(d, before, s, now, by);
+      if (found.isNotEmpty) _causes.remove(d.id);
+      for (final e in found) {
+        h.add(e);
+      }
     }
   }
 
@@ -853,7 +942,7 @@ class HomeStore extends ChangeNotifier {
     final d = device(deviceId);
     if (d == null) return 'That device is not in this home any more.';
     _lastToast = null;
-    if (await command(d, c)) return null;
+    if (await runZoned(() => command(d, c), zoneValues: {historyCause: 'remote'})) return null;
     return _lastToast ?? '${d.name} did not answer.';
   }
 
@@ -863,6 +952,18 @@ class HomeStore extends ChangeNotifier {
   /// the old state comes back and the user is told why. Away from home, the
   /// device at home passes the change on.
   Future<bool> command(Device d, DeviceCommand c) async {
+    _causes[d.id] = (Zone.current[historyCause] as String? ?? 'app', clock.now());
+    _inFlight[d.id] = (_inFlight[d.id] ?? 0) + 1;
+    try {
+      return await _command(d, c);
+    } finally {
+      final left = (_inFlight[d.id] ?? 1) - 1;
+      left <= 0 ? _inFlight.remove(d.id) : _inFlight[d.id] = left;
+      _watchHistory();
+    }
+  }
+
+  Future<bool> _command(Device d, DeviceCommand c) async {
     final before = d.state;
     // A newer command to the same device (a second tap, an automation) wins over this one's late answer.
     final turn = _commandTurn[d.id] = (_commandTurn[d.id] ?? 0) + 1;
@@ -1516,6 +1617,8 @@ class HomeStore extends ChangeNotifier {
         }
       }));
       _changed(save: false);
+      history?.sample(data.devices);
+      _historyArmed = true;
     } finally {
       _refreshing = false;
     }

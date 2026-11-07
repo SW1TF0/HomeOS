@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 
 import '../../integrations/camera/camera_setup.dart';
@@ -9,6 +9,7 @@ import '../../models/device.dart';
 import '../../state/home_store.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/kj_widgets.dart';
+import '../../l10n/text.dart';
 
 /// Asks for a camera's address, brand and login, then finds its live video. Without [device] the camera is added.
 /// Returns the camera once it is set up.
@@ -180,7 +181,7 @@ class _CameraSetupSheetState extends State<CameraSetupSheet> {
             controller: _host,
             keyboardType: TextInputType.url,
             autocorrect: false,
-            decoration: const InputDecoration(hintText: 'e.g. 192.168.1.30'),
+            decoration: InputDecoration(hintText: tr('e.g. 192.168.1.30')),
             onChanged: (_) => setState(() {}),
           ),
           const SectionLabel('Brand'),
@@ -194,7 +195,7 @@ class _CameraSetupSheetState extends State<CameraSetupSheet> {
             controller: _user,
             autocorrect: false,
             enableSuggestions: false,
-            decoration: const InputDecoration(labelText: 'User'),
+            decoration: InputDecoration(labelText: tr('User')),
           ),
           const SizedBox(height: 10),
           TextField(
@@ -204,9 +205,9 @@ class _CameraSetupSheetState extends State<CameraSetupSheet> {
             autocorrect: false,
             enableSuggestions: false,
             decoration: InputDecoration(
-              labelText: 'Password',
+              labelText: tr('Password'),
               suffixIcon: IconButton(
-                tooltip: _hidden ? 'Show password' : 'Hide password',
+                tooltip: tr(_hidden ? 'Show password' : 'Hide password'),
                 onPressed: () => setState(() => _hidden = !_hidden),
                 icon: Icon(_hidden ? Icons.visibility_outlined : Icons.visibility_off_outlined),
               ),
@@ -232,8 +233,8 @@ class _CameraSetupSheetState extends State<CameraSetupSheet> {
               controller: _link,
               keyboardType: TextInputType.url,
               autocorrect: false,
-              decoration: const InputDecoration(
-                  labelText: 'Video link', hintText: 'rtsp://192.168.1.30:554/stream1 or http://.../video.mjpg'),
+              decoration: InputDecoration(
+                  labelText: tr('Video link'), hintText: tr('rtsp://192.168.1.30:554/stream1 or http://.../video.mjpg')),
             ),
           if (_problem != null) ...[
             const SizedBox(height: 14),

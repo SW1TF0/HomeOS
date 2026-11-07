@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
@@ -10,6 +10,7 @@ import 'package:video_player/video_player.dart';
 import '../../integrations/integration.dart';
 import '../../theme/app_theme.dart';
 import '../../util/digest_auth.dart';
+import '../../l10n/text.dart';
 
 /// Whether RTSP video plays here. Android plays it; Apple's player and the desktop apps have no RTSP, so there a
 /// camera shows pictures (or MJPEG) instead.
@@ -81,14 +82,14 @@ class _LiveCameraViewState extends State<LiveCameraView> {
                   if (_rtsp)
                     IconButton(
                       key: const Key('camera-mute'),
-                      tooltip: _muted ? 'Sound on' : 'Sound off',
+                      tooltip: tr(_muted ? 'Sound on' : 'Sound off'),
                       color: Colors.white,
                       onPressed: () => setState(() => _muted = !_muted),
                       icon: Icon(_muted ? Icons.volume_off : Icons.volume_up),
                     ),
                   IconButton(
                     key: const Key('camera-fullscreen'),
-                    tooltip: 'Full screen',
+                    tooltip: tr('Full screen'),
                     color: Colors.white,
                     onPressed: _away ? null : _fullScreen,
                     icon: const Icon(Icons.fullscreen),
@@ -112,7 +113,7 @@ class _LiveCameraViewState extends State<LiveCameraView> {
             ),
         IconButton(
           key: const Key('camera-reconnect'),
-          tooltip: 'Connect again',
+          tooltip: tr('Connect again'),
           onPressed: () => setState(() => _attempt++),
           icon: const Icon(Icons.refresh),
         ),
@@ -227,7 +228,7 @@ class _FullScreenCameraState extends State<FullScreenCamera> {
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 IconButton(
                   key: const Key('camera-close'),
-                  tooltip: 'Close',
+                  tooltip: tr('Close'),
                   color: Colors.white,
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close),
@@ -240,7 +241,7 @@ class _FullScreenCameraState extends State<FullScreenCamera> {
                 const Spacer(),
                 IconButton(
                   key: const Key('camera-rotate'),
-                  tooltip: 'Turn sideways',
+                  tooltip: tr('Turn sideways'),
                   color: Colors.white,
                   onPressed: () => setState(() => _sideways = !_sideways),
                   icon: const Icon(Icons.screen_rotation_outlined),

@@ -1,5 +1,5 @@
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 
 import '../../models/device.dart';
@@ -14,6 +14,7 @@ import 'connect_screen.dart';
 import 'matter_sheet.dart';
 import 'device_sheet.dart';
 import 'profile_menu.dart';
+import '../../l10n/text.dart';
 
 /// Every device, grouped by room, with search and add.
 class DevicesScreen extends StatefulWidget {
@@ -55,7 +56,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
               const Expanded(child: DisplayText('Devices', size: 34)),
               GlassButton(
                 key: const Key('add-device'),
-                tooltip: 'Add a device',
+                tooltip: tr('Add a device'),
                 onPressed: () => _addDevice(context, store),
                 icon: CupertinoIcons.add,
               ),
@@ -67,7 +68,7 @@ class _DevicesScreenState extends State<DevicesScreen> {
                 style: NType.body(14, color: p.textDim)),
             const SizedBox(height: 16),
             TextField(
-              decoration: const InputDecoration(prefixIcon: Icon(CupertinoIcons.search, size: 20), hintText: 'Search devices or rooms'),
+              decoration: InputDecoration(prefixIcon: Icon(CupertinoIcons.search, size: 20), hintText: tr('Search devices or rooms')),
               onChanged: (v) => setState(() => _query = v),
             ),
             const SizedBox(height: 12),
@@ -221,18 +222,18 @@ class _MqttDeviceFormState extends State<MqttDeviceForm> {
               NChip(label: c.replaceAll('_', ' '), selected: _component == c, onTap: () => setState(() => _component = c)),
           ]),
           const SizedBox(height: 16),
-          TextField(controller: _name, decoration: const InputDecoration(labelText: 'Name')),
+          TextField(controller: _name, decoration: InputDecoration(labelText: tr('Name'))),
           const SizedBox(height: 12),
           if (!_component.contains('sensor')) ...[
-            TextField(controller: _cmd, decoration: const InputDecoration(labelText: 'Command topic', hintText: 'cmnd/plug/POWER')),
+            TextField(controller: _cmd, decoration: InputDecoration(labelText: tr('Command topic'), hintText: tr('cmnd/plug/POWER'))),
             const SizedBox(height: 12),
           ],
-          TextField(controller: _state, decoration: const InputDecoration(labelText: 'State topic', hintText: 'stat/plug/POWER')),
+          TextField(controller: _state, decoration: InputDecoration(labelText: tr('State topic'), hintText: tr('stat/plug/POWER'))),
           const SizedBox(height: 12),
           Row(children: [
-            Expanded(child: TextField(controller: _on, decoration: const InputDecoration(labelText: 'On payload'))),
+            Expanded(child: TextField(controller: _on, decoration: InputDecoration(labelText: tr('On payload')))),
             const SizedBox(width: 12),
-            Expanded(child: TextField(controller: _off, decoration: const InputDecoration(labelText: 'Off payload'))),
+            Expanded(child: TextField(controller: _off, decoration: InputDecoration(labelText: tr('Off payload')))),
           ]),
           const SizedBox(height: 20),
           FilledButton(

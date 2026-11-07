@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 
 import '../../models/device.dart';
@@ -11,6 +11,7 @@ import '../widgets/dialogs.dart';
 import '../widgets/kj_widgets.dart';
 import 'device_sheet.dart';
 import '../../util/sounds.dart';
+import '../../l10n/text.dart';
 
 const sceneIcons = <String, IconData>{
   'auto': Icons.auto_awesome_outlined,
@@ -233,7 +234,12 @@ Future<Scene?> createScene(BuildContext context) async {
   final s = store.addScene(name, picked, icon: template.$2, turnOn: turnOn);
   store.toast(turnOn == null
       ? 'Saved "${s.name}". Tap it to bring these devices back to how they are now. Hold it to change it.'
-      : 'Saved "${s.name}". Tap it to turn ${picked.length == 1 ? 'it' : 'them'} ${turnOn ? 'on' : 'off'}. Hold it to change what each device does.');
+      : 'Saved "${s.name}". ${switch ((picked.length == 1, turnOn)) {
+          (true, true) => 'Tap it to turn it on.',
+          (true, false) => 'Tap it to turn it off.',
+          (false, true) => 'Tap it to turn them on.',
+          (false, false) => 'Tap it to turn them off.',
+        }} Hold it to change what each device does.');
   return s;
 }
 
@@ -470,7 +476,7 @@ class _ScheduleCard extends StatelessWidget {
           Wrap(spacing: 6, runSpacing: 6, children: [
             for (var d = 1; d <= 7; d++)
               NChip(
-                label: const ['M', 'T', 'W', 'T', 'F', 'S', 'S'][d - 1],
+                label: weekdayLetter(d),
                 selected: sch.days.contains(d),
                 onTap: () {
                   final days = {...sch.days};
@@ -654,8 +660,8 @@ class SceneStepSheet extends StatelessWidget {
           if (d.has(Capability.lock)) ...[
             const SectionLabel('Lock'),
             Wrap(spacing: 8, runSpacing: 8, children: [
-              chip('lock', 'Lock', c.locked == true, () => only({'locked': true})),
-              chip('unlock', 'Unlock', c.locked == false, () => only({'locked': false})),
+              chip('lock', 'Locked', c.locked == true, () => only({'locked': true})),
+              chip('unlock', 'Unlocked', c.locked == false, () => only({'locked': false})),
               chip('lock-leave', 'Leave as it is', c.locked == null, () => edit((j) => j.remove('locked'))),
             ]),
           ],

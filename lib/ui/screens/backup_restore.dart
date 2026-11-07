@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 
 import '../../state/app_settings.dart';
@@ -8,6 +8,7 @@ import '../../state/seed.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/kj_widgets.dart';
+import '../../l10n/text.dart';
 
 /// Lets the owner pick a backup file and takes its homes back. With [ask], it first says that the homes on this
 /// device will be replaced.

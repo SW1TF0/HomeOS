@@ -1,5 +1,5 @@
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -11,6 +11,7 @@ import '../../state/home_store.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/kj_widgets.dart';
+import '../../l10n/text.dart';
 
 Future<void> openRouterScreen(BuildContext context, Device d) =>
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => RouterScreen(deviceId: d.id)));
@@ -150,7 +151,7 @@ class _RouterScreenState extends State<RouterScreen> {
                 child: Row(children: [
                   IconButton(
                     key: const Key('router-back'),
-                    tooltip: 'Back',
+                    tooltip: tr('Back'),
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(CupertinoIcons.back, color: KJPalette.accent, size: 28),
                   ),
@@ -162,7 +163,7 @@ class _RouterScreenState extends State<RouterScreen> {
                       child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
                     )
                   else
-                    IconButton(tooltip: 'Refresh', onPressed: _connect, icon: const Icon(Icons.refresh)),
+                    IconButton(tooltip: tr('Refresh'), onPressed: _connect, icon: const Icon(Icons.refresh)),
                 ]),
               ),
               Expanded(
@@ -252,14 +253,14 @@ class _RouterScreenState extends State<RouterScreen> {
             TextField(
               key: const Key('router-user'),
               controller: _user,
-              decoration: const InputDecoration(labelText: 'User'),
+              decoration: InputDecoration(labelText: tr('User')),
               autocorrect: false,
             ),
             const SizedBox(height: 8),
             TextField(
               key: const Key('router-password'),
               controller: _password,
-              decoration: const InputDecoration(labelText: 'Password'),
+              decoration: InputDecoration(labelText: tr('Password')),
               obscureText: true,
               autocorrect: false,
               onSubmitted: (_) => _logIn(),
@@ -376,7 +377,7 @@ class _RouterScreenState extends State<RouterScreen> {
                     overflow: TextOverflow.ellipsis),
                 trailing: PopupMenuButton<String>(
                   key: Key('client-menu-${c.address}'),
-                  tooltip: 'More',
+                  tooltip: tr('More'),
                   onSelected: (what) async {
                     if (what == 'add') {
                       final name = c.name == c.address ? _whatIs(c) : c.name;

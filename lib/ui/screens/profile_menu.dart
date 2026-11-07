@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 
 import '../../app_info.dart';
@@ -11,6 +11,7 @@ import 'account_sheet.dart';
 import 'help_sheet.dart';
 import 'homes_sheet.dart';
 import 'settings_screen.dart';
+import '../../l10n/text.dart';
 
 /// The round button in the top right of each tab: the account's first letter, or a person when signed out.
 class ProfileButton extends StatelessWidget {
@@ -18,7 +19,7 @@ class ProfileButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Tooltip(
-        message: 'Profile and settings',
+        message: tr('Profile and settings'),
         child: InkResponse(
           key: const Key('profile-button'),
           onTap: () => showProfileMenu(context),
@@ -161,7 +162,7 @@ class ProfileMenu extends StatelessWidget {
                         ),
                       ),
                       IconButton(
-                        tooltip: 'Close',
+                        tooltip: tr('Close'),
                         onPressed: () => Navigator.pop(context),
                         icon: Icon(Icons.close, color: p.textDim),
                       ),

@@ -1,7 +1,8 @@
 import 'dart:async';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 
 import '../../cloud/cloud_sync.dart';
@@ -9,13 +10,17 @@ import '../../models/device.dart';
 import '../../models/home.dart';
 import '../../state/app_settings.dart';
 import '../../state/backup_files.dart';
+import '../../state/history.dart';
 import '../../state/home_store.dart';
+import '../../state/updates.dart';
 import '../../theme/app_theme.dart';
 import '../../util/text.dart';
 import '../nav.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/kj_widgets.dart';
+import '../widgets/update_card.dart';
 import 'account_sheet.dart';
+import 'activity_sheet.dart';
 import 'anywhere_sheet.dart';
 import 'automations.dart';
 import 'backup_restore.dart';
@@ -25,6 +30,7 @@ import 'profile_menu.dart';
 import 'room_sheet.dart';
 import 'scenes.dart';
 import '../../util/sounds.dart';
+import '../../l10n/text.dart';
 
 /// Overview: clock, what's going on, scenes, favourites and rooms.
 class HomeScreen extends StatelessWidget {
@@ -49,7 +55,7 @@ class HomeScreen extends StatelessWidget {
                 const Expanded(child: _Clock()),
                 GlassButton(
                   key: const Key('home-edit'),
-                  tooltip: 'Edit home',
+                  tooltip: tr('Edit home'),
                   onPressed: () => showHomeEditor(context),
                   icon: CupertinoIcons.ellipsis,
                 ),
@@ -96,6 +102,10 @@ class HomeScreen extends StatelessWidget {
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             sliver: SliverList.list(children: [
+              if (context.watch<UpdateCheck>().offer) ...[
+                const SizedBox(height: 18),
+                const UpdateCard(),
+              ],
               if (offerRestore(store, context.watch<AppSettings>(), context.watch<BackupFiles>())) ...[
                 const SizedBox(height: 18),
                 const RestoreCard(),
@@ -322,8 +332,6 @@ class _ClockState extends State<_Clock> {
   @override
   Widget build(BuildContext context) {
     String two(int v) => v.toString().padLeft(2, '0');
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     final p = context.palette;
     final clock24 = context.select<AppSettings, bool>((s) => s.clock24);
     final hour = clock24 ? _now.hour : (_now.hour % 12 == 0 ? 12 : _now.hour % 12);
@@ -332,7 +340,7 @@ class _ClockState extends State<_Clock> {
           key: const Key('home-clock'), style: NType.body(15, color: p.text, weight: 600)),
       Flexible(
         child: Text(
-            '${clock24 ? '' : ' ${_now.hour < 12 ? 'AM' : 'PM'}'}  ${days[_now.weekday - 1]} ${_now.day} ${months[_now.month - 1]}',
+            '${clock24 ? '' : ' ${_now.hour < 12 ? 'AM' : 'PM'}'}  ${weekdayShort(_now.weekday)} ${_now.day} ${monthShort(_now.month)}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: NType.body(15, color: p.textDim)),
@@ -351,6 +359,7 @@ class _StatusStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = context.watch<HomeStore>();
     final cloud = context.watch<CloudSync>();
+    final history = context.watch<HomeHistory>();
     final all = store.devices;
     List<Device> ofKind(DeviceKind k) => all.where((d) => d.kind == k).toList();
     final lights = ofKind(DeviceKind.light);
@@ -527,6 +536,15 @@ class _StatusStrip extends StatelessWidget {
               title: 'Not responding',
               select: (s) => s.devices.where((d) => !d.state.reachable).toList(),
               empty: 'Everything is answering again.'),
+        ),
+      if (all.isNotEmpty)
+        _Pill(
+          key: const Key('status-activity'),
+          icon: CupertinoIcons.clock_fill,
+          color: KJPalette.accent,
+          title: 'Activity',
+          detail: latestText(store, history.latest(limit: 1).firstOrNull, clock.now()),
+          onTap: () => showActivitySheet(context),
         ),
     ];
     return SingleChildScrollView(
@@ -786,7 +804,7 @@ class HomeEditor extends StatelessWidget {
                     subtitle: Text(store.room(favorites[i].roomId)?.name ?? 'No room'),
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                       IconButton(
-                        tooltip: 'Remove from favourites',
+                        tooltip: tr('Remove from favourites'),
                         onPressed: () => store.updateDevice(favorites[i], favorite: false),
                         icon: const Icon(Icons.remove_circle_outline),
                       ),
@@ -822,7 +840,7 @@ class HomeEditor extends StatelessWidget {
                     ].join(' · ')),
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                       IconButton(
-                        tooltip: 'Rename room',
+                        tooltip: tr('Rename room'),
                         onPressed: () async {
                           final name = await promptText(context, title: 'Rename room', initial: rooms[i].name);
                           if (name != null && name.isNotEmpty) store.renameRoom(rooms[i], name);
@@ -854,7 +872,7 @@ class HomeEditor extends StatelessWidget {
                       title: Text(scenes[i].name),
                       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                         IconButton(
-                          tooltip: 'Edit scene',
+                          tooltip: tr('Edit scene'),
                           onPressed: () => showSceneSheet(context, scenes[i]),
                           icon: const Icon(Icons.edit_outlined),
                         ),

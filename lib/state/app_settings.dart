@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../l10n/l10n.dart';
 import '../util/haptics.dart';
 import '../util/sounds.dart';
 
@@ -55,6 +56,11 @@ class AppSettings extends ChangeNotifier {
   bool _whiteLook = false;
   set whiteLook(bool v) => _set(() => _whiteLook = v);
 
+  /// The app's language: 'auto' (the phone's), 'en' or 'bg'.
+  String get language => _language;
+  String _language = 'auto';
+  set language(String v) => _set(() => L10n.use(_language = L10n.choices.containsKey(v) ? v : 'auto'));
+
   Duration get checkEvery => Duration(seconds: _checkSeconds);
 
   void _set(void Function() change) {
@@ -72,6 +78,7 @@ class AppSettings extends ChangeNotifier {
         'autoBackup': _autoBackup,
         'restoreAsked': _restoreAsked,
         'whiteLook': _whiteLook,
+        'language': _language,
       };
 
   void _read(Map<String, dynamic> j) {
@@ -83,6 +90,8 @@ class AppSettings extends ChangeNotifier {
     _restoreAsked = j['restoreAsked'] as bool? ?? false;
     _whiteLook = j['whiteLook'] as bool? ?? false;
     _sounds = j['sounds'] as bool? ?? true;
+    final lang = j['language'] as String? ?? 'auto';
+    _language = L10n.choices.containsKey(lang) ? lang : 'auto';
     Haptics.enabled = _haptics;
     Sounds.enabled = _sounds;
   }
@@ -94,6 +103,7 @@ class AppSettings extends ChangeNotifier {
     } catch (e) {
       debugPrint('Settings could not be read: $e');
     }
+    L10n.use(_language);
     notifyListeners();
   }
 

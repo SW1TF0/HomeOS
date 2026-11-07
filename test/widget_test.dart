@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smartmenukj/app.dart';
+import 'package:smartmenukj/l10n/text.dart' as l10n;
 import 'package:smartmenukj/cloud/cloud_sync.dart';
 import 'package:smartmenukj/cloud/memory_cloud.dart';
 import 'package:smartmenukj/integrations/network_scan.dart';
@@ -16,11 +18,13 @@ import 'package:smartmenukj/util/haptics.dart';
 import 'package:smartmenukj/util/sounds.dart';
 import 'package:smartmenukj/ui/screens/camera_playback.dart';
 import 'package:smartmenukj/ui/screens/connect_screen.dart';
+import 'package:smartmenukj/ui/screens/device_sheet.dart';
 import 'package:smartmenukj/ui/screens/home_screen.dart';
 import 'package:smartmenukj/ui/screens/room_sheet.dart';
 import 'package:smartmenukj/state/home_store.dart';
 import 'package:smartmenukj/state/repository.dart';
 import 'package:smartmenukj/ui/widgets/camera_live.dart';
+import 'package:smartmenukj/ui/widgets/history_chart.dart';
 import 'package:smartmenukj/ui/widgets/kj_widgets.dart';
 
 Future<HomeStore> pumpApp(WidgetTester tester, {Size size = const Size(420, 900), http.Client? client}) async {
@@ -305,7 +309,7 @@ void main() {
     await tester.pump();
     expect(office.width, width + 1);
     expect(office.height, height - 1);
-    expect(tester.widget<Text>(find.byKey(const Key('room-width'))).data, '${(width + 1).round()}');
+    expect(tester.widget<l10n.Text>(find.byKey(const Key('room-width'))).data, '${(width + 1).round()}');
 
     // Two fingers spread apart make it bigger around its middle (away from the desk lamp in the middle).
     final before = office.rect;
@@ -700,6 +704,84 @@ void main() {
     store.notifyListeners();
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('status-danger')), findsNothing);
+  });
+
+  testWidgets('the Activity pill opens what happened, by whom, and filters it', (tester) async {
+    final store = await pumpApp(tester);
+    await tester.runAsync(store.refreshAll);
+    final lamp = store.devices.firstWhere((d) => d.name == 'Floor lamp');
+    await store.command(lamp, DeviceCommand(on: lamp.state.on != true));
+    final door = store.devices.firstWhere((d) => d.kind == DeviceKind.lock);
+    await store.command(door, DeviceCommand(locked: door.state.locked != true));
+    await tester.pump();
+
+    final pill = find.byKey(const Key('status-activity'));
+    expect(find.descendant(of: pill, matching: find.textContaining('Just now')), findsOneWidget);
+    await tester.ensureVisible(pill);
+    await tester.tap(pill);
+    await tester.pumpAndSettle();
+    expect(find.text('Today'), findsOneWidget);
+    expect(find.text('Floor lamp'), findsWidgets);
+    expect(find.textContaining('From the app'), findsWidgets);
+
+    await tester.tap(find.byKey(const Key('activity-filter-security')));
+    await tester.pumpAndSettle();
+    expect(find.text('Floor lamp'), findsNothing, reason: 'a lamp is not a door or a sensor');
+    expect(find.text(door.name), findsWidgets);
+    await tester.ensureVisible(find.byKey(const Key('activity-filter-problems')));
+    await tester.tap(find.byKey(const Key('activity-filter-problems')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('activity-empty')), findsOneWidget);
+
+    await tester.ensureVisible(find.byKey(const Key('activity-filter-all')));
+    await tester.tap(find.byKey(const Key('activity-filter-all')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('activity-clear')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Clear').last);
+    await tester.pumpAndSettle();
+    expect(store.history!.events, isEmpty);
+    expect(find.byKey(const Key('activity-empty')), findsOneWidget);
+  });
+
+  testWidgets('a sensor shows its readings over the last day and week, and the value under a finger', (tester) async {
+    final store = await pumpApp(tester);
+    final sensor = store.devices.firstWhere((d) => d.name == 'Bedroom sensor');
+    final now = DateTime.now();
+    for (var i = 6; i >= 1; i--) {
+      sensor.state = DeviceState(readings: {'Temperature': '${18 + i * 0.5} °C', 'Humidity': '${40 + i} %'});
+      withClock(Clock.fixed(now.subtract(Duration(hours: i))), () => store.history!.sample(store.devices));
+    }
+    sensor.state = const DeviceState(readings: {'Temperature': '21.5 °C', 'Humidity': '50 %'});
+    store.notifyListeners();
+    await tester.pump();
+
+    showDeviceSheet(tester.element(find.byType(HomeScreen)), sensor);
+    await tester.pumpAndSettle();
+    final chart = find.byKey(const Key('history-chart'));
+    await tester.ensureVisible(chart);
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: chart, matching: find.text('Low 18.5 °C · High 21 °C')), findsOneWidget);
+    expect(tester.widget<l10n.Text>(find.byKey(const Key('chart-value'))).data, '18.5 °C');
+
+    await tester.ensureVisible(find.byKey(const Key('history-series-Humidity')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('history-series-Humidity')));
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: chart, matching: find.textContaining('High 46%')), findsOneWidget);
+
+    final box = tester.getRect(find.byType(HistoryChart));
+    final g = await tester.startGesture(Offset(box.left + 4, box.bottom - 30));
+    await g.moveBy(const Offset(30, 0));
+    await tester.pump();
+    expect(find.descendant(of: chart, matching: find.textContaining('Low')), findsNothing, reason: 'the time is shown');
+    await g.up();
+    await tester.pumpAndSettle();
+    expect(find.descendant(of: chart, matching: find.textContaining('Low')), findsOneWidget);
+
+    await tester.tap(find.text('7 days'));
+    await tester.pumpAndSettle();
+    expect(find.byType(HistoryChart), findsOneWidget);
   });
 
   testWidgets('an alarm opens its controls, arms, and asks before disarming', (tester) async {
@@ -1129,7 +1211,7 @@ void main() {
     await tester.tap(find.byKey(const Key('away-set-up')));
     await tester.pumpAndSettle();
     expect(find.textContaining('0 of 1 devices answer away from home'), findsOneWidget);
-    expect(find.textContaining('Porch plug needs it'), findsOneWidget);
+    expect(find.textContaining('Needed by Porch plug'), findsOneWidget);
     await tester.ensureVisible(find.byKey(const Key('anywhere-hub')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('anywhere-hub')));
@@ -1188,11 +1270,13 @@ void main() {
 
       final list = find.descendant(of: find.byKey(const Key('settings-list')), matching: find.byType(Scrollable));
       await tester.scrollUntilVisible(find.byKey(const Key('choice-30 s')), 200, scrollable: list);
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('choice-30 s')));
       await tester.pumpAndSettle();
       expect(store.pollInterval, const Duration(seconds: 30));
 
       await tester.scrollUntilVisible(find.byKey(const Key('settings-haptics')), 200, scrollable: list);
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('settings-haptics')));
       await tester.pumpAndSettle();
       expect(Haptics.enabled, isFalse);
@@ -1217,6 +1301,7 @@ void main() {
         'autoBackup': true,
         'restoreAsked': false,
         'whiteLook': false,
+        'language': 'auto',
       });
       again.haptics = true;
       again.sounds = true;

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 
 import '../../integrations/catalog.dart';
@@ -17,6 +17,7 @@ import '../../theme/app_theme.dart';
 import '../../util/color_math.dart';
 import '../nav.dart';
 import '../../integrations/camera/playback.dart';
+import 'activity_sheet.dart';
 import 'camera_playback.dart';
 import 'camera_sheet.dart';
 import 'router_screen.dart';
@@ -26,6 +27,7 @@ import '../widgets/dialogs.dart';
 import '../widgets/kj_widgets.dart';
 import '../widgets/remote_pad.dart';
 import '../../util/sounds.dart';
+import '../../l10n/text.dart';
 
 Future<void> showDeviceSheet(BuildContext context, Device device) => showModalBottomSheet(
       context: context,
@@ -130,7 +132,7 @@ class DeviceSheet extends StatelessWidget {
                 ),
               ),
               IconButton(
-                tooltip: d.favorite ? 'Remove from favourites' : 'Add to favourites',
+                tooltip: tr(d.favorite ? 'Remove from favourites' : 'Add to favourites'),
                 onPressed: () => store.updateDevice(d, favorite: !d.favorite),
                 icon: Icon(d.favorite ? Icons.star : Icons.star_border, color: d.favorite ? KJPalette.accent : p.text),
               ),
@@ -299,7 +301,7 @@ class DeviceSheet extends StatelessWidget {
                       key: const Key('blind-open'),
                       onPressed: () => send(const DeviceCommand(position: 1)),
                       icon: const Icon(Icons.blinds, size: 18),
-                      label: const Text('Open'))),
+                      label: Text(tc('Open', 'action')))),
             ]),
             const SizedBox(height: 10),
             Wrap(spacing: 8, runSpacing: 8, children: [
@@ -318,7 +320,7 @@ class DeviceSheet extends StatelessWidget {
             Row(children: [
               IconButton(
                 key: const Key('mute-toggle'),
-                tooltip: s.muted == true ? 'Unmute' : 'Mute',
+                tooltip: tr(s.muted == true ? 'Unmute' : 'Mute'),
                 onPressed: () => send(DeviceCommand(muted: !(s.muted ?? false))),
                 icon: Icon(s.muted == true ? Icons.volume_off : Icons.volume_up_outlined,
                     color: s.muted == true ? KJPalette.danger : p.text),
@@ -359,6 +361,7 @@ class DeviceSheet extends StatelessWidget {
               ]);
             }),
           ],
+          DeviceHistory(device: d),
           const SectionLabel('Device'),
           NCard(
             padding: const EdgeInsets.symmetric(vertical: 4),
@@ -923,7 +926,7 @@ class _CameraViewState extends State<CameraView> {
           child: Text(at == null ? 'No picture yet' : 'TAKEN ${two(at.hour)}:${two(at.minute)}:${two(at.second)}',
               style: NType.label(color: p.textDim)),
         ),
-        IconButton(key: const Key('camera-refresh'), tooltip: 'New picture', onPressed: _load, icon: const Icon(Icons.refresh)),
+        IconButton(key: const Key('camera-refresh'), tooltip: tr('New picture'), onPressed: _load, icon: const Icon(Icons.refresh)),
       ]),
     ]);
   }

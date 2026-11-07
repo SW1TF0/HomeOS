@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 
 import '../../integrations/network_scan.dart';
 import '../../state/home_store.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/kj_widgets.dart';
+import '../../l10n/text.dart';
 
 Future<void> openMatterSheet(BuildContext context, {String? name}) => showModalBottomSheet(
       context: context,
@@ -104,7 +105,7 @@ class _MatterSheetState extends State<MatterSheet> {
             autocorrect: false,
             textInputAction: TextInputAction.done,
             onSubmitted: (_) => _busy ? null : _add(),
-            decoration: const InputDecoration(labelText: 'Pairing code', hintText: '3497-011-2332 or MT:...'),
+            decoration: InputDecoration(labelText: tr('Pairing code'), hintText: tr('3497-011-2332 or MT:...')),
           ),
           if (_showAddress) ...[
             const SizedBox(height: 12),
@@ -114,7 +115,7 @@ class _MatterSheetState extends State<MatterSheet> {
               enabled: !_busy,
               autocorrect: false,
               keyboardType: TextInputType.url,
-              decoration: const InputDecoration(labelText: 'Device address', hintText: 'Only if it is not found, e.g. 192.168.1.40'),
+              decoration: InputDecoration(labelText: tr('Device address'), hintText: tr('Only if it is not found, e.g. 192.168.1.40')),
             ),
           ] else
             Align(

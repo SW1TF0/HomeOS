@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -8,6 +8,7 @@ import '../../state/home_store.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/kj_widgets.dart';
+import '../../l10n/text.dart';
 
 Future<void> showAccountSheet(BuildContext context) => showModalBottomSheet(
       context: context,
@@ -133,7 +134,7 @@ class _AccountSheetState extends State<AccountSheet> {
           autocorrect: false,
           enableSuggestions: false,
           autofillHints: const [AutofillHints.email],
-          decoration: const InputDecoration(labelText: 'Email'),
+          decoration: InputDecoration(labelText: tr('Email')),
         ),
         const SizedBox(height: 12),
         TextField(
@@ -144,10 +145,10 @@ class _AccountSheetState extends State<AccountSheet> {
           enableSuggestions: false,
           autofillHints: const [AutofillHints.password],
           decoration: InputDecoration(
-            labelText: 'Password',
-            helperText: 'At least 6 characters',
+            labelText: tr('Password'),
+            helperText: tr('At least 6 characters'),
             suffixIcon: IconButton(
-              tooltip: _hide ? 'Show password' : 'Hide password',
+              tooltip: tr(_hide ? 'Show password' : 'Hide password'),
               onPressed: () => setState(() => _hide = !_hide),
               icon: Icon(_hide ? Icons.visibility_outlined : Icons.visibility_off_outlined),
             ),

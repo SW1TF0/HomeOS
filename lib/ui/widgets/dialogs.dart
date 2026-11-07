@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../../theme/app_theme.dart';
+import '../../l10n/text.dart';
 
 /// Asks for a line of text. Returns null when cancelled.
 Future<String?> promptText(
@@ -55,7 +56,7 @@ class _TextPromptState extends State<_TextPrompt> {
         content: TextField(
           controller: _controller,
           autofocus: true,
-          decoration: InputDecoration(hintText: widget.hint),
+          decoration: InputDecoration(hintText: tr(widget.hint)),
           obscureText: widget.secret,
           enableSuggestions: !widget.secret,
           autocorrect: !widget.secret,

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 
 import '../../integrations/catalog.dart';
@@ -19,6 +19,7 @@ import 'camera_sheet.dart';
 import 'device_sheet.dart';
 import 'matter_sheet.dart';
 import 'profile_menu.dart';
+import '../../l10n/text.dart';
 
 /// Connections (hubs, brokers, device families), network scan and settings.
 class ConnectScreen extends StatelessWidget {
@@ -280,7 +281,7 @@ class _IntegrationSheetState extends State<IntegrationSheet> {
             Text(st.message ?? 'Not connected', style: NType.body(13, color: KJPalette.danger)),
           ],
           const SizedBox(height: 18),
-          TextField(controller: _name, decoration: const InputDecoration(labelText: 'Name')),
+          TextField(controller: _name, decoration: InputDecoration(labelText: tr('Name'))),
           for (final f in spec.fields) ...[
             const SizedBox(height: 12),
             TextField(
@@ -289,7 +290,7 @@ class _IntegrationSheetState extends State<IntegrationSheet> {
               obscureText: f.secret,
               minLines: f.multiline ? 3 : 1,
               maxLines: f.multiline ? 6 : 1,
-              decoration: InputDecoration(labelText: f.label, hintText: f.hint.isEmpty ? null : f.hint),
+              decoration: InputDecoration(labelText: tr(f.label), hintText: f.hint.isEmpty ? null : tr(f.hint)),
             ),
           ],
           if (_busy) ...[const SizedBox(height: 16), const LinearProgressIndicator()],

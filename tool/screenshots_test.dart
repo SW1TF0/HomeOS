@@ -1,7 +1,9 @@
 // Renders the README screenshots with the real fonts.
 // Run: flutter test tool/screenshots_test.dart --update-goldens
 import 'dart:io';
+import 'dart:math' as math;
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,13 +13,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smartmenukj/app.dart';
 import 'package:smartmenukj/cloud/cloud_sync.dart';
 import 'package:smartmenukj/cloud/memory_cloud.dart';
+import 'package:smartmenukj/l10n/l10n.dart';
 import 'package:smartmenukj/models/automation.dart';
 import 'package:smartmenukj/models/device.dart';
 import 'package:smartmenukj/models/scene.dart';
+import 'package:smartmenukj/state/app_settings.dart';
 import 'package:smartmenukj/state/backup_files.dart';
+import 'package:smartmenukj/state/history.dart';
 import 'package:smartmenukj/state/home_store.dart';
 import 'package:smartmenukj/state/repository.dart';
 import 'package:smartmenukj/ui/screens/camera_playback.dart';
+import 'package:smartmenukj/ui/screens/device_sheet.dart';
+import 'package:smartmenukj/ui/screens/home_screen.dart';
 import 'package:smartmenukj/ui/screens/router_screen.dart';
 import 'package:smartmenukj/ui/widgets/camera_live.dart';
 
@@ -43,7 +50,7 @@ Future<void> _loadFonts() async {
 }
 
 Future<HomeStore> _app(WidgetTester tester, Size size,
-    {String theme = 'light', CloudSync? cloud, http.Client? client, BackupFiles? backups}) async {
+    {String theme = 'light', CloudSync? cloud, http.Client? client, BackupFiles? backups, String language = 'en'}) async {
   tester.view.physicalSize = size * 2;
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
@@ -52,8 +59,14 @@ Future<HomeStore> _app(WidgetTester tester, Size size,
   await store.load();
   store.data.themeMode = theme;
   // A pretend cloud, signed out, so the account card shows as it does in the app.
+  final settings = AppSettings()..language = language;
+  addTearDown(() => L10n.use('en'));
   await tester.pumpWidget(SmartMenuApp(
-      store: store, cloud: cloud ?? CloudSync(store: store, api: MemoryCloud().app()), backups: backups, poll: false));
+      store: store,
+      cloud: cloud ?? CloudSync(store: store, api: MemoryCloud().app()),
+      backups: backups,
+      settings: settings,
+      poll: false));
   await tester.pumpAndSettle();
   return store;
 }
@@ -428,5 +441,87 @@ void main() {
   testWidgets('desktop home', (tester) async {
     await _app(tester, desktop);
     await _shot(tester, 'desktop-home');
+  });
+
+  /// A day of the sample home: lamps going on and off, the door, and the bedroom getting warmer.
+  Future<HomeStore> lived(WidgetTester tester, {String language = 'en'}) async {
+    final store = await _app(tester, phone, language: language);
+    final now = DateTime.now();
+    final sensor = store.devices.firstWhere((d) => d.name == 'Bedroom sensor');
+    for (var i = 24 * 12; i >= 0; i--) {
+      final h = i / 12;
+      final t = 20.4 + 1.6 * math.sin((24 - h) / 24 * math.pi * 2 - 1.2) + (i % 7) * 0.03;
+      sensor.state = DeviceState(readings: {'Temperature': '${t.toStringAsFixed(1)} °C', 'Humidity': '${(48 - (t - 20) * 3).round()} %'});
+      withClock(Clock.fixed(now.subtract(Duration(minutes: i * 5))), () => store.history!.sample(store.devices));
+    }
+    HomeEvent e(int minutesAgo, EventType type, String name, {String? label, String? value, String? by}) {
+      final d = store.devices.firstWhere((d) => d.name == name);
+      return HomeEvent(
+          at: now.subtract(Duration(minutes: minutesAgo)),
+          type: type,
+          deviceId: d.id,
+          name: d.name,
+          kind: d.kind,
+          label: label,
+          value: value,
+          by: by);
+    }
+    for (final ev in [
+      e(1500, EventType.turnedOn, 'Coffee machine', by: 'app'),
+      e(1440, EventType.unlocked, 'Front door'),
+      e(1438, EventType.locked, 'Front door', by: 'app'),
+      e(260, EventType.turnedOn, 'Floor lamp', by: 'app'),
+      e(95, EventType.turnedOff, 'Bedside lamp'),
+      e(42, EventType.unlocked, 'Front door', by: 'remote'),
+      e(41, EventType.turnedOn, 'Ceiling light', by: 'automation:a'),
+      e(6, EventType.offline, 'Bath fan'),
+      e(2, EventType.turnedOn, 'Desk lamp', by: 'app'),
+    ]) {
+      store.history!.add(ev);
+    }
+    await tester.pumpAndSettle();
+    return store;
+  }
+
+  testWidgets('phone activity', (tester) async {
+    await lived(tester);
+    await tester.ensureVisible(find.byKey(const Key('status-activity')));
+    await tester.tap(find.byKey(const Key('status-activity')));
+    await _shot(tester, 'phone-activity');
+  });
+
+  testWidgets('phone sensor history', (tester) async {
+    final store = await lived(tester);
+    final sensor = store.devices.firstWhere((d) => d.name == 'Bedroom sensor');
+    showDeviceSheet(tester.element(find.byType(HomeScreen)), sensor);
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(Scrollable).last, const Offset(0, -260));
+    await _shot(tester, 'phone-sensor-history');
+  });
+
+  testWidgets('phone home in Bulgarian', (tester) async {
+    await lived(tester, language: 'bg');
+    await _shot(tester, 'phone-home-bg');
+  });
+
+  testWidgets('phone activity in Bulgarian', (tester) async {
+    await lived(tester, language: 'bg');
+    await tester.ensureVisible(find.byKey(const Key('status-activity')));
+    await tester.tap(find.byKey(const Key('status-activity')));
+    await _shot(tester, 'phone-activity-bg');
+  });
+
+  testWidgets('phone device in Bulgarian', (tester) async {
+    await _app(tester, phone, language: 'bg');
+    await openControls(tester, 'Настолна лампа');
+    await _shot(tester, 'phone-device-bg');
+  });
+
+  testWidgets('phone settings in Bulgarian', (tester) async {
+    await _app(tester, phone, language: 'bg');
+    await tester.tap(find.byKey(const Key('profile-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('profile-settings')));
+    await _shot(tester, 'phone-settings-bg');
   });
 }

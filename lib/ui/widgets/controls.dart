@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../../models/device.dart';
 import '../../theme/app_theme.dart';
@@ -9,6 +9,7 @@ import '../../util/color_math.dart';
 import '../../util/haptics.dart';
 import 'kj_widgets.dart';
 import '../../util/sounds.dart';
+import '../../l10n/text.dart';
 
 // ---- The one level a quick drag changes ---------------------------------------
 

@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 
 import '../../models/device.dart';
 import '../../theme/app_theme.dart';
 import '../../util/haptics.dart';
+import '../../l10n/text.dart';
 
 /// Remote keys a device supports, from what its connection reported.
 Set<RemoteKey> remoteKeysOf(Device d) {

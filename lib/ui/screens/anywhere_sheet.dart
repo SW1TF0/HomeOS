@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 
 import '../../cloud/cloud_sync.dart';
@@ -10,6 +10,7 @@ import '../../theme/app_theme.dart';
 import '../widgets/kj_widgets.dart';
 import 'account_sheet.dart';
 import 'connect_screen.dart';
+import '../../l10n/text.dart';
 
 Future<void> showAnywhereSheet(BuildContext context) => showModalBottomSheet(
       context: context,
@@ -120,7 +121,7 @@ class AnywhereSheet extends StatelessWidget {
                         ? '${cloud.isHub ? 'This device' : cloud.hubName ?? 'A device at home'} is keeping ${store.homeName} online.'
                         : atHome.isEmpty
                             ? 'None of your devices needs it now.'
-                            : 'Not set up yet. ${_names(atHome)} ${atHome.length == 1 ? 'needs' : 'need'} it.',
+                            : 'Not set up yet. Needed by ${_names(atHome)}.',
                 key: const Key('anywhere-hub-state'),
                 style: NType.body(12.5, color: hubOn ? KJPalette.accent : p.textDim, weight: 600),
               ),

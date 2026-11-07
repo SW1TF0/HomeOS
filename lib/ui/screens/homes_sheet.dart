@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 
 import '../../cloud/cloud_sync.dart';
@@ -8,6 +8,7 @@ import '../../state/repository.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/kj_widgets.dart';
+import '../../l10n/text.dart';
 
 Future<void> showHomesSheet(BuildContext context) => showModalBottomSheet(
       context: context,
@@ -95,7 +96,7 @@ class HomesSheet extends StatelessWidget {
                         : null,
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                       IconButton(
-                        tooltip: 'Rename home',
+                        tooltip: tr('Rename home'),
                         onPressed: () async {
                           final name = await promptText(context, title: 'Rename home', initial: homes[i].name);
                           if (name != null && name.isNotEmpty) await store.renameHome(homes[i], name);
@@ -105,7 +106,7 @@ class HomesSheet extends StatelessWidget {
                       if (homes.length > 1)
                         IconButton(
                           key: ValueKey('home-delete-${homes[i].id}'),
-                          tooltip: 'Delete home',
+                          tooltip: tr('Delete home'),
                           onPressed: () => remove(homes[i]),
                           icon: const Icon(Icons.delete_outline),
                         ),

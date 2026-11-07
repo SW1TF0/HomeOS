@@ -12,10 +12,12 @@ import 'cloud/firebase.dart';
 import 'integrations/lan/net.dart';
 import 'state/app_settings.dart';
 import 'state/backup_files.dart';
+import 'state/history.dart';
 import 'state/home_store.dart';
 import 'state/repository.dart';
 import 'state/scene_alarms.dart';
 import 'state/scenes_widget.dart';
+import 'state/updates.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +32,7 @@ Future<void> main() async {
     onHomeNetwork: hasHomeNetwork,
   );
   await store.load();
+  await store.keepHistory(HomeHistory());
   // 1.16.0 makes the app white, like Apple Home in light mode, once; Settings > Theme still offers dark.
   if (!settings.whiteLook) {
     store.themeMode = 'light';
@@ -45,7 +48,11 @@ Future<void> main() async {
     onHubChanged: _keepRunning,
   );
   unawaited(cloud.start());
-  runApp(SmartMenuApp(store: store, cloud: cloud, settings: settings, backups: backups));
+  final updates = UpdateCheck();
+  await updates.load();
+  runApp(SmartMenuApp(store: store, cloud: cloud, settings: settings, backups: backups, updates: updates));
+  // A little after opening, so it does not hold up the first look at the home.
+  unawaited(Future<void>.delayed(const Duration(seconds: 5), updates.check));
 }
 
 /// Licences of what ships inside the app besides packages, for Settings > Licences.

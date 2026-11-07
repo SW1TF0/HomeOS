@@ -1,13 +1,17 @@
+import 'dart:async';
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'cloud/cloud_sync.dart';
 import 'state/app_settings.dart';
 import 'state/backup_files.dart';
+import 'state/history.dart';
 import 'state/home_store.dart';
+import 'state/updates.dart';
 import 'theme/app_theme.dart';
 import 'ui/screens/connect_screen.dart';
 import 'ui/screens/devices_screen.dart';
@@ -16,14 +20,33 @@ import 'ui/nav.dart';
 import 'ui/screens/map_screen.dart';
 import 'ui/widgets/kj_widgets.dart';
 import 'util/sounds.dart';
+import 'l10n/text.dart';
 
 class SmartMenuApp extends StatelessWidget {
   SmartMenuApp(
-      {super.key, required this.store, CloudSync? cloud, AppSettings? settings, BackupFiles? backups, this.poll = true})
+      {super.key,
+      required this.store,
+      CloudSync? cloud,
+      AppSettings? settings,
+      BackupFiles? backups,
+      UpdateCheck? updates,
+      this.poll = true})
       : cloud = cloud ?? CloudSync.disabled(store),
         settings = settings ?? AppSettings(),
-        backups = backups ?? BackupFiles();
+        backups = backups ?? BackupFiles(),
+        updates = updates ?? UpdateCheck.off(),
+        history = store.history ?? _memoryHistory(store);
   final HomeStore store;
+  final HomeHistory history;
+  final UpdateCheck updates;
+
+  /// A home opened without one (as in tests) keeps its history in memory.
+  static HomeHistory _memoryHistory(HomeStore store) {
+    final h = HomeHistory(storage: MemoryHistoryStorage(), saveAfter: Duration.zero);
+    unawaited(store.keepHistory(h));
+    return h;
+  }
+
   final CloudSync cloud;
   final AppSettings settings;
   final BackupFiles backups;
@@ -37,21 +60,29 @@ class SmartMenuApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: cloud),
         ChangeNotifierProvider.value(value: settings),
         ChangeNotifierProvider.value(value: backups),
+        ChangeNotifierProvider.value(value: history),
+        ChangeNotifierProvider.value(value: updates),
         ChangeNotifierProvider(create: (_) => AppNav()),
       ],
-      child: Consumer<HomeStore>(
-        builder: (context, store, _) => MaterialApp(
-          title: 'SmartHomeKJ',
-          debugShowCheckedModeBanner: false,
-          scrollBehavior: const _AppleScroll(),
-          theme: buildAppTheme(Brightness.light),
-          darkTheme: buildAppTheme(Brightness.dark),
-          themeMode: switch (store.themeMode) {
-            'dark' => ThemeMode.dark,
-            'system' => ThemeMode.system,
-            _ => ThemeMode.light,
-          },
-          home: AppShell(poll: poll, initialTab: settings.startTab),
+      child: Consumer2<HomeStore, AppSettings>(
+        builder: (context, store, settings, _) => L10nScope(
+          code: L10n.code,
+          child: MaterialApp(
+            title: 'SmartHomeKJ',
+            debugShowCheckedModeBanner: false,
+            locale: Locale(L10n.code),
+            supportedLocales: const [Locale('en'), Locale('bg')],
+            localizationsDelegates: GlobalMaterialLocalizations.delegates,
+            scrollBehavior: const _AppleScroll(),
+            theme: buildAppTheme(Brightness.light),
+            darkTheme: buildAppTheme(Brightness.dark),
+            themeMode: switch (store.themeMode) {
+              'dark' => ThemeMode.dark,
+              'system' => ThemeMode.system,
+              _ => ThemeMode.light,
+            },
+            home: AppShell(poll: poll, initialTab: settings.startTab),
+          ),
         ),
       ),
     );
@@ -119,6 +150,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _store.startPolling();
       cloud.resumed();
+      unawaited(context.read<UpdateCheck>().check());
     } else if (state == AppLifecycleState.paused) {
       // A device keeping the home online goes on watching its devices in the background.
       if (!cloud.isHub) _store.stopPolling();

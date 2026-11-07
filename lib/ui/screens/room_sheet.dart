@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 
 import '../../models/device.dart';
@@ -9,6 +9,7 @@ import '../widgets/controls.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/kj_widgets.dart';
 import 'device_sheet.dart';
+import '../../l10n/text.dart';
 
 Future<void> showRoomSheet(BuildContext context, String roomId) => showModalBottomSheet(
       context: context,
@@ -55,7 +56,7 @@ class RoomSheet extends StatelessWidget {
             Expanded(child: DisplayText(room.name, size: 32, maxLines: 2)),
             IconButton(
               key: const Key('room-rename'),
-              tooltip: 'Rename room',
+              tooltip: tr('Rename room'),
               onPressed: () async {
                 final name = await promptText(context, title: 'Rename room', initial: room.name);
                 if (name != null && name.isNotEmpty) store.renameRoom(room, name);

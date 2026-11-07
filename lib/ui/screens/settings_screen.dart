@@ -1,5 +1,5 @@
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Text;
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -9,16 +9,19 @@ import '../../state/app_settings.dart';
 import '../../state/backup_files.dart';
 import '../../state/home_store.dart';
 import '../../state/scenes_widget.dart';
+import '../../state/updates.dart';
 import '../../theme/app_theme.dart';
 import '../../util/clock_text.dart';
 import '../nav.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/kj_widgets.dart';
+import '../widgets/update_card.dart';
 import 'account_sheet.dart';
 import 'backup_restore.dart';
 import 'help_sheet.dart';
 import 'home_screen.dart';
 import 'homes_sheet.dart';
+import '../../l10n/text.dart';
 
 Future<void> openSettings(BuildContext context) =>
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SettingsScreen()));
@@ -33,6 +36,7 @@ class SettingsScreen extends StatelessWidget {
     final settings = context.watch<AppSettings>();
     final cloud = context.watch<CloudSync>();
     final backups = context.watch<BackupFiles>();
+    final updates = context.watch<UpdateCheck>();
     final p = context.palette;
 
     return Scaffold(
@@ -47,7 +51,7 @@ class SettingsScreen extends StatelessWidget {
                 child: Row(children: [
                   IconButton(
                     key: const Key('settings-back'),
-                    tooltip: 'Back',
+                    tooltip: tr('Back'),
                     onPressed: () => Navigator.pop(context),
                     icon: const Icon(CupertinoIcons.back, color: KJPalette.accent, size: 28),
                   ),
@@ -103,8 +107,17 @@ class SettingsScreen extends StatelessWidget {
                           icon: Icons.contrast,
                           title: 'Theme',
                           choices: [
-                            for (final m in const ['dark', 'light', 'system'])
-                              (m[0].toUpperCase() + m.substring(1), store.themeMode == m, () => store.themeMode = m),
+                            for (final (m, label) in const [('dark', 'Dark'), ('light', 'Light'), ('system', 'System')])
+                              (tc(label, 'theme'), store.themeMode == m, () => store.themeMode = m),
+                          ],
+                        ),
+                        _Choices(
+                          key: const Key('settings-language'),
+                          icon: Icons.translate,
+                          title: 'Language',
+                          choices: [
+                            for (final c in L10n.choices.entries)
+                              (c.value, settings.language == c.key, () => settings.language = c.key),
                           ],
                         ),
                         _Choices(
@@ -282,6 +295,39 @@ class SettingsScreen extends StatelessWidget {
                           onTap: () => showHelpSheet(context),
                         ),
                         ListTile(
+                          key: const Key('settings-updates'),
+                          leading: const Icon(CupertinoIcons.arrow_down_circle),
+                          title: const Text('Check for updates'),
+                          subtitle: Text(updates.checking
+                              ? 'Checking…'
+                              : updates.latest != null && !updates.upToDate
+                                  ? 'SmartHomeKJ ${updates.latest} is out · tap to download'
+                                  : updates.upToDate
+                                      ? 'You have the newest version, $appVersion'
+                                      : 'You have $appVersion'),
+                          onTap: () async {
+                            if (updates.latest != null && !updates.upToDate && !updates.checking) {
+                              await openDownload(context, updates.downloadUrl);
+                              return;
+                            }
+                            final ok = await updates.check(now: true);
+                            if (!ok) {
+                              store.toast(updates.enabled
+                                  ? 'Could not reach GitHub. Try again with internet.'
+                                  : 'This version does not check for updates.');
+                            } else if (updates.upToDate) {
+                              store.toast('You have the newest version.');
+                            }
+                          },
+                        ),
+                        ListTile(
+                          key: const Key('settings-downloads'),
+                          leading: const Icon(CupertinoIcons.cloud_download),
+                          title: const Text('All downloads'),
+                          subtitle: const Text('Android, Windows, Mac and Linux'),
+                          onTap: () => openDownload(context, UpdateCheck.allDownloads),
+                        ),
+                        ListTile(
                           leading: const Icon(Icons.code),
                           title: const Text('Source code'),
                           subtitle: Text('${appSourceUrl.replaceFirst('https://', '')} · tap to copy the link'),
@@ -317,7 +363,7 @@ class SettingsScreen extends StatelessWidget {
 
 /// A setting with a few choices in a row of chips.
 class _Choices extends StatelessWidget {
-  const _Choices({required this.icon, required this.title, required this.choices, this.note});
+  const _Choices({super.key, required this.icon, required this.title, required this.choices, this.note});
   final IconData icon;
   final String title;
   final String? note;
