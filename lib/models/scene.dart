@@ -1,3 +1,4 @@
+import '../util/sun.dart';
 import 'device.dart';
 
 /// One device's part in a scene: the state to put it in.
@@ -111,22 +112,61 @@ class SceneAction {
       );
 }
 
-/// When a scene runs by itself: a time of day on some weekdays (1 = Monday).
+/// When a scene runs by itself: a time of day, or sunrise or sunset give or take some minutes, on some weekdays
+/// (1 = Monday).
 class SceneSchedule {
   SceneSchedule({required this.hour, required this.minute, Set<int>? days})
-      : days = days ?? {1, 2, 3, 4, 5, 6, 7};
+      : days = days ?? {1, 2, 3, 4, 5, 6, 7},
+        sun = null,
+        offset = 0,
+        lat = null,
+        lon = null;
+
+  /// At sunrise or sunset at the home's place ([lat], [lon]), [offset] minutes after (or before, when negative).
+  SceneSchedule.sun(String this.sun,
+      {required double this.lat, required double this.lon, this.offset = 0, Set<int>? days})
+      : hour = 0,
+        minute = 0,
+        days = days ?? {1, 2, 3, 4, 5, 6, 7};
 
   int hour;
   int minute;
   Set<int> days;
 
-  bool matches(DateTime t) => t.hour == hour && t.minute == minute && days.contains(t.weekday);
+  /// 'sunrise' or 'sunset', or null for a time of day.
+  final String? sun;
+  final int offset;
+  final double? lat;
+  final double? lon;
+
+  bool get bySun => sun != null && lat != null && lon != null;
+
+  /// The same, somewhere else: when the home moves to another town.
+  SceneSchedule at(double lat, double lon) =>
+      bySun ? SceneSchedule.sun(sun!, lat: lat, lon: lon, offset: offset, days: days) : this;
+
+  /// When it is due on the local day of [day] (to the minute), whatever the weekday. Null when the sun does not
+  /// rise or set that day.
+  DateTime? timeOn(DateTime day) {
+    if (!bySun) return DateTime(day.year, day.month, day.day, hour, minute);
+    final times = SunTimes.on(day, lat!, lon!);
+    final t = (sun == 'sunrise' ? times.rise : times.set)?.toLocal().add(Duration(minutes: offset));
+    return t == null ? null : DateTime(t.year, t.month, t.day, t.hour, t.minute);
+  }
+
+  bool matches(DateTime t) {
+    if (!days.contains(t.weekday)) return false;
+    final due = timeOn(t);
+    return due != null && slot(due) == slot(t);
+  }
 
   /// The next time after [now] this is due, or null when no day is picked.
   DateTime? nextAfter(DateTime now) {
     for (var i = 0; i <= 7; i++) {
-      final t = DateTime(now.year, now.month, now.day + i, hour, minute);
-      if (t.isAfter(now) && days.contains(t.weekday)) return t;
+      final day = DateTime(now.year, now.month, now.day + i);
+      if (!days.contains(day.weekday)) continue;
+      final t = timeOn(day);
+      if (t != null && t.isAfter(now)) return t;
     }
     return null;
   }
@@ -135,9 +175,11 @@ class SceneSchedule {
   /// slightly early alarm. Null when [now] is not close to a run.
   DateTime? runNear(DateTime now, {Duration late = const Duration(minutes: 15)}) {
     for (final back in [0, 1]) {
-      final t = DateTime(now.year, now.month, now.day - back, hour, minute);
+      final day = DateTime(now.year, now.month, now.day - back);
+      final t = timeOn(day);
+      if (t == null) continue;
       final after = now.difference(t);
-      if (days.contains(t.weekday) && after >= const Duration(minutes: -1) && after <= late) return t;
+      if (days.contains(day.weekday) && after >= const Duration(minutes: -1) && after <= late) return t;
     }
     return null;
   }
@@ -147,6 +189,16 @@ class SceneSchedule {
 
   String get time => '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
 
+  /// "07:30", "Sunset", "30 min before sunrise".
+  String get label {
+    if (!bySun) return time;
+    final name = sun == 'sunrise' ? 'sunrise' : 'sunset';
+    if (offset == 0) return name == 'sunrise' ? 'Sunrise' : 'Sunset';
+    final m = offset.abs();
+    final span = m < 60 || m % 60 != 0 ? '$m min' : '${m ~/ 60} h';
+    return offset < 0 ? '$span before $name' : '$span after $name';
+  }
+
   String get daysLabel {
     if (days.length == 7) return 'Every day';
     if (days.length == 5 && days.containsAll({1, 2, 3, 4, 5})) return 'Weekdays';
@@ -155,13 +207,24 @@ class SceneSchedule {
     return (days.toList()..sort()).map((d) => names[d - 1]).join(' ');
   }
 
-  Map<String, dynamic> toJson() => {'hour': hour, 'minute': minute, 'days': days.toList()..sort()};
+  Map<String, dynamic> toJson() => {
+        'hour': hour,
+        'minute': minute,
+        'days': days.toList()..sort(),
+        if (bySun) ...{'sun': sun, 'offset': offset, 'lat': lat, 'lon': lon},
+      };
 
-  factory SceneSchedule.fromJson(Map<String, dynamic> j) => SceneSchedule(
-        hour: (j['hour'] as num).toInt(),
-        minute: (j['minute'] as num).toInt(),
-        days: (j['days'] as List?)?.map((e) => (e as num).toInt()).toSet(),
-      );
+  factory SceneSchedule.fromJson(Map<String, dynamic> j) {
+    final days = (j['days'] as List?)?.map((e) => (e as num).toInt()).toSet();
+    if (j['sun'] case final String sun when j['lat'] is num && j['lon'] is num) {
+      return SceneSchedule.sun(sun,
+          lat: (j['lat'] as num).toDouble(),
+          lon: (j['lon'] as num).toDouble(),
+          offset: (j['offset'] as num?)?.toInt() ?? 0,
+          days: days);
+    }
+    return SceneSchedule(hour: (j['hour'] as num).toInt(), minute: (j['minute'] as num).toInt(), days: days);
+  }
 }
 
 /// A named set of device states applied with one tap, e.g. "Movie night".

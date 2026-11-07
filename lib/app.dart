@@ -69,6 +69,7 @@ class SmartMenuApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: backups),
         ChangeNotifierProvider.value(value: history),
         ChangeNotifierProvider.value(value: updates),
+        ChangeNotifierProvider.value(value: store.weather),
         ChangeNotifierProvider(create: (_) => AppNav()),
       ],
       child: Consumer2<HomeStore, AppSettings>(

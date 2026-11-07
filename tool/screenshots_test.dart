@@ -16,6 +16,7 @@ import 'package:smartmenukj/cloud/memory_cloud.dart';
 import 'package:smartmenukj/l10n/l10n.dart';
 import 'package:smartmenukj/models/automation.dart';
 import 'package:smartmenukj/models/device.dart';
+import 'package:smartmenukj/models/home.dart';
 import 'package:smartmenukj/models/scene.dart';
 import 'package:smartmenukj/state/app_settings.dart';
 import 'package:smartmenukj/state/backup_files.dart';
@@ -28,6 +29,8 @@ import 'package:smartmenukj/ui/screens/home_screen.dart';
 import 'package:smartmenukj/ui/screens/router_screen.dart';
 import 'package:smartmenukj/ui/widgets/camera_live.dart';
 import 'package:smartmenukj/ui/widgets/motion.dart';
+
+import '../test/weather_fixture.dart';
 
 Future<void> _loadFonts() async {
   final inter = FontLoader('Inter');
@@ -419,7 +422,15 @@ void main() {
           id: 'auto-door',
           enabled: false,
           trigger: AutomationTrigger(deviceId: named('Front door').id, kind: TriggerKind.unlocks),
-          then: AutomationStep.device(named('Kitchen lights').id, on: true)));
+          then: AutomationStep.device(named('Kitchen lights').id, on: true)))
+      ..addAutomation(Automation(
+          id: 'auto-dusk',
+          trigger: const AutomationTrigger(deviceId: AutomationTrigger.home, kind: TriggerKind.sunset, number: -15),
+          then: AutomationStep.device(named('Floor lamp').id, on: true)))
+      ..addAutomation(Automation(
+          id: 'auto-rain',
+          trigger: const AutomationTrigger(deviceId: AutomationTrigger.home, kind: TriggerKind.rain),
+          then: AutomationStep.device(named('Blinds').id, on: false)));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('automations-open')));
     await _shot(tester, 'phone-automations');
@@ -579,5 +590,63 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('profile-settings')));
     await _shot(tester, 'phone-settings-bg');
+  });
+
+  /// The sample home in Sofia, with its weather.
+  Future<HomeStore> inSofia(WidgetTester tester, {String language = 'en'}) async {
+    final store = await _app(tester, phone, language: language, client: weatherClient(forecast: () => sampleForecast(DateTime.now(), temp: 14)));
+    store.setPlace(language == 'bg'
+        ? const HomePlace(name: 'София', region: 'София-град, България', lat: 42.6975, lon: 23.3242)
+        : const HomePlace(name: 'Sofia', region: 'Sofia-Capital, Bulgaria', lat: 42.6975, lon: 23.3242));
+    await tester.pumpAndSettle();
+    return store;
+  }
+
+  testWidgets('phone weather', (tester) async {
+    await inSofia(tester);
+    await tester.ensureVisible(find.byKey(const Key('status-weather')));
+    await tester.tap(find.byKey(const Key('status-weather')));
+    await _shot(tester, 'phone-weather');
+  });
+
+  testWidgets('phone weather in Bulgarian', (tester) async {
+    await inSofia(tester, language: 'bg');
+    await tester.ensureVisible(find.byKey(const Key('status-weather')));
+    await tester.tap(find.byKey(const Key('status-weather')));
+    await _shot(tester, 'phone-weather-bg');
+  });
+
+  testWidgets('phone timer', (tester) async {
+    final store = await inSofia(tester);
+    final lamp = store.devices.firstWhere((d) => d.name == 'Ceiling light');
+    store.setTimer(lamp, const Duration(minutes: 45));
+    await tester.pumpAndSettle();
+    await openControls(tester, 'Ceiling light');
+    final sheet = find.byType(Scrollable).last;
+    for (var i = 0; i < 20 && find.byKey(const Key('timer-set')).hitTestable().evaluate().isEmpty; i++) {
+      await tester.dragFrom(tester.getTopLeft(sheet) + const Offset(16, 200), const Offset(0, -150));
+      await tester.pumpAndSettle();
+    }
+    await tester.dragFrom(tester.getTopLeft(sheet) + const Offset(16, 200), const Offset(0, -120));
+    await _shot(tester, 'phone-timer');
+  });
+
+  testWidgets('phone scene at sunset', (tester) async {
+    final store = await inSofia(tester);
+    final evening = store.addScene('Evening',
+        store.devices.where((d) => d.kind == DeviceKind.light || d.kind == DeviceKind.cover).take(5),
+        icon: 'relax', turnOn: true);
+    store.updateScene(evening,
+        schedule: SceneSchedule.sun('sunset', lat: 42.6975, lon: 23.3242, offset: -15));
+    await tester.pumpAndSettle();
+    await tester.longPress(find.byKey(Key('scene-${evening.id}')));
+    await tester.pumpAndSettle();
+    final sheet = find.byType(Scrollable).last;
+    for (var i = 0; i < 20 && find.byKey(const Key('schedule-offset--15')).hitTestable().evaluate().isEmpty; i++) {
+      await tester.dragFrom(tester.getTopLeft(sheet) + const Offset(16, 200), const Offset(0, -150));
+      await tester.pumpAndSettle();
+    }
+    await tester.dragFrom(tester.getTopLeft(sheet) + const Offset(16, 200), const Offset(0, -100));
+    await _shot(tester, 'phone-scene-sunset');
   });
 }

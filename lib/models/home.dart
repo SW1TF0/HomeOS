@@ -94,6 +94,53 @@ class IntegrationConfig {
       );
 }
 
+/// Where a home is: a town picked from a search, for its weather and its sunrise and sunset.
+class HomePlace {
+  const HomePlace({required this.name, required this.lat, required this.lon, this.region = ''});
+
+  final String name;
+
+  /// The region and country, to tell two towns of the same name apart.
+  final String region;
+  final double lat;
+  final double lon;
+
+  Map<String, dynamic> toJson() => {'name': name, 'region': region, 'lat': lat, 'lon': lon};
+
+  static HomePlace? fromJson(Object? j) {
+    if (j is! Map || j['lat'] is! num || j['lon'] is! num) return null;
+    return HomePlace(
+      name: j['name'] as String? ?? '',
+      region: j['region'] as String? ?? '',
+      lat: (j['lat'] as num).toDouble(),
+      lon: (j['lon'] as num).toDouble(),
+    );
+  }
+}
+
+/// "Turn the heater off in 30 minutes": what one device does, and when.
+class DeviceTimer {
+  const DeviceTimer({required this.deviceId, required this.at, this.on = false});
+
+  final String deviceId;
+  final DateTime at;
+
+  /// Whether it turns the device on, rather than off.
+  final bool on;
+
+  /// Names this run, so it is not done twice (by the app and by an Android alarm).
+  String get slot => 'timer:$deviceId:${at.millisecondsSinceEpoch}';
+
+  Map<String, dynamic> toJson() => {'deviceId': deviceId, 'at': at.millisecondsSinceEpoch, 'on': on};
+
+  static DeviceTimer? fromJson(Map<String, dynamic> j) {
+    final id = j['deviceId'];
+    final at = j['at'];
+    if (id is! String || at is! num) return null;
+    return DeviceTimer(deviceId: id, at: DateTime.fromMillisecondsSinceEpoch(at.toInt()), on: j['on'] as bool? ?? false);
+  }
+}
+
 /// Everything the app stores. Saved locally as JSON; nothing leaves the device.
 class HomeData {
   HomeData({
@@ -103,8 +150,11 @@ class HomeData {
     List<IntegrationConfig>? integrations,
     List<Scene>? scenes,
     List<Automation>? automations,
+    List<DeviceTimer>? timers,
     this.themeMode = 'light',
+    this.place,
   })  : scenes = scenes ?? [],
+        timers = timers ?? [],
         automations = automations ?? [],
         floors = floors ?? [],
         rooms = rooms ?? [],
@@ -119,7 +169,11 @@ class HomeData {
   final List<IntegrationConfig> integrations;
   final List<Scene> scenes;
   final List<Automation> automations;
+  final List<DeviceTimer> timers;
   String themeMode;
+
+  /// Where the home is, once a town is picked.
+  HomePlace? place;
 
   Map<String, dynamic> toJson() => {
         'app': 'SmartHomeKJ',
@@ -131,6 +185,8 @@ class HomeData {
         'integrations': integrations.map((e) => e.toJson()).toList(),
         'scenes': scenes.map((e) => e.toJson()).toList(),
         if (automations.isNotEmpty) 'automations': automations.map((e) => e.toJson()).toList(),
+        if (timers.isNotEmpty) 'timers': timers.map((e) => e.toJson()).toList(),
+        'place': ?place?.toJson(),
       };
 
   factory HomeData.fromJson(Map<String, dynamic> j) {
@@ -144,6 +200,8 @@ class HomeData {
       integrations: list('integrations').map(IntegrationConfig.fromJson).toList(),
       scenes: list('scenes').map(Scene.fromJson).toList(),
       automations: list('automations').map(Automation.fromJson).nonNulls.toList(),
+      timers: list('timers').map(DeviceTimer.fromJson).nonNulls.toList(),
+      place: HomePlace.fromJson(j['place']),
     );
   }
 }

@@ -7,7 +7,11 @@ import 'package:smartmenukj/app.dart';
 import 'package:smartmenukj/cloud/cloud_sync.dart';
 import 'package:smartmenukj/cloud/memory_cloud.dart';
 import 'package:smartmenukj/l10n/bg.dart';
+import 'package:smartmenukj/integrations/weather.dart';
 import 'package:smartmenukj/l10n/text.dart';
+import 'package:smartmenukj/models/automation.dart';
+import 'package:smartmenukj/models/home.dart';
+import 'package:smartmenukj/models/scene.dart';
 import 'package:smartmenukj/state/app_settings.dart';
 import 'package:smartmenukj/state/home_store.dart';
 import 'package:smartmenukj/state/repository.dart';
@@ -24,6 +28,9 @@ import 'package:smartmenukj/ui/screens/device_sheet.dart';
 import 'package:smartmenukj/ui/screens/help_sheet.dart';
 import 'package:smartmenukj/ui/screens/home_screen.dart';
 import 'package:smartmenukj/ui/screens/settings_screen.dart';
+import 'package:smartmenukj/ui/screens/weather_sheet.dart';
+
+import 'weather_fixture.dart';
 
 /// Lines a screen shows that are names (of the sample home, brands, the app) or not words at all.
 bool _notWords(String s) =>
@@ -69,6 +76,36 @@ void main() {
     expect(tc('Open', 'action'), 'Open');
   });
 
+  test('the weather, the sun and timers have their words in Bulgarian', () {
+    L10n.use('bg');
+    final lines = <String>{
+      for (final c in [0, 1, 2, 3, 45, 51, 56, 61, 65, 71, 75, 80, 82, 85, 95, 96]) Weather.describe(c),
+      for (final kind in [TriggerKind.sunrise, TriggerKind.sunset])
+        for (final m in [-60, -30, -15, 0, 15, 30, 60, 90]) ...[
+          AutomationTrigger(deviceId: AutomationTrigger.home, kind: kind, number: m.toDouble()).sunText,
+          SceneSchedule.sun(kind.name, lat: 1, lon: 1, offset: m).label,
+        ],
+      for (final t in AutomationTrigger.homeChoices())
+        if (t.kind != TriggerKind.sunrise && t.kind != TriggerKind.sunset) 'When ${t.copyWith(number: 5).event}',
+      for (final m in [15, 30, 60, 120]) m < 60 ? '$m min' : '${m ~/ 60} h',
+      'off in 25 min', 'on in 1 h', 'Turn off in', 'Turn on in',
+      'Sunrise, sunset or the weather', 'The sun or the weather…', 'It starts to rain', 'It gets warmer outside than…',
+      'It gets colder outside than…', 'When, around sunrise?', 'When, around sunset?', 'Warmer outside than',
+      'Colder outside than', 'Degrees, e.g. 5', 'Minutes, e.g. 45', 'Other…', 'Set', 'Pick your town first',
+      'By a timer', 'Town', 'Not set. For the weather, sunrise and sunset.', 'Change town', 'Add your town', 'Asking…',
+      'No weather yet', 'The town search did not answer. Is the internet on?', 'No weather: no internet connection?',
+      'The weather service sent nothing usable.', 'Asking for the weather…',
+    };
+    final left = [for (final l in lines) if (tr(l) == l) l];
+    expect(left, isEmpty);
+    expect(tr('30 min before sunset'), isNot(contains('sunset')));
+    expect(trf('Feels like {0}°', ['10']), isNot(contains('Feels')));
+    final at = DateTime(2026, 11, 7, 20);
+    expect(timerText(DeviceTimer(deviceId: 'd', at: at.add(const Duration(minutes: 90)), on: true), at),
+        'включва се след 1 ч 30 мин');
+    expect(timerText(DeviceTimer(deviceId: 'd', at: at.add(const Duration(minutes: 25))), at), 'изключва се след 25 мин');
+  });
+
   testWidgets('in Bulgarian, the main screens show Bulgarian', (tester) async {
     tester.view.physicalSize = const Size(840, 1800);
     tester.view.devicePixelRatio = 2;
@@ -77,8 +114,22 @@ void main() {
     settings.language = 'bg';
     settings.name = 'Krasimir';
     L10n.missing = {};
-    final store = HomeStore(repository: MemoryHomeRepository(), client: MockClient((_) async => http.Response('[]', 200)));
+    final store = HomeStore(repository: MemoryHomeRepository(), client: weatherClient(towns: const {'results': []}));
     await store.load();
+    // The weather, a timer, a scene at sunset and automations by the sun and the weather.
+    const town = HomePlace(name: 'София', region: 'София-град, България', lat: 42.6975, lon: 23.3242);
+    store.setPlace(town);
+    final lit = store.devices.firstWhere((d) => d.state.on == true);
+    store.setTimer(lit, const Duration(minutes: 90));
+    for (final (i, (kind, n)) in const [
+      (TriggerKind.sunset, -30.0), (TriggerKind.sunrise, 0.0), (TriggerKind.sunrise, 60.0), (TriggerKind.rain, null),
+      (TriggerKind.colderOutside, 3.0), (TriggerKind.warmerOutside, 25.0),
+    ].indexed) {
+      store.addAutomation(Automation(
+          id: 'auto-$i',
+          trigger: AutomationTrigger(deviceId: AutomationTrigger.home, kind: kind, number: n),
+          then: AutomationStep.device(lit.id, on: true)));
+    }
     await tester.pumpWidget(SmartMenuApp(store: store, settings: settings, poll: false));
     await tester.pump();
     expect(find.text('Изключи всичко'), findsOneWidget);
@@ -106,6 +157,20 @@ void main() {
     }
     final scene = store.addScene('Movie night', store.devices.take(3).toList());
     await sheet(() => showSceneSheet(ctx, scene));
+    scene.schedule = SceneSchedule.sun('sunset', lat: town.lat, lon: town.lon, offset: -30, days: {1, 2, 3, 4, 5});
+    await sheet(() => showSceneSheet(ctx, scene));
+    await sheet(() => showWeatherSheet(ctx));
+    for (final a in store.automations) {
+      await sheet(() => showAutomationSheet(ctx, a));
+    }
+    unawaitedOpen(() => pickPlace(ctx));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('place-search')), 'Zzz');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('place-problem')), findsOneWidget);
+    Navigator.of(ctx).pop();
+    await tester.pumpAndSettle();
     await sheet(() => showActivitySheet(ctx));
     await sheet(() => showAutomations(ctx));
     await sheet(() => showHelpSheet(ctx));

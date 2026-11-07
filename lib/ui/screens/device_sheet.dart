@@ -12,8 +12,13 @@ import '../../integrations/lan/wol.dart';
 import '../../integrations/matter/matter_driver.dart';
 import '../../integrations/network_scan.dart';
 import '../../models/device.dart';
+import '../../models/home.dart';
+import '../../models/scene.dart';
+import '../../state/app_settings.dart';
 import '../../state/home_store.dart';
+import '../../state/scene_alarms.dart';
 import '../../theme/app_theme.dart';
+import '../../util/clock_text.dart';
 import '../../util/color_math.dart';
 import '../nav.dart';
 import '../../integrations/camera/playback.dart';
@@ -49,6 +54,17 @@ class DeviceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = context.read<HomeStore>();
     final d = device;
+    final timer = store.timerFor(d.id);
+    // With a timer set, the tile counts down to it instead of naming the room.
+    if (timer != null) {
+      return _Every(const Duration(seconds: 20),
+          (_) => _tile(context, store, '${tr(describeState(d))} · ${timerText(timer, DateTime.now())}'));
+    }
+    return _tile(context, store, subtitle);
+  }
+
+  Widget _tile(BuildContext context, HomeStore store, String? subtitle) {
+    final d = device;
     return DeviceTile(
       device: d,
       subtitle: subtitle,
@@ -68,7 +84,140 @@ class DeviceCard extends StatelessWidget {
   }
 }
 
+/// Builds again every [every], for a line that counts down.
+class _Every extends StatefulWidget {
+  const _Every(this.every, this.builder);
+  final Duration every;
+  final WidgetBuilder builder;
+
+  @override
+  State<_Every> createState() => _EveryState();
+}
+
+class _EveryState extends State<_Every> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(widget.every, (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context);
+}
+
 String _pct(double v) => v <= 0.005 ? 'OFF' : '${(v * 100).round()}%';
+
+/// "off in 25 min", "on in 1 h 30 min", in the app's language already: as one line its parts would not come apart
+/// again the right way.
+String timerText(DeviceTimer t, DateTime now) {
+  final m = (t.at.difference(now).inSeconds / 60).ceil().clamp(1, 100000);
+  final span = m < 60
+      ? trf('{0} min', ['$m'])
+      : (m % 60 == 0 ? trf('{0} h', ['${m ~/ 60}']) : trf('{0} h {1} min', ['${m ~/ 60}', '${m % 60}']));
+  return trf(t.on ? 'on in {0}' : 'off in {0}', [span]);
+}
+
+/// Turns a device off (or on) after a while: chips for the usual waits, then the time it happens and a way to
+/// cancel it.
+class TimerCard extends StatefulWidget {
+  const TimerCard({super.key, required this.device});
+  final Device device;
+
+  static const waits = [15, 30, 60, 120];
+
+  @override
+  State<TimerCard> createState() => _TimerCardState();
+}
+
+class _TimerCardState extends State<TimerCard> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<HomeStore>();
+    final h24 = context.select<AppSettings, bool>((s) => s.clock24);
+    final p = context.palette;
+    final d = widget.device;
+    final timer = store.timerFor(d.id);
+    final now = DateTime.now();
+    if (timer != null) {
+      return NCard(
+        key: const Key('timer-set'),
+        padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
+        child: Row(children: [
+          const Icon(Icons.timer_outlined, color: KJPalette.orange),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(trf(timer.on ? 'Turns on at {0}' : 'Turns off at {0}', [clockText(timer.at, h24)]),
+                  style: NType.body(16, color: p.text, weight: 600)),
+              Text(timerText(timer, now), style: NType.body(13, color: p.textDim)),
+            ]),
+          ),
+          TextButton(
+            key: const Key('timer-cancel'),
+            onPressed: () => store.cancelTimer(d.id),
+            child: const Text('Cancel'),
+          ),
+        ]),
+      );
+    }
+    final off = d.countsAsOn;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        for (final m in TimerCard.waits)
+          NChip(
+            key: Key('timer-$m'),
+            label: m < 60 ? '$m min' : '${m ~/ 60} h',
+            icon: Icons.timer_outlined,
+            selected: false,
+            onTap: () => store.setTimer(d, Duration(minutes: m)),
+          ),
+        NChip(
+          key: const Key('timer-other'),
+          label: 'Other…',
+          selected: false,
+          onTap: () async {
+            final typed = await promptText(context,
+                title: off ? 'Turn off in' : 'Turn on in', hint: 'Minutes, e.g. 45', action: 'Set', number: true);
+            final m = int.tryParse((typed ?? '').trim());
+            if (m != null && m > 0) store.setTimer(d, Duration(minutes: m));
+          },
+        ),
+      ]),
+      const SizedBox(height: 8),
+      Text(
+          SceneAlarms.supported
+              ? (off ? 'Turns it off then, even with the app closed.' : 'Turns it on then, even with the app closed.')
+              : (off ? 'Turns it off then, while the app is open.' : 'Turns it on then, while the app is open.'),
+          style: NType.body(12.5, color: p.textDim)),
+    ]);
+  }
+}
 
 double _kelvinT(int k) => (k - 2000) / 4500;
 int _tKelvin(double t) => ((2000 + t * 4500) / 50).round() * 50;
@@ -360,6 +509,10 @@ class DeviceSheet extends StatelessWidget {
                   ),
               ]);
             }),
+          ],
+          if (SceneAction.turn(d, true) != null && SceneAction.turn(d, false) != null && d.kind != DeviceKind.lock) ...[
+            SectionLabel(d.countsAsOn ? 'Turn off in' : 'Turn on in'),
+            TimerCard(device: d),
           ],
           DeviceHistory(device: d),
           const SectionLabel('Device'),

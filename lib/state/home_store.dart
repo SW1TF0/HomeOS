@@ -15,6 +15,7 @@ import '../integrations/lan/mac_vendor.dart';
 import '../integrations/lan/routeros.dart';
 import '../integrations/lan/whois.dart';
 import '../integrations/matter/matter_driver.dart';
+import '../integrations/weather.dart';
 import '../models/automation.dart';
 import '../models/device.dart';
 import '../models/home.dart';
@@ -22,6 +23,7 @@ import '../models/scene.dart';
 import 'history.dart';
 import 'repository.dart';
 import 'seed.dart';
+import 'weather.dart';
 
 /// Connection status of one integration, shown on the Connect screen.
 class IntegrationStatus {
@@ -53,10 +55,15 @@ class HomeStore extends ChangeNotifier {
     this.claimRun,
     this.onHomeNetwork,
     this.automate = true,
-  }) : client = client ?? http.Client();
+  }) : client = client ?? http.Client() {
+    weather.addListener(_weatherChanged);
+  }
 
   final HomeRepository repository;
   final http.Client client;
+
+  /// The weather at the open home, once it has a place.
+  late final HomeWeather weather = HomeWeather(client);
 
   /// How often devices are asked what they are doing while the app is open.
   Duration get pollInterval => _pollInterval;
@@ -547,6 +554,7 @@ class HomeStore extends ChangeNotifier {
       s.actions.removeWhere((a) => a.deviceId == d.id);
     }
     data.automations.removeWhere((a) => a.trigger.deviceId == d.id || a.then.deviceId == d.id);
+    data.timers.removeWhere((t) => t.deviceId == d.id);
     history?.forgetDevice(d.id);
     _changed();
     _forgetMatter(d);
@@ -656,6 +664,93 @@ class HomeStore extends ChangeNotifier {
     _lastScheduledMinute = key;
     for (final s in data.scenes) {
       if (s.schedule?.matches(t) ?? false) _runTimed(s, key);
+    }
+    final place = data.place;
+    if (!automate || place == null) return;
+    for (final a in data.automations) {
+      final sun = switch (a.trigger.kind) { TriggerKind.sunrise => 'sunrise', TriggerKind.sunset => 'sunset', _ => null };
+      if (!a.enabled || sun == null || !a.allowedAt(t)) continue;
+      final due = SceneSchedule.sun(sun, lat: place.lat, lon: place.lon, offset: (a.trigger.number ?? 0).round()).timeOn(t);
+      if (due == null || SceneSchedule.slot(due) != key) continue;
+      automationRuns[a.id] = clock.now();
+      unawaited(runAutomation(a));
+    }
+  }
+
+  // ---- Timers --------------------------------------------------------------------------
+
+  List<DeviceTimer> get timers => data.timers;
+
+  DeviceTimer? timerFor(String deviceId) => data.timers.where((t) => t.deviceId == deviceId).firstOrNull;
+
+  /// Turns [d] off (or on, when it is off) after [after]. Replaces the timer it had.
+  void setTimer(Device d, Duration after, {bool? on}) {
+    data.timers.removeWhere((t) => t.deviceId == d.id);
+    final at = clock.now().add(after);
+    data.timers.add(DeviceTimer(
+        deviceId: d.id, at: DateTime(at.year, at.month, at.day, at.hour, at.minute, at.second), on: on ?? !d.countsAsOn));
+    _changed();
+  }
+
+  void cancelTimer(String deviceId) {
+    final before = data.timers.length;
+    data.timers.removeWhere((t) => t.deviceId == deviceId);
+    if (data.timers.length != before) _changed();
+  }
+
+  /// Does what each timer whose time has come does. A timer missed by more than a quarter of an hour (the app was
+  /// closed, on a computer) is dropped rather than done late.
+  Future<void> runDueTimers([DateTime? now]) async {
+    final t = now ?? clock.now();
+    final due = data.timers.where((x) => !x.at.isAfter(t)).toList();
+    if (due.isEmpty) return;
+    data.timers.removeWhere(due.contains);
+    _changed();
+    for (final x in due) {
+      if (t.difference(x.at) > const Duration(minutes: 15)) continue;
+      if (claimRun != null && !await claimRun!('timer-${x.deviceId}', x.slot)) continue;
+      final d = device(x.deviceId);
+      final turn = d == null ? null : SceneAction.turn(d, x.on);
+      if (d == null || turn == null) continue;
+      await runZoned(() => command(d, turn.command), zoneValues: {historyCause: 'timer'});
+    }
+  }
+
+  // ---- Where the home is, and its weather ----------------------------------------------------------
+
+  /// Sets the town the home is in, for its weather and its sunrise and sunset. Scenes timed by the sun follow.
+  void setPlace(HomePlace? place) {
+    data.place = place;
+    if (place != null) {
+      for (final s in data.scenes) {
+        if (s.schedule case final sch? when sch.bySun) s.schedule = sch.at(place.lat, place.lon);
+      }
+    }
+    _changed();
+    unawaited(weather.refresh(place, force: true));
+  }
+
+  Weather? _lastWeather;
+
+  /// Runs the automations waiting for the weather to turn: warmer or colder than a number, or rain.
+  void _weatherChanged() {
+    final now = weather.now;
+    final before = _lastWeather;
+    _lastWeather = now;
+    if (!automate || now == null || before == null || identical(now, before)) return;
+    final at = clock.now();
+    for (final a in data.automations) {
+      if (!a.enabled || !a.allowedAt(at)) continue;
+      final n = a.trigger.number;
+      final fired = switch (a.trigger.kind) {
+        TriggerKind.warmerOutside => n != null && before.temp <= n && now.temp > n,
+        TriggerKind.colderOutside => n != null && before.temp >= n && now.temp < n,
+        TriggerKind.rain => !before.raining && now.raining,
+        _ => false,
+      };
+      if (!fired) continue;
+      automationRuns[a.id] = at;
+      unawaited(runAutomation(a));
     }
   }
 
@@ -1584,6 +1679,7 @@ class HomeStore extends ChangeNotifier {
   Future<void> refreshAll() async {
     if (_refreshing) return;
     _refreshing = true;
+    unawaited(weather.refresh(data.place));
     try {
       await checkHomeNetwork();
       await Future.wait(data.integrations.map((cfg) async {
@@ -1625,7 +1721,11 @@ class HomeStore extends ChangeNotifier {
   }
 
   void startPolling() {
-    _sceneTimer ??= Timer.periodic(const Duration(seconds: 15), (_) => runDueScenes());
+    _sceneTimer ??= Timer.periodic(const Duration(seconds: 15), (_) {
+      runDueScenes();
+      unawaited(runDueTimers());
+    });
+    unawaited(runDueTimers());
     _pollTimer?.cancel();
     refreshAll();
     _pollTimer = Timer.periodic(pollInterval, (_) => refreshAll());
@@ -1725,6 +1825,8 @@ class HomeStore extends ChangeNotifier {
     _sceneTimer?.cancel();
     _saveTimer?.cancel();
     _forgetAutomationState();
+    weather.removeListener(_weatherChanged);
+    weather.dispose();
     for (final d in _drivers.values) {
       d.stop();
     }

@@ -1270,11 +1270,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Settings'), findsOneWidget);
 
+      final list = find.descendant(of: find.byKey(const Key('settings-list')), matching: find.byType(Scrollable));
+      await tester.scrollUntilVisible(find.byKey(const Key('choice-12-hour')), 200, scrollable: list);
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('choice-12-hour')));
       await tester.pumpAndSettle();
       expect(settings.clock24, isFalse);
 
-      final list = find.descendant(of: find.byKey(const Key('settings-list')), matching: find.byType(Scrollable));
       await tester.scrollUntilVisible(find.byKey(const Key('choice-30 s')), 200, scrollable: list);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('choice-30 s')));

@@ -51,6 +51,7 @@ String? byText(HomeStore store, HomeEvent e) {
     return name == null ? 'By a scene' : 'By the scene $name';
   }
   if (by.startsWith('automation:')) return 'By an automation';
+  if (by == 'timer') return 'By a timer';
   return null;
 }
 

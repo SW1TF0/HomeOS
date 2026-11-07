@@ -21,6 +21,7 @@ import 'backup_restore.dart';
 import 'help_sheet.dart';
 import 'home_screen.dart';
 import 'homes_sheet.dart';
+import 'weather_sheet.dart';
 import 'welcome_screen.dart';
 import '../../l10n/text.dart';
 
@@ -81,6 +82,18 @@ class SettingsScreen extends StatelessWidget {
                               ? 'Add another home, like a holiday house or an office'
                               : '${store.homes.length} homes · ${store.homeName} is open'),
                           onTap: () => showHomesSheet(context),
+                        ),
+                        ListTile(
+                          key: const Key('settings-place'),
+                          leading: const Icon(CupertinoIcons.location),
+                          title: const Text('Town'),
+                          subtitle: Text(store.data.place == null
+                              ? 'Not set. For the weather, sunrise and sunset.'
+                              : [store.data.place!.name, store.data.place!.region].where((s) => s.isNotEmpty).join(', ')),
+                          onTap: () async {
+                            final place = await pickPlace(context);
+                            if (place != null) store.setPlace(place);
+                          },
                         ),
                         ListTile(
                           leading: const Icon(Icons.tune),

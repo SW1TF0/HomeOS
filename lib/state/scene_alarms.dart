@@ -35,15 +35,20 @@ class SceneAlarms {
     return h & 0x7fffffff;
   }
 
-  /// Alarm number to time (milliseconds since the epoch) of each timed scene's next run.
-  static Map<String, int> plan(Iterable<Scene> scenes, DateTime now) => {
+  /// Alarm number to time (milliseconds since the epoch) of each timed scene's next run, and of each device timer.
+  static Map<String, int> plan(Iterable<Scene> scenes, DateTime now, [Iterable<DeviceTimer> timers = const []]) => {
         for (final s in scenes)
           if (s.schedule?.nextAfter(now) case final next?) '${idOf(s.id)}': next.millisecondsSinceEpoch,
+        for (final t in timers)
+          if (t.at.isAfter(now)) '${timerAlarm(t.deviceId)}': t.at.millisecondsSinceEpoch,
       };
 
-  /// Books the next run of every timed scene and cancels every other alarm.
-  Future<void> sync(Iterable<Scene> scenes, [DateTime? now]) =>
-      _channel.invokeMethod<void>('sync', plan(scenes, now ?? DateTime.now()));
+  /// The alarm number of a device's timer.
+  static int timerAlarm(String deviceId) => idOf('timer:$deviceId');
+
+  /// Books the next run of every timed scene and device timer, and cancels every other alarm.
+  Future<void> sync(Iterable<Scene> scenes, [DateTime? now, Iterable<DeviceTimer> timers = const []]) =>
+      _channel.invokeMethod<void>('sync', plan(scenes, now ?? DateTime.now(), timers));
 
   /// Keeps the alarms in step with the scenes of every home: now, and whenever a schedule changes.
   void follow(HomeStore store) {
@@ -53,10 +58,11 @@ class SceneAlarms {
       final key = [
         for (final s in scenes)
           if (s.schedule != null) '${s.id} ${jsonEncode(s.schedule!.toJson())}',
+        for (final t in store.timers) t.slot,
       ].join('|');
       if (key == booked) return;
       booked = key;
-      sync(scenes).catchError((Object e) => debugPrint('Scene alarms: $e'));
+      sync(scenes, null, store.timers).catchError((Object e) => debugPrint('Scene alarms: $e'));
     }
 
     store.addListener(check);
@@ -83,6 +89,19 @@ Future<bool> claimSceneRun(String sceneId, String slot) async {
 /// Runs the scene behind [alarm] if it is really due at [now] and has not run yet,
 /// opening the home it belongs to when that is not the open one.
 Future<bool> runDueAlarm(HomeStore store, int alarm, DateTime now) async {
+  final timer = store.timers.where((t) => SceneAlarms.timerAlarm(t.deviceId) == alarm).firstOrNull;
+  if (timer != null) {
+    final late = now.difference(timer.at);
+    if (late < const Duration(minutes: -1) || late > const Duration(minutes: 15)) return false;
+    final claim = store.claimRun;
+    if (claim != null && !await claim('timer-${timer.deviceId}', timer.slot)) return false;
+    final d = store.device(timer.deviceId);
+    final turn = d == null ? null : SceneAction.turn(d, timer.on);
+    if (d == null || turn == null) return false;
+    await store.whenStarted(timeout: const Duration(seconds: 3));
+    await store.command(d, turn.command).timeout(const Duration(seconds: 5), onTimeout: () => false);
+    return true;
+  }
   bool isIt(Scene s) => SceneAlarms.idOf(s.id) == alarm;
   if (!store.data.scenes.any(isIt)) {
     final home = store.otherScenes.entries.where((e) => e.value.any(isIt)).firstOrNull?.key;
@@ -118,7 +137,7 @@ Future<void> runSceneAlarm(List<String> args) async {
       said = await runTapped(store, args.first == 'scene' ? args.elementAtOrNull(1) : null, anyHome: true)
           .timeout(const Duration(seconds: 5), onTimeout: () => 'Sent. Some devices are slow to answer.');
     }
-    await SceneAlarms(channel).sync(store.allScenes);
+    await SceneAlarms(channel).sync(store.allScenes, null, store.timers);
   } catch (e) {
     debugPrint('Scene alarm: $e');
   } finally {

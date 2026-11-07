@@ -12,14 +12,17 @@ import '../../util/clock_text.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/kj_widgets.dart';
 import 'scenes.dart';
+import 'weather_sheet.dart';
 import '../../l10n/text.dart';
 
 /// Opens the list of automations.
 Future<void> showAutomations(BuildContext context) =>
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const AutomationsScreen()));
 
-/// "When Hall sensor detects motion".
+/// "When Hall sensor detects motion", "At sunset", "When it starts to rain".
 String whenText(HomeStore store, AutomationTrigger t) {
+  if (t.kind == TriggerKind.sunrise || t.kind == TriggerKind.sunset) return tr(t.sunText);
+  if (t.isHome) return tr('When ${t.event}');
   final name = store.device(t.deviceId)?.name;
   return trf('When {0} {1}', [name ?? tr('a removed device'), tr(t.eventFor(name ?? ''))]);
 }
@@ -44,17 +47,71 @@ String hoursText(Automation a, bool h24) {
 List<Device> _switchable(HomeStore store, bool on) =>
     store.devices.where((d) => SceneAction.turn(d, on) != null).toList();
 
-/// Asks for the device and the change to wait for. Null when cancelled.
+/// The icon of what sets an automation off: its device, the sun or the weather.
+IconData triggerIcon(HomeStore store, AutomationTrigger t) => switch (t.kind) {
+      TriggerKind.sunrise => CupertinoIcons.sunrise_fill,
+      TriggerKind.sunset => CupertinoIcons.sunset_fill,
+      TriggerKind.rain => CupertinoIcons.cloud_rain_fill,
+      TriggerKind.warmerOutside || TriggerKind.colderOutside => CupertinoIcons.thermometer,
+      _ => deviceIcon(store.device(t.deviceId)?.kind ?? DeviceKind.other),
+    };
+
+/// Asks for sunrise or sunset (and how long before or after), rain, or a temperature outside. Null when cancelled.
+Future<AutomationTrigger?> _pickHomeTrigger(BuildContext context) async {
+  final store = context.read<HomeStore>();
+  final t = await pickOne<AutomationTrigger>(
+    context,
+    title: 'The sun or the weather…',
+    options: AutomationTrigger.homeChoices(),
+    label: (t) => switch (t.kind) {
+      TriggerKind.sunrise => 'Sunrise',
+      TriggerKind.sunset => 'Sunset',
+      TriggerKind.rain => 'It starts to rain',
+      TriggerKind.warmerOutside => 'It gets warmer outside than…',
+      _ => 'It gets colder outside than…',
+    },
+    icon: (t) => triggerIcon(store, t),
+  );
+  if (t == null || !context.mounted) return null;
+  if (store.data.place == null && await pickPlace(context) == null) return null;
+  if (!context.mounted) return null;
+  if (t.kind == TriggerKind.sunrise || t.kind == TriggerKind.sunset) {
+    final m = await pickOne<int>(
+      context,
+      title: t.kind == TriggerKind.sunrise ? 'When, around sunrise?' : 'When, around sunset?',
+      options: const [-60, -30, -15, 0, 15, 30, 60],
+      label: (m) => AutomationTrigger(deviceId: AutomationTrigger.home, kind: t.kind, number: m.toDouble()).sunText,
+      icon: (_) => triggerIcon(store, t),
+    );
+    return m == null ? null : t.copyWith(number: m.toDouble());
+  }
+  if (!t.needsNumber) return t;
+  final now = store.weather.now?.temp;
+  final typed = await promptText(
+    context,
+    title: t.kind == TriggerKind.warmerOutside ? 'Warmer outside than' : 'Colder outside than',
+    initial: now == null ? '' : now.round().toString(),
+    hint: 'Degrees, e.g. 5',
+    action: 'Next',
+    number: true,
+  );
+  final n = double.tryParse((typed ?? '').trim().replaceAll(',', '.'));
+  return n == null ? null : t.copyWith(number: n);
+}
+
+/// Asks for the device and the change to wait for, or the sun or the weather. Null when cancelled.
 Future<AutomationTrigger?> pickTrigger(BuildContext context) async {
   final store = context.read<HomeStore>();
-  final d = await pickOne<Device>(
+  final picked = await pickOne<Object>(
     context,
     title: 'When which device…',
-    options: store.devices,
-    label: (d) => d.name,
-    icon: (d) => deviceIcon(d.kind),
+    options: [AutomationTrigger.home, ...store.devices],
+    label: (o) => o is Device ? o.name : 'Sunrise, sunset or the weather',
+    icon: (o) => o is Device ? deviceIcon(o.kind) : CupertinoIcons.sun_haze_fill,
   );
-  if (d == null || !context.mounted) return null;
+  if (picked == null || !context.mounted) return null;
+  if (picked is! Device) return _pickHomeTrigger(context);
+  final d = picked;
   var t = await pickOne<AutomationTrigger>(
     context,
     title: '${d.name}…',
@@ -201,6 +258,7 @@ class AutomationsScreen extends StatelessWidget {
                             'When the TV turns on, run Movie night',
                             'When it gets colder than 18°, turn the heating on',
                             'When the front door unlocks after dark, turn the porch light on',
+                            'At sunset, turn the garden lights on; when it starts to rain, close the blinds',
                           ])
                             Padding(
                               padding: const EdgeInsets.symmetric(vertical: 6),
@@ -226,8 +284,7 @@ class AutomationsScreen extends StatelessWidget {
                           onTap: () => showAutomationSheet(context, a),
                           padding: const EdgeInsets.fromLTRB(18, 14, 10, 14),
                           child: Row(children: [
-                            Icon(deviceIcon(store.device(a.trigger.deviceId)?.kind ?? DeviceKind.other),
-                                color: a.enabled ? p.text : p.textDim),
+                            Icon(triggerIcon(store, a.trigger), color: a.enabled ? p.text : p.textDim),
                             const SizedBox(width: 14),
                             Expanded(
                               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -339,9 +396,13 @@ class AutomationSheet extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 4),
             child: ListTile(
               key: const Key('automation-when'),
-              leading: Icon(deviceIcon(when?.kind ?? DeviceKind.other)),
-              title: Text(when?.name ?? 'A removed device'),
-              subtitle: Text(a.trigger.eventFor(when?.name ?? '')),
+              leading: Icon(triggerIcon(store, a.trigger)),
+              title: Text(a.trigger.isHome ? whenText(store, a.trigger) : when?.name ?? 'A removed device'),
+              subtitle: Text(a.trigger.isHome
+                  ? store.data.place == null
+                      ? tr('Pick your town first')
+                      : trf('In {0}', [store.data.place!.name])
+                  : a.trigger.eventFor(when?.name ?? '')),
               trailing: Icon(Icons.chevron_right, color: p.textDim),
               onTap: () async {
                 final t = await pickTrigger(context);

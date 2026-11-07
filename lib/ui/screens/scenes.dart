@@ -1,8 +1,10 @@
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 
 import '../../models/device.dart';
 import '../../models/scene.dart';
+import '../../state/app_settings.dart';
 import '../../state/home_store.dart';
 import '../../state/scene_alarms.dart';
 import '../../theme/app_theme.dart';
@@ -10,6 +12,8 @@ import '../widgets/controls.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/kj_widgets.dart';
 import 'device_sheet.dart';
+import 'weather_sheet.dart';
+import '../../util/clock_text.dart';
 import '../../util/sounds.dart';
 import '../../l10n/text.dart';
 
@@ -90,7 +94,7 @@ List<Device> sceneCandidates(HomeStore store) => store.devices
 String _sceneSubtitle(Scene s) {
   final n = s.actions.length;
   final devices = '$n device${n == 1 ? '' : 's'}';
-  return s.schedule == null ? devices : '$devices · ${s.schedule!.time}';
+  return s.schedule == null ? devices : '$devices · ${tr(s.schedule!.label)}';
 }
 
 /// A row of scene cards for the home screen, ending with "New scene".
@@ -440,28 +444,43 @@ class _ScheduleCard extends StatelessWidget {
   const _ScheduleCard({required this.scene});
   final Scene scene;
 
+  static const offsets = [-60, -30, -15, 0, 15, 30, 60];
+
   @override
   Widget build(BuildContext context) {
-    final store = context.read<HomeStore>();
+    final store = context.watch<HomeStore>();
+    final h24 = context.select<AppSettings, bool>((s) => s.clock24);
     final p = context.palette;
     final sch = scene.schedule;
+    final by = sch == null ? null : (sch.bySun ? sch.sun : 'time');
     Future<void> pickTime() async {
       final t = await showTimePicker(
         context: context,
-        initialTime: sch == null ? const TimeOfDay(hour: 7, minute: 0) : TimeOfDay(hour: sch.hour, minute: sch.minute),
+        initialTime:
+            sch == null || sch.bySun ? const TimeOfDay(hour: 7, minute: 0) : TimeOfDay(hour: sch.hour, minute: sch.minute),
       );
       if (t == null) return;
       store.updateScene(scene, schedule: SceneSchedule(hour: t.hour, minute: t.minute, days: sch?.days));
     }
 
+    Future<void> bySun(String sun, {int? offset}) async {
+      final place = store.data.place ?? await pickPlace(context);
+      if (place == null) return;
+      store.updateScene(scene,
+          schedule: SceneSchedule.sun(sun,
+              lat: place.lat, lon: place.lon, offset: offset ?? (sch?.sun == sun ? sch!.offset : 0), days: sch?.days));
+    }
+
+    final next = sch?.nextAfter(DateTime.now());
     return NCard(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Expanded(
             child: GestureDetector(
-              onTap: pickTime,
-              child: DisplayText(sch?.time ?? '--:--', size: 44),
+              onTap: by == null || by == 'time' ? pickTime : null,
+              child: DisplayText(sch == null ? '--:--' : sch.label,
+                  key: const Key('scene-schedule-time'), size: sch?.bySun ?? false ? 30 : 44),
             ),
           ),
           Switch(
@@ -474,6 +493,39 @@ class _ScheduleCard extends StatelessWidget {
         if (sch != null) ...[
           const SizedBox(height: 10),
           Wrap(spacing: 6, runSpacing: 6, children: [
+            NChip(
+                key: const Key('schedule-by-time'),
+                label: 'At a time',
+                icon: Icons.schedule,
+                selected: by == 'time',
+                onTap: pickTime),
+            NChip(
+                key: const Key('schedule-by-sunrise'),
+                label: 'Sunrise',
+                icon: CupertinoIcons.sunrise,
+                selected: by == 'sunrise',
+                onTap: () => bySun('sunrise')),
+            NChip(
+                key: const Key('schedule-by-sunset'),
+                label: 'Sunset',
+                icon: CupertinoIcons.sunset,
+                selected: by == 'sunset',
+                onTap: () => bySun('sunset')),
+          ]),
+          if (sch.bySun) ...[
+            const SizedBox(height: 10),
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              for (final m in offsets)
+                NChip(
+                  key: Key('schedule-offset-$m'),
+                  label: SceneSchedule.sun(sch.sun!, lat: 0, lon: 0, offset: m).label,
+                  selected: sch.offset == m,
+                  onTap: () => bySun(sch.sun!, offset: m),
+                ),
+            ]),
+          ],
+          const SizedBox(height: 12),
+          Wrap(spacing: 6, runSpacing: 6, children: [
             for (var d = 1; d <= 7; d++)
               NChip(
                 label: weekdayLetter(d),
@@ -482,12 +534,21 @@ class _ScheduleCard extends StatelessWidget {
                   final days = {...sch.days};
                   days.contains(d) ? days.remove(d) : days.add(d);
                   if (days.isEmpty) return;
-                  store.updateScene(scene, schedule: SceneSchedule(hour: sch.hour, minute: sch.minute, days: days));
+                  store.updateScene(scene,
+                      schedule: sch.bySun
+                          ? SceneSchedule.sun(sch.sun!, lat: sch.lat!, lon: sch.lon!, offset: sch.offset, days: days)
+                          : SceneSchedule(hour: sch.hour, minute: sch.minute, days: days));
                 },
               ),
           ]),
           const SizedBox(height: 8),
-          Text(sch.daysLabel, style: NType.body(13, color: p.textDim)),
+          Text(
+              [
+                tr(sch.daysLabel),
+                if (sch.bySun && next != null) trf('next at {0}', [clockText(next, h24)]),
+              ].join(' · '),
+              key: const Key('scene-schedule-next'),
+              style: NType.body(13, color: p.textDim)),
         ],
         const SizedBox(height: 8),
         Text(

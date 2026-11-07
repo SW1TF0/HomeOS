@@ -1,15 +1,28 @@
 import 'device.dart';
 
-/// What happens to a device that sets an automation off.
-enum TriggerKind { turnsOn, turnsOff, becomes, above, below, activity, locks, unlocks, opens, closes, offline, online }
+/// What happens to a device that sets an automation off, or around the home: the sun, the weather outside.
+enum TriggerKind {
+  turnsOn, turnsOff, becomes, above, below, activity, locks, unlocks, opens, closes, offline, online,
+  sunrise, sunset, warmerOutside, colderOutside, rain,
+}
 
 /// One change on one device: "the hall sensor's Motion becomes Detected", "the lamp turns on", "it gets warmer than
 /// 25". It fires once, when the change happens, not for as long as it stays that way.
 class AutomationTrigger {
   const AutomationTrigger({required this.deviceId, required this.kind, this.label, this.value, this.number});
 
+  /// The device it watches, or [home] for the sun and the weather.
   final String deviceId;
   final TriggerKind kind;
+
+  static const home = '@home';
+
+  /// Sunrise and sunset ([number] minutes after, or before when negative), and the weather outside.
+  static const homeKinds = {
+    TriggerKind.sunrise, TriggerKind.sunset, TriggerKind.warmerOutside, TriggerKind.colderOutside, TriggerKind.rain,
+  };
+
+  bool get isHome => homeKinds.contains(kind);
 
   /// The reading watched by [TriggerKind.becomes], [TriggerKind.above] and [TriggerKind.below]: a name from the
   /// device's readings, or Temperature, Humidity or Battery.
@@ -26,6 +39,7 @@ class AutomationTrigger {
 
   /// Whether going from [before] to [now] is the change this waits for.
   bool fired(DeviceState before, DeviceState now) {
+    if (isHome) return false;
     if (kind == TriggerKind.offline) return before.reachable && !now.reachable;
     if (kind == TriggerKind.online) return !before.reachable && now.reachable;
     // A device that drops out and comes back has not changed: it was only out of reach.
@@ -55,6 +69,12 @@ class AutomationTrigger {
       case TriggerKind.closes:
         return (before.position ?? 0) > 0.01 && (now.position ?? 1) <= 0.01;
       case TriggerKind.offline || TriggerKind.online:
+        return false;
+      case TriggerKind.sunrise ||
+            TriggerKind.sunset ||
+            TriggerKind.warmerOutside ||
+            TriggerKind.colderOutside ||
+            TriggerKind.rain:
         return false;
     }
   }
@@ -159,7 +179,28 @@ class AutomationTrigger {
         TriggerKind.closes => 'closes',
         TriggerKind.offline => 'stops answering',
         TriggerKind.online => 'answers again',
+        TriggerKind.sunrise || TriggerKind.sunset => sunText,
+        TriggerKind.warmerOutside => 'it gets warmer than ${number == null ? '…' : '${_num(number!)}°'} outside',
+        TriggerKind.colderOutside => 'it gets colder than ${number == null ? '…' : '${_num(number!)}°'} outside',
+        TriggerKind.rain => 'it starts to rain',
       };
+
+  /// "At sunset", "30 min before sunrise".
+  String get sunText {
+    final name = kind == TriggerKind.sunrise ? 'sunrise' : 'sunset';
+    final m = (number ?? 0).round();
+    if (m == 0) return 'At $name';
+    final span = m.abs() < 60 || m.abs() % 60 != 0 ? '${m.abs()} min' : '${m.abs() ~/ 60} h';
+    return m < 0 ? '$span before $name' : '$span after $name';
+  }
+
+  /// Everything around the home that can set an automation off.
+  static List<AutomationTrigger> homeChoices() => [
+        for (final k in const [
+          TriggerKind.sunset, TriggerKind.sunrise, TriggerKind.rain, TriggerKind.colderOutside, TriggerKind.warmerOutside,
+        ])
+          AutomationTrigger(deviceId: home, kind: k),
+      ];
 
   /// [event] said the way people say it about [deviceName]: "Hall sensor detects motion", "Back door opens".
   String eventFor(String deviceName) {
@@ -175,7 +216,12 @@ class AutomationTrigger {
     };
   }
 
-  bool get needsNumber => (kind == TriggerKind.above || kind == TriggerKind.below) && number == null;
+  bool get needsNumber =>
+      (kind == TriggerKind.above ||
+          kind == TriggerKind.below ||
+          kind == TriggerKind.warmerOutside ||
+          kind == TriggerKind.colderOutside) &&
+      number == null;
 
   Map<String, dynamic> toJson() => {
         'deviceId': deviceId,

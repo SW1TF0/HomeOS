@@ -13,6 +13,7 @@ import '../../state/backup_files.dart';
 import '../../state/history.dart';
 import '../../state/home_store.dart';
 import '../../state/updates.dart';
+import '../../state/weather.dart';
 import '../../theme/app_theme.dart';
 import '../../util/text.dart';
 import '../nav.dart';
@@ -29,6 +30,7 @@ import 'homes_sheet.dart';
 import 'profile_menu.dart';
 import 'room_sheet.dart';
 import 'scenes.dart';
+import 'weather_sheet.dart';
 import '../../util/sounds.dart';
 import '../../l10n/text.dart';
 import '../widgets/motion.dart';
@@ -426,6 +428,9 @@ class _StatusStrip extends StatelessWidget {
     final danger = all.where(alarming).toList();
 
     final anyOn = store.activeCount > 0;
+    final place = store.data.place;
+    final weather = context.watch<HomeWeather>();
+    final w = weather.now;
     final pills = <Widget>[
       if (danger.isNotEmpty)
         _Pill(
@@ -476,6 +481,16 @@ class _StatusStrip extends StatelessWidget {
               actionLabel: 'All lights off',
               action: (s, list) => s.setPower(list, false)),
         ),
+      _Pill(
+        key: const Key('status-weather'),
+        icon: w?.icon ?? CupertinoIcons.cloud_sun_fill,
+        color: w == null || w.raining ? KJPalette.accent : (w.code <= 2 && w.day ? KJPalette.orange : KJPalette.indigo),
+        title: place?.name ?? 'Weather',
+        detail: place == null
+            ? 'Add your town'
+            : (w == null ? (weather.loading ? 'Asking…' : 'No weather yet') : weatherLine(w)),
+        onTap: () => showWeatherSheet(context),
+      ),
       if (temp != null)
         _Pill(
           key: const Key('status-temp'),
