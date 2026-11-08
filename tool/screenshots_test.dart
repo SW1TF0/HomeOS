@@ -29,6 +29,7 @@ import 'package:smartmenukj/ui/screens/home_screen.dart';
 import 'package:smartmenukj/ui/screens/router_screen.dart';
 import 'package:smartmenukj/ui/widgets/camera_live.dart';
 import 'package:smartmenukj/ui/widgets/motion.dart';
+import 'package:smartmenukj/util/sun.dart';
 
 import '../test/weather_fixture.dart';
 
@@ -86,14 +87,24 @@ void main() {
 
   setUpAll(_loadFonts);
 
+  /// Runs [body] at [hour]:[minute] today, so the sky over the home screen is always the same in a shot.
+  Future<void> at(int hour, int minute, Future<void> Function() body) {
+    final now = DateTime.now();
+    return withClock(Clock.fixed(DateTime(now.year, now.month, now.day, hour, minute)), body);
+  }
+
   testWidgets('phone home', (tester) async {
-    await _app(tester, phone);
-    await _shot(tester, 'phone-home');
+    await at(11, 0, () async {
+      await _app(tester, phone);
+      await _shot(tester, 'phone-home');
+    });
   });
 
   testWidgets('phone home dark', (tester) async {
-    await _app(tester, phone, theme: 'dark');
-    await _shot(tester, 'phone-home-dark');
+    await at(22, 30, () async {
+      await _app(tester, phone, theme: 'dark');
+      await _shot(tester, 'phone-home-dark');
+    });
   });
 
   testWidgets('phone restore', (tester) async {
@@ -601,6 +612,15 @@ void main() {
     await tester.pumpAndSettle();
     return store;
   }
+
+  testWidgets('phone home at sunset', (tester) async {
+    // Sunset in Sofia, in the time of the computer that takes the shots.
+    final set = SunTimes.on(DateTime.now(), 42.6975, 23.3242).set!.toLocal();
+    await at(set.hour, set.minute, () async {
+      await inSofia(tester);
+      await _shot(tester, 'phone-home-sunset');
+    });
+  });
 
   testWidgets('phone weather', (tester) async {
     await inSofia(tester);

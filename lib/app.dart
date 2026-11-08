@@ -348,35 +348,56 @@ class _BottomBar extends StatelessWidget {
             top: false,
             child: SizedBox(
               height: 56,
-              child: Row(children: [
-                for (var i = 0; i < _tabs.length; i++)
-                  Expanded(
-                    child: GestureDetector(
-                      key: Key('tab-${_tabs[i].label.toLowerCase()}'),
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () {
-                        if (i != selected) Sounds.tick();
-                        onTap(i);
-                      },
-                      child: Semantics(
-                        button: true,
-                        selected: i == selected,
-                        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          AnimatedScale(
-                            scale: i == selected ? 1.08 : 1,
-                            duration: const Duration(milliseconds: 220),
-                            curve: Curves.easeOutBack,
-                            child: Icon(i == selected ? _tabs[i].activeIcon : _tabs[i].icon,
-                                size: 25, color: i == selected ? KJPalette.accent : const Color(0xFF8E8E93)),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(_tabs[i].label,
-                              style: NType.body(10.5,
-                                  color: i == selected ? KJPalette.accent : const Color(0xFF8E8E93), weight: 500)),
-                        ]),
+              child: Stack(children: [
+                // A soft pill slides to the tab that is open.
+                AnimatedAlign(
+                  alignment: Alignment(_tabs.length < 2 ? 0 : -1 + 2 * selected / (_tabs.length - 1), 0),
+                  duration: Motion.on(context) ? const Duration(milliseconds: 340) : Duration.zero,
+                  curve: Curves.easeOutCubic,
+                  child: FractionallySizedBox(
+                    widthFactor: 1 / _tabs.length,
+                    child: Center(
+                      child: Container(
+                        width: 66,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: KJPalette.accent.withValues(alpha: p.isDark ? 0.18 : 0.09),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
                     ),
                   ),
+                ),
+                Row(children: [
+                  for (var i = 0; i < _tabs.length; i++)
+                    Expanded(
+                      child: GestureDetector(
+                        key: Key('tab-${_tabs[i].label.toLowerCase()}'),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          if (i != selected) Sounds.tick();
+                          onTap(i);
+                        },
+                        child: Semantics(
+                          button: true,
+                          selected: i == selected,
+                          child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            AnimatedScale(
+                              scale: i == selected ? 1.08 : 1,
+                              duration: const Duration(milliseconds: 220),
+                              curve: Curves.easeOutBack,
+                              child: Icon(i == selected ? _tabs[i].activeIcon : _tabs[i].icon,
+                                  size: 25, color: i == selected ? KJPalette.accent : const Color(0xFF8E8E93)),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(_tabs[i].label,
+                                style: NType.body(10.5,
+                                    color: i == selected ? KJPalette.accent : const Color(0xFF8E8E93), weight: 500)),
+                          ]),
+                        ),
+                      ),
+                    ),
+                ]),
               ]),
             ),
           ),

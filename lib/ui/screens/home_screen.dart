@@ -34,6 +34,7 @@ import 'weather_sheet.dart';
 import '../../util/sounds.dart';
 import '../../l10n/text.dart';
 import '../widgets/motion.dart';
+import '../widgets/alive.dart';
 
 /// Overview: clock, what's going on, scenes, favourites and rooms.
 class HomeScreen extends StatelessWidget {
@@ -47,7 +48,7 @@ class HomeScreen extends StatelessWidget {
     final favorites = store.favorites;
     final active = store.activeCount;
 
-    return HomeWallpaper(child: LayoutBuilder(builder: (context, c) {
+    return SkyWallpaper(child: LayoutBuilder(builder: (context, c) {
       final columns = (c.maxWidth / 190).floor().clamp(2, 6);
       return CustomScrollView(
         slivers: [
@@ -99,7 +100,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
+                    child: RollText(
                       active == 0 ? 'Everything is off.' : '$active of ${store.devices.length} devices active.',
                       style: NType.body(15, color: p.textDim),
                     ),
@@ -431,6 +432,8 @@ class _StatusStrip extends StatelessWidget {
     final place = store.data.place;
     final weather = context.watch<HomeWeather>();
     final w = weather.now;
+    final skyTint =
+        w == null || w.raining ? KJPalette.accent : (w.code <= 2 && w.day ? KJPalette.orange : KJPalette.indigo);
     final pills = <Widget>[
       if (danger.isNotEmpty)
         _Pill(
@@ -484,7 +487,8 @@ class _StatusStrip extends StatelessWidget {
       _Pill(
         key: const Key('status-weather'),
         icon: w?.icon ?? CupertinoIcons.cloud_sun_fill,
-        color: w == null || w.raining ? KJPalette.accent : (w.code <= 2 && w.day ? KJPalette.orange : KJPalette.indigo),
+        color: skyTint,
+        glyph: w == null ? null : WeatherGlyph(code: w.code, day: w.day, size: 16, color: skyTint),
         title: place?.name ?? 'Weather',
         detail: place == null
             ? 'Add your town'
@@ -624,8 +628,12 @@ class _Pill extends StatelessWidget {
     required this.detail,
     required this.onTap,
     this.alert = false,
+    this.glyph,
   });
   final IconData icon;
+
+  /// Shown instead of [icon] when set (a weather icon that moves).
+  final Widget? glyph;
   final Color color;
   final String title;
   final String detail;
@@ -660,12 +668,14 @@ class _Pill extends StatelessWidget {
                 width: 30,
                 height: 30,
                 decoration: BoxDecoration(shape: BoxShape.circle, color: color.withValues(alpha: 0.18)),
-                child: Icon(icon, size: 16, color: onTap == null ? p.textDim : color),
+                child: glyph == null
+                    ? Icon(icon, size: 16, color: onTap == null ? p.textDim : color)
+                    : Center(child: glyph),
               ),
               const SizedBox(width: 8),
               Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                 Text(title, style: NType.body(13, color: p.text, weight: 600, height: 1.2)),
-                Text(detail, style: NType.body(12.5, color: alert ? KJPalette.danger : p.textDim, height: 1.2)),
+                RollText(detail, style: NType.body(12.5, color: alert ? KJPalette.danger : p.textDim, height: 1.2)),
               ]),
             ]),
           ),
@@ -746,7 +756,7 @@ class _RoomCard extends StatelessWidget {
             ),
         ]),
         const SizedBox(height: 6),
-        Text(
+        RollText(
           [
             devices.isEmpty ? 'No devices' : '$on on · ${counted(devices.length, 'device')}',
             if (temp != null) '${temp.toStringAsFixed(1)}°',

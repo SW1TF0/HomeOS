@@ -15,6 +15,7 @@ import '../../state/weather.dart';
 import '../../theme/app_theme.dart';
 import '../../util/clock_text.dart';
 import '../../util/sun.dart';
+import '../widgets/alive.dart';
 import '../widgets/kj_widgets.dart';
 
 /// The weather at the home, after asking for its town when it has none.
@@ -224,7 +225,7 @@ class WeatherSheet extends StatelessWidget {
             )
           else ...[
             Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-              Icon(w.icon, size: 64, color: _tint(w.code, w.day)),
+              WeatherGlyph(code: w.code, day: w.day, size: 64, color: _tint(w.code, w.day)),
               const SizedBox(width: 18),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

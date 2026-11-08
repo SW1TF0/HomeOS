@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
@@ -10,7 +12,9 @@ import '../../state/scene_alarms.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/controls.dart';
 import '../widgets/dialogs.dart';
+import '../widgets/alive.dart';
 import '../widgets/kj_widgets.dart';
+import '../widgets/motion.dart';
 import 'device_sheet.dart';
 import 'weather_sheet.dart';
 import '../../util/clock_text.dart';
@@ -108,11 +112,35 @@ class ScenesRow extends StatefulWidget {
 class _ScenesRowState extends State<ScenesRow> {
   String? _running;
 
+  /// The scene that just finished, shown with a tick for a moment (only with animations on).
+  String? _done;
+  Timer? _doneTimer;
+
+  @override
+  void dispose() {
+    _doneTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _run(HomeStore store, Scene s) async {
-    setState(() => _running = s.id);
+    _doneTimer?.cancel();
+    setState(() {
+      _running = s.id;
+      _done = null;
+    });
     Sounds.scene();
     await store.runScene(s);
-    if (mounted) setState(() => _running = null);
+    if (!mounted) return;
+    final tick = Motion.on(context);
+    setState(() {
+      _running = null;
+      if (tick) _done = s.id;
+    });
+    if (tick) {
+      _doneTimer = Timer(const Duration(milliseconds: 1500), () {
+        if (mounted) setState(() => _done = null);
+      });
+    }
   }
 
   @override
@@ -120,38 +148,59 @@ class _ScenesRowState extends State<ScenesRow> {
     final store = context.watch<HomeStore>();
     final p = context.palette;
     Widget tile({required Key key, required Color color, required IconData icon, required String name,
-            required String detail, required VoidCallback onTap, VoidCallback? onLongPress, bool running = false}) =>
+            required String detail, required VoidCallback onTap, VoidCallback? onLongPress, bool running = false,
+            bool done = false}) =>
         SizedBox(
           width: 176,
-          child: NCard(
-            key: key,
-            glass: true,
-            inverted: running,
-            radius: 18,
-            padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
-            onTap: onTap,
-            onLongPress: onLongPress,
-            child: Row(children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-                child: Icon(icon, size: 19, color: color == KJPalette.accent || color.computeLuminance() < 0.6 ? Colors.white : Colors.black),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: NType.body(14.5, color: running ? p.onTileOn : p.text, weight: 600, height: 1.2)),
-                  Text(detail,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: NType.body(12.5, color: running ? const Color(0x99000000) : p.textDim, height: 1.2)),
-                ]),
-              ),
-            ]),
+          child: Sweep(
+            active: running,
+            color: color,
+            child: NCard(
+              key: key,
+              glass: true,
+              inverted: running,
+              radius: 18,
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+              onTap: onTap,
+              onLongPress: onLongPress,
+              child: Row(children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 240),
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: done ? KJPalette.green : color,
+                    shape: BoxShape.circle,
+                    boxShadow: running || done
+                        ? [BoxShadow(color: (done ? KJPalette.green : color).withValues(alpha: 0.5), blurRadius: 14)]
+                        : const [],
+                  ),
+                  child: done
+                      ? const PopIn(child: Icon(CupertinoIcons.checkmark_alt, size: 21, color: Colors.white))
+                      : Icon(icon,
+                          size: 19,
+                          color: color == KJPalette.accent || color.computeLuminance() < 0.6
+                              ? Colors.white
+                              : Colors.black),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: NType.body(14.5, color: running ? p.onTileOn : p.text, weight: 600, height: 1.2)),
+                        RollText(detail,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: NType.body(12.5, color: running ? const Color(0x99000000) : p.textDim, height: 1.2)),
+                      ]),
+                ),
+              ]),
+            ),
           ),
         );
     return SizedBox(
@@ -166,8 +215,9 @@ class _ScenesRowState extends State<ScenesRow> {
               color: sceneColor(s.icon),
               icon: sceneIcon(s.icon),
               name: s.name,
-              detail: _running == s.id ? 'Running...' : _sceneSubtitle(s),
+              detail: _running == s.id ? 'Running...' : (_done == s.id ? 'Done' : _sceneSubtitle(s)),
               running: _running == s.id,
+              done: _done == s.id,
               onTap: () => _run(store, s),
               onLongPress: () => showSceneSheet(context, s),
             ),

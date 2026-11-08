@@ -10,6 +10,8 @@ import '../../util/haptics.dart';
 import 'controls.dart';
 import '../../util/sounds.dart';
 import '../../l10n/text.dart';
+import 'alive.dart';
+import 'motion.dart';
 
 /// The faint dotted grid behind the floor plan.
 class DotGridPainter extends CustomPainter {
@@ -452,16 +454,29 @@ class DeviceTile extends StatefulWidget {
   State<DeviceTile> createState() => _DeviceTileState();
 }
 
-class _DeviceTileState extends State<DeviceTile> {
+class _DeviceTileState extends State<DeviceTile> with TickerProviderStateMixin {
   double? _drag;
   double _from = 0;
   double _dx = 0;
   late final _sender = LiveSender<double>((v) => widget.onLevel?.call(v));
 
+  /// Plays once when the device turns on: the icon pops and its light washes over the tile.
+  AnimationController? _flash;
+  bool? _wasActive;
+
   @override
   void dispose() {
     _sender.cancel();
+    _flash?.dispose();
     super.dispose();
+  }
+
+  void _lightUp() {
+    if (!Motion.on(context)) return;
+    final c = _flash ??= AnimationController(vsync: this, duration: const Duration(milliseconds: 720));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) c.forward(from: 0);
+    });
   }
 
   double? get _level => widget.onLevelEnd == null ? null : deviceLevel(widget.device);
@@ -504,6 +519,18 @@ class _DeviceTileState extends State<DeviceTile> {
     final glow = lightColor(d);
     final tint = glow ?? kindColor(d.kind);
     final iconBg = active ? tint : (lit ? const Color(0x14000000) : p.text.withValues(alpha: p.isDark ? 0.14 : 0.08));
+    if (_wasActive == false && active) _lightUp();
+    _wasActive = active;
+    final flash = _flash;
+    // A lamp that is on spills a little of its colour around its tile, more the brighter it is.
+    final spill = active && glow != null && glow.computeLuminance() < 0.85
+        ? [
+            BoxShadow(
+              color: glow.withValues(alpha: (p.isDark ? 0.42 : 0.34) * (level ?? 1).clamp(0.35, 1.0)),
+              blurRadius: 20,
+            ),
+          ]
+        : const <BoxShadow>[];
     const radius = BorderRadius.all(Radius.circular(18));
     final tile = AnimatedContainer(
       duration: const Duration(milliseconds: 240),
@@ -512,7 +539,7 @@ class _DeviceTileState extends State<DeviceTile> {
         color: lit ? p.tileOn : p.tileOff,
         borderRadius: radius,
         border: lit && !p.isDark ? Border.all(color: const Color(0x14000000), width: 0.5) : null,
-        boxShadow: lit ? p.cardShadow : const [],
+        boxShadow: lit ? [...p.cardShadow, ...spill] : const [],
       ),
       child: ClipRRect(
         borderRadius: radius,
@@ -531,7 +558,23 @@ class _DeviceTileState extends State<DeviceTile> {
                     widthFactor: level.clamp(0.0, 1.0),
                     child: AnimatedContainer(
                       duration: Duration(milliseconds: _drag != null ? 0 : 240),
-                      color: tint.withValues(alpha: 0.16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: [tint.withValues(alpha: 0.07), tint.withValues(alpha: 0.22)]),
+                        border: level > 0.02 && level < 0.98
+                            ? Border(right: BorderSide(color: tint.withValues(alpha: 0.45), width: 2))
+                            : null,
+                      ),
+                    ),
+                  ),
+                ),
+              if (flash != null)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: AnimatedBuilder(
+                      animation: flash,
+                      builder: (context, _) => flash.isAnimating
+                          ? CustomPaint(painter: _WashPainter(Curves.easeOutCubic.transform(flash.value), tint))
+                          : const SizedBox.shrink(),
                     ),
                   ),
                 ),
@@ -539,21 +582,27 @@ class _DeviceTileState extends State<DeviceTile> {
                 padding: const EdgeInsets.fromLTRB(10, 8, 0, 8),
                 child: Row(children: [
                   Stack(clipBehavior: Clip.none, children: [
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 240),
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: iconBg,
-                        border: active && glow != null && glow.computeLuminance() > 0.8
-                            ? Border.all(color: Colors.black.withValues(alpha: 0.1))
-                            : null,
-                      ),
-                      child: Icon(
-                        deviceIcon(d.kind, active: active),
-                        size: 19,
-                        color: active ? (iconBg.computeLuminance() > 0.6 ? p.onTileOn : Colors.white) : dim,
+                    _pop(
+                      flash,
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 240),
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: iconBg,
+                          border: active && glow != null && glow.computeLuminance() > 0.8
+                              ? Border.all(color: Colors.black.withValues(alpha: 0.1))
+                              : null,
+                          boxShadow: active
+                              ? [BoxShadow(color: tint.withValues(alpha: glow != null ? 0.55 : 0.32), blurRadius: 12)]
+                              : const [],
+                        ),
+                        child: Icon(
+                          deviceIcon(d.kind, active: active),
+                          size: 19,
+                          color: active ? (iconBg.computeLuminance() > 0.6 ? p.onTileOn : Colors.white) : dim,
+                        ),
                       ),
                     ),
                     if (!d.state.reachable)
@@ -577,10 +626,16 @@ class _DeviceTileState extends State<DeviceTile> {
                       Text(d.name,
                           maxLines: 2, overflow: TextOverflow.ellipsis, style: NType.body(14, color: fg, weight: 600, height: 1.15)),
                       const SizedBox(height: 1),
-                      Text(_drag != null ? levelLabel(d, _drag!) : (widget.subtitle ?? describeState(d)),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: NType.body(12.5, color: d.state.reachable ? dim : KJPalette.danger, height: 1.15)),
+                      if (_drag != null)
+                        Text(levelLabel(d, _drag!),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: NType.body(12.5, color: dim, height: 1.15))
+                      else
+                        RollText(widget.subtitle ?? describeState(d),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: NType.body(12.5, color: d.state.reachable ? dim : KJPalette.danger, height: 1.15)),
                     ]),
                   ),
                   if (widget.onOpen != null)
@@ -623,6 +678,44 @@ class _DeviceTileState extends State<DeviceTile> {
       ),
     );
   }
+}
+
+/// The icon of a tile that just turned on grows a little and settles back.
+Widget _pop(AnimationController? flash, Widget icon) => flash == null
+    ? icon
+    : AnimatedBuilder(
+        animation: flash,
+        child: icon,
+        builder: (context, child) => Transform.scale(
+          scale: flash.isAnimating ? 1 + 0.2 * math.sin(math.pi * Curves.easeOut.transform(flash.value)) : 1,
+          child: child,
+        ),
+      );
+
+/// The light of a tile that just turned on, spreading from its icon across the tile and fading.
+class _WashPainter extends CustomPainter {
+  _WashPainter(this.t, this.color);
+  final double t;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(28, size.height / 2);
+    final r = 18 + (size.width * 1.1) * t;
+    canvas.drawCircle(
+        c,
+        r,
+        Paint()
+          ..shader = RadialGradient(colors: [
+            color.withValues(alpha: 0.38 * (1 - t)),
+            color.withValues(alpha: 0.12 * (1 - t)),
+            color.withValues(alpha: 0),
+          ], stops: const [0, 0.6, 1])
+              .createShader(Rect.fromCircle(center: c, radius: r)));
+  }
+
+  @override
+  bool shouldRepaint(_WashPainter old) => old.t != t || old.color != color;
 }
 
 /// A grid of [DeviceTile]s: two across on a phone, more on wider screens.

@@ -987,13 +987,19 @@ class _PillSliderState extends State<PillSlider> {
               },
         child: PressScale(
           scale: 0.98,
-          child: Container(
+          child: AnimatedContainer(
+            duration: Duration(milliseconds: _drag != null ? 0 : 260),
             width: widget.width,
             height: widget.height,
             decoration: BoxDecoration(
               color: p.isDark ? const Color(0xFF3A3A3C) : const Color(0xFFDCDCE0),
               borderRadius: radius,
-              boxShadow: p.cardShadow,
+              // The light blooms around the control, brighter the higher it is set.
+              boxShadow: [
+                ...p.cardShadow,
+                if (v > 0.005 && widget.color.computeLuminance() < 0.85)
+                  BoxShadow(color: widget.color.withValues(alpha: 0.6 * v), blurRadius: 48),
+              ],
             ),
             clipBehavior: Clip.antiAlias,
             child: Stack(children: [
@@ -1004,9 +1010,25 @@ class _PillSliderState extends State<PillSlider> {
                   curve: Curves.easeOutCubic,
                   height: widget.height * v,
                   width: double.infinity,
-                  color: widget.color,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color.lerp(widget.color, Colors.white, 0.3)!, widget.color],
+                    ),
+                  ),
                 ),
               ),
+              if (_drag != null)
+                Align(
+                  alignment: const Alignment(0, -0.84),
+                  child: Text('$pct%',
+                      style: NType.body(17,
+                          weight: 700,
+                          color: v > 0.9
+                              ? (widget.color.computeLuminance() > 0.55 ? const Color(0xCC000000) : Colors.white)
+                              : p.text)),
+                ),
               Align(
                 alignment: const Alignment(0, 0.78),
                 child: Icon(widget.icon,

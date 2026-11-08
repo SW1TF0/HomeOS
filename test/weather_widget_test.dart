@@ -70,7 +70,6 @@ void main() {
     expect(find.text('Feels like 10° · High 15° · Low 6°'), findsOneWidget);
     expect(find.text('Now'), findsOneWidget);
     expect(find.text('Today'), findsWidgets);
-    expect(find.text('71%'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('weather-change')));
     await tester.pumpAndSettle();
@@ -81,6 +80,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.descendant(of: pill, matching: find.text('12° · Partly cloudy')), findsOneWidget);
     expect(find.descendant(of: pill, matching: find.text('Sofia')), findsOneWidget);
+
+    await tester.tap(pill);
+    await tester.pumpAndSettle();
+    await scrollSheetTo(tester, find.text('Humidity'));
+    expect(find.text('71%'), findsWidgets, reason: 'the humidity now, below the forecast');
   });
 
   testWidgets('a scene is timed half an hour before sunset', (tester) async {
