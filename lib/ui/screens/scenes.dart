@@ -1,0 +1,849 @@
+import 'dart:async';
+
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
+import 'package:flutter/material.dart' hide Text;
+import 'package:provider/provider.dart';
+
+import '../../models/device.dart';
+import '../../models/scene.dart';
+import '../../state/app_settings.dart';
+import '../../state/home_store.dart';
+import '../../state/scene_alarms.dart';
+import '../../theme/app_theme.dart';
+import '../widgets/controls.dart';
+import '../widgets/dialogs.dart';
+import '../widgets/alive.dart';
+import '../widgets/kj_widgets.dart';
+import '../widgets/motion.dart';
+import 'device_sheet.dart';
+import 'weather_sheet.dart';
+import '../../util/clock_text.dart';
+import '../../util/sounds.dart';
+import '../../l10n/text.dart';
+
+const sceneIcons = <String, IconData>{
+  'auto': Icons.auto_awesome_outlined,
+  'off': Icons.power_settings_new,
+  'morning': Icons.wb_sunny_outlined,
+  'movie': Icons.movie_outlined,
+  'night': Icons.bedtime_outlined,
+  'away': Icons.directions_walk,
+  'dinner': Icons.restaurant_outlined,
+  'focus': Icons.center_focus_strong_outlined,
+  'party': Icons.celebration_outlined,
+  'relax': Icons.spa_outlined,
+  'home': Icons.home_outlined,
+};
+
+IconData sceneIcon(String key) => sceneIcons[key] ?? Icons.auto_awesome_outlined;
+
+/// The round colour behind a scene's icon, like the scene buttons on smarthomekj.eu.
+Color sceneColor(String key) => switch (key) {
+      'morning' => KJPalette.orange,
+      'away' => KJPalette.green,
+      'night' => KJPalette.indigo,
+      'movie' => KJPalette.pink,
+      'off' => KJPalette.danger,
+      'dinner' => KJPalette.yellow,
+      'relax' => KJPalette.teal,
+      'party' => KJPalette.purple,
+      'home' => KJPalette.blue,
+      _ => KJPalette.accent,
+    };
+
+/// What a scene will do to one device, in a few words.
+String describeAction(Device d, DeviceCommand c) {
+  if (c.locked != null) return c.locked! ? 'Locked' : 'Unlocked';
+  if (c.on == false) return 'Off';
+  final parts = <String>[
+    if (c.action != null)
+      switch (c.action!) {
+        DeviceAction.start => d.kind == DeviceKind.mower ? 'Mow' : 'Clean',
+        DeviceAction.dock => 'Go home',
+        DeviceAction.armHome => 'Arm home',
+        DeviceAction.armAway => 'Arm away',
+        DeviceAction.armNight => 'Arm night',
+        DeviceAction.armVacation => 'Arm vacation',
+        final a => modeLabel(a.name),
+      },
+    if (c.position != null) c.position! <= 0.01 ? 'Closed' : 'Open ${(c.position! * 100).round()}%',
+    if (c.on == true) 'On',
+    if (c.brightness != null) '${(c.brightness! * 100).round()}%',
+    if (c.colorTempK != null) '${c.colorTempK}K',
+    if (c.color != null) 'colour',
+    if (c.targetTemp != null) '${c.targetTemp!.toStringAsFixed(1)}°',
+    if (c.volume != null) 'vol ${(c.volume! * 100).round()}',
+    if (c.speed != null) 'speed ${(c.speed! * 100).round()}%',
+    if (c.targetHumidity != null) '${c.targetHumidity!.round()}% humidity',
+    if (c.mode != null) modeLabel(c.mode!),
+  ];
+  return parts.isEmpty ? 'As it was' : parts.join(' · ');
+}
+
+/// Devices a scene can set.
+List<Device> sceneCandidates(HomeStore store) => store.devices
+    .where((d) =>
+        [
+          Capability.onOff,
+          Capability.brightness,
+          Capability.position,
+          Capability.targetTemp,
+          Capability.lock,
+          Capability.volume,
+          Capability.alarm,
+        ].any(d.has) ||
+        (d.has(Capability.run) && (d.kind == DeviceKind.vacuum || d.kind == DeviceKind.mower)))
+    .toList();
+
+String _sceneSubtitle(Scene s) {
+  final n = s.actions.length;
+  final devices = '$n device${n == 1 ? '' : 's'}';
+  return s.schedule == null ? devices : '$devices · ${tr(s.schedule!.label)}';
+}
+
+/// A row of scene cards for the home screen, ending with "New scene".
+class ScenesRow extends StatefulWidget {
+  const ScenesRow({super.key});
+
+  @override
+  State<ScenesRow> createState() => _ScenesRowState();
+}
+
+class _ScenesRowState extends State<ScenesRow> {
+  String? _running;
+
+  /// The scene that just finished, shown with a tick for a moment (only with animations on).
+  String? _done;
+  Timer? _doneTimer;
+
+  @override
+  void dispose() {
+    _doneTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _run(HomeStore store, Scene s) async {
+    _doneTimer?.cancel();
+    setState(() {
+      _running = s.id;
+      _done = null;
+    });
+    Sounds.scene();
+    await store.runScene(s);
+    if (!mounted) return;
+    final tick = Motion.on(context);
+    setState(() {
+      _running = null;
+      if (tick) _done = s.id;
+    });
+    if (tick) {
+      _doneTimer = Timer(const Duration(milliseconds: 1500), () {
+        if (mounted) setState(() => _done = null);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<HomeStore>();
+    final p = context.palette;
+    Widget tile({required Key key, required Color color, required IconData icon, required String name,
+            required String detail, required VoidCallback onTap, VoidCallback? onLongPress, bool running = false,
+            bool done = false}) =>
+        SizedBox(
+          width: 176,
+          child: Sweep(
+            active: running,
+            color: color,
+            child: NCard(
+              key: key,
+              glass: true,
+              inverted: running,
+              radius: 18,
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
+              onTap: onTap,
+              onLongPress: onLongPress,
+              child: Row(children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 240),
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: done ? KJPalette.green : color,
+                    shape: BoxShape.circle,
+                    boxShadow: running || done
+                        ? [BoxShadow(color: (done ? KJPalette.green : color).withValues(alpha: 0.5), blurRadius: 14)]
+                        : const [],
+                  ),
+                  child: done
+                      ? const PopIn(child: Icon(CupertinoIcons.checkmark_alt, size: 21, color: Colors.white))
+                      : Icon(icon,
+                          size: 19,
+                          color: color == KJPalette.accent || color.computeLuminance() < 0.6
+                              ? Colors.white
+                              : Colors.black),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: NType.body(14.5, color: running ? p.onTileOn : p.text, weight: 600, height: 1.2)),
+                        RollText(detail,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: NType.body(12.5, color: running ? const Color(0x99000000) : p.textDim, height: 1.2)),
+                      ]),
+                ),
+              ]),
+            ),
+          ),
+        );
+    return SizedBox(
+      height: 62,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        children: [
+          for (final s in store.scenes) ...[
+            tile(
+              key: Key('scene-${s.id}'),
+              color: sceneColor(s.icon),
+              icon: sceneIcon(s.icon),
+              name: s.name,
+              detail: _running == s.id ? 'Running...' : (_done == s.id ? 'Done' : _sceneSubtitle(s)),
+              running: _running == s.id,
+              done: _done == s.id,
+              onTap: () => _run(store, s),
+              onLongPress: () => showSceneSheet(context, s),
+            ),
+            const SizedBox(width: 10),
+          ],
+          tile(
+            key: const Key('scene-new'),
+            color: p.surfaceHigh,
+            icon: Icons.add,
+            name: 'New scene',
+            detail: 'Turn things off or on',
+            onTap: () => createScene(context),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Asks for a name, what the scene does and which devices, then saves it.
+Future<Scene?> createScene(BuildContext context) async {
+  final store = context.read<HomeStore>();
+  final candidates = sceneCandidates(store);
+  if (candidates.isEmpty) {
+    store.toast('Add some devices first, then save a scene.');
+    return null;
+  }
+  final template = await pickOne<(String, String)>(
+    context,
+    title: 'New scene',
+    options: [...sceneTemplates, ('', 'auto')],
+    label: (t) => t.$1.isEmpty ? 'Something else...' : t.$1,
+    icon: (t) => t.$1.isEmpty ? Icons.edit_outlined : sceneIcon(t.$2),
+  );
+  if (template == null || !context.mounted) return null;
+  var name = template.$1;
+  if (name.isEmpty) {
+    name = await promptText(context, title: 'Scene name', hint: 'e.g. Reading', action: 'Next') ?? '';
+  }
+  if (name.isEmpty || !context.mounted) return null;
+  final allOff = template.$2 == 'off';
+  final does = allOff
+      ? sceneChoices.first
+      : await pickOne<(String, IconData, bool?)>(
+          context,
+          title: 'What should it do?',
+          options: sceneChoices,
+          label: (c) => c.$1,
+          icon: (c) => c.$2,
+        );
+  if (does == null || !context.mounted) return null;
+  final turnOn = does.$3;
+  SceneAction step(Device d) => (turnOn == null ? null : SceneAction.turn(d, turnOn)) ?? SceneAction.capture(d);
+  final options = turnOn == null ? candidates : candidates.where((d) => SceneAction.turn(d, turnOn) != null).toList();
+  final active = options.where((d) => d.state.isActive).toSet();
+  final picked = await pickMany<Device>(
+    context,
+    title: 'Which devices?',
+    options: options,
+    label: (d) => d.name,
+    subtitle: (d) => 'In this scene: ${describeAction(d, step(d).command)}',
+    icon: (d) => deviceIcon(d.kind),
+    // Turning off is usually about what is on now, or what "All off" switches (not heating, doors or blinds).
+    initial: allOff || (turnOn == false && active.isEmpty) ? options.where(HomeStore.switchedTogether).toSet() : active,
+    action: 'Save scene',
+  );
+  if (picked == null || picked.isEmpty) return null;
+  final s = store.addScene(name, picked, icon: template.$2, turnOn: turnOn);
+  store.toast(turnOn == null
+      ? 'Saved "${s.name}". Tap it to bring these devices back to how they are now. Hold it to change it.'
+      : 'Saved "${s.name}". ${switch ((picked.length == 1, turnOn)) {
+          (true, true) => 'Tap it to turn it on.',
+          (true, false) => 'Tap it to turn it off.',
+          (false, true) => 'Tap it to turn them on.',
+          (false, false) => 'Tap it to turn them off.',
+        }} Hold it to change what each device does.');
+  return s;
+}
+
+/// What a new scene does to the devices picked for it.
+const sceneChoices = <(String, IconData, bool?)>[
+  ('Turn them off', Icons.power_settings_new, false),
+  ('Turn them on', Icons.lightbulb_outline, true),
+  ('Keep them how they are now', Icons.save_outlined, null),
+];
+
+Future<void> showSceneSheet(BuildContext context, Scene s) => showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      constraints: const BoxConstraints(maxWidth: 560),
+      builder: (_) => SceneSheet(sceneId: s.id),
+    );
+
+/// Edit a scene: rename, icon, devices, schedule, delete.
+class SceneSheet extends StatelessWidget {
+  const SceneSheet({super.key, required this.sceneId});
+  final String sceneId;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<HomeStore>();
+    final s = store.scene(sceneId);
+    if (s == null) return const SizedBox(height: 120, child: Center(child: Text('Scene removed')));
+    final p = context.palette;
+    final devices = [
+      for (final a in s.actions)
+        if (store.device(a.deviceId) != null) (store.device(a.deviceId)!, a),
+    ];
+    void setAll(bool on) {
+      for (final (d, _) in devices) {
+        final a = SceneAction.turn(d, on);
+        if (a != null) s.actions[s.actions.indexWhere((x) => x.deviceId == d.id)] = a;
+      }
+      store.updateScene(s);
+    }
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.75,
+      maxChildSize: 0.95,
+      minChildSize: 0.4,
+      builder: (context, scroll) => ListView(
+        controller: scroll,
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+        children: [
+          Row(children: [
+            Icon(sceneIcon(s.icon), size: 30),
+            const SizedBox(width: 12),
+            Expanded(child: DisplayText(s.name, size: 28, maxLines: 2)),
+          ]),
+          const SizedBox(height: 18),
+          FilledButton.icon(
+            key: const Key('scene-run'),
+            onPressed: () => store.runScene(s),
+            icon: const Icon(Icons.play_arrow),
+            label: const Text('Run now'),
+          ),
+          const SectionLabel('Icon'),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            for (final e in sceneIcons.entries)
+              InkResponse(
+                onTap: () => store.updateScene(s, icon: e.key),
+                radius: 26,
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: s.icon == e.key ? p.text : Colors.transparent,
+                    border: Border.all(color: s.icon == e.key ? p.text : p.border),
+                  ),
+                  child: Icon(e.value, size: 20, color: s.icon == e.key ? p.background : p.text),
+                ),
+              ),
+          ]),
+          SectionLabel('Devices', trailing: Text('${devices.length}', style: NType.label(color: p.textDim))),
+          NCard(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(children: [
+              for (final (d, a) in devices)
+                ListTile(
+                  key: Key('scene-step-${d.name}'),
+                  leading: Icon(deviceIcon(d.kind, active: !a.isOff)),
+                  title: Text(d.name),
+                  subtitle: Text(describeAction(d, a.command)),
+                  trailing: SceneAction.turn(d, true) != null && SceneAction.turn(d, false) != null
+                      ? Switch(
+                          key: Key('step-switch-${d.name}'),
+                          value: !a.isOff,
+                          activeTrackColor: KJPalette.accent,
+                          onChanged: (on) => store.setSceneStep(s, SceneAction.turn(d, on)!),
+                        )
+                      : Icon(Icons.chevron_right, color: p.textDim),
+                  onTap: () => showSceneStepSheet(context, s, d),
+                ),
+              if (devices.isEmpty)
+                const ListTile(title: Text('No devices yet')),
+            ]),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+            child: Text('Tap a device to choose exactly what it does, like a brightness.',
+                style: NType.body(12.5, color: p.textDim)),
+          ),
+          if (devices.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  key: const Key('scene-all-off'),
+                  onPressed: () => setAll(false),
+                  icon: const Icon(Icons.power_settings_new),
+                  label: const Text('All off'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  key: const Key('scene-all-on'),
+                  onPressed: () => setAll(true),
+                  icon: const Icon(Icons.lightbulb_outline),
+                  label: const Text('All on'),
+                ),
+              ),
+            ]),
+          ],
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            key: const Key('scene-recapture'),
+            onPressed: () {
+              store.updateScene(s, capture: devices.map((e) => e.$1));
+              store.toast('Saved how these devices are now.');
+            },
+            icon: const Icon(Icons.save_outlined),
+            label: const Text('Save how they are now'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final candidates = sceneCandidates(store);
+              final picked = await pickMany<Device>(
+                context,
+                title: 'Which devices?',
+                options: candidates,
+                label: (d) => d.name,
+                subtitle: (d) => describeState(d),
+                icon: (d) => deviceIcon(d.kind),
+                initial: devices.map((e) => e.$1).toSet(),
+                action: 'Save',
+              );
+              if (picked == null) return;
+              // Keep what was saved for devices that stay; capture the new ones as they are now.
+              final kept = {for (final a in s.actions) a.deviceId: a};
+              s.actions = [for (final d in picked) kept[d.id] ?? SceneAction.capture(d)];
+              store.updateScene(s);
+            },
+            icon: const Icon(Icons.checklist),
+            label: const Text('Add or remove devices'),
+          ),
+          const SectionLabel('Schedule'),
+          _ScheduleCard(scene: s),
+          const SectionLabel('Scene'),
+          NCard(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(children: [
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('Rename'),
+                onTap: () async {
+                  final name = await promptText(context, title: 'Rename', initial: s.name);
+                  if (name != null && name.isNotEmpty) store.updateScene(s, name: name);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: KJPalette.danger),
+                title: const Text('Delete scene', style: TextStyle(color: KJPalette.danger)),
+                onTap: () async {
+                  if (await confirm(context, title: 'Delete ${s.name}?', body: 'Your devices are not changed.')) {
+                    store.removeScene(s);
+                    if (context.mounted) Navigator.pop(context);
+                  }
+                },
+              ),
+            ]),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScheduleCard extends StatelessWidget {
+  const _ScheduleCard({required this.scene});
+  final Scene scene;
+
+  static const offsets = [-60, -30, -15, 0, 15, 30, 60];
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<HomeStore>();
+    final h24 = context.select<AppSettings, bool>((s) => s.clock24);
+    final p = context.palette;
+    final sch = scene.schedule;
+    final by = sch == null ? null : (sch.bySun ? sch.sun : 'time');
+    Future<void> pickTime() async {
+      final t = await showTimePicker(
+        context: context,
+        initialTime:
+            sch == null || sch.bySun ? const TimeOfDay(hour: 7, minute: 0) : TimeOfDay(hour: sch.hour, minute: sch.minute),
+      );
+      if (t == null) return;
+      store.updateScene(scene, schedule: SceneSchedule(hour: t.hour, minute: t.minute, days: sch?.days));
+    }
+
+    Future<void> bySun(String sun, {int? offset}) async {
+      final place = store.data.place ?? await pickPlace(context);
+      if (place == null) return;
+      store.updateScene(scene,
+          schedule: SceneSchedule.sun(sun,
+              lat: place.lat, lon: place.lon, offset: offset ?? (sch?.sun == sun ? sch!.offset : 0), days: sch?.days));
+    }
+
+    final next = sch?.nextAfter(DateTime.now());
+    return NCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: by == null || by == 'time' ? pickTime : null,
+              child: DisplayText(sch == null ? '--:--' : sch.label,
+                  key: const Key('scene-schedule-time'), size: sch?.bySun ?? false ? 30 : 44),
+            ),
+          ),
+          Switch(
+            key: const Key('scene-schedule'),
+            value: sch != null,
+            activeTrackColor: KJPalette.accent,
+            onChanged: (on) => on ? pickTime() : store.updateScene(scene, clearSchedule: true),
+          ),
+        ]),
+        if (sch != null) ...[
+          const SizedBox(height: 10),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            NChip(
+                key: const Key('schedule-by-time'),
+                label: 'At a time',
+                icon: Icons.schedule,
+                selected: by == 'time',
+                onTap: pickTime),
+            NChip(
+                key: const Key('schedule-by-sunrise'),
+                label: 'Sunrise',
+                icon: CupertinoIcons.sunrise,
+                selected: by == 'sunrise',
+                onTap: () => bySun('sunrise')),
+            NChip(
+                key: const Key('schedule-by-sunset'),
+                label: 'Sunset',
+                icon: CupertinoIcons.sunset,
+                selected: by == 'sunset',
+                onTap: () => bySun('sunset')),
+          ]),
+          if (sch.bySun) ...[
+            const SizedBox(height: 10),
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              for (final m in offsets)
+                NChip(
+                  key: Key('schedule-offset-$m'),
+                  label: SceneSchedule.sun(sch.sun!, lat: 0, lon: 0, offset: m).label,
+                  selected: sch.offset == m,
+                  onTap: () => bySun(sch.sun!, offset: m),
+                ),
+            ]),
+          ],
+          const SizedBox(height: 12),
+          Wrap(spacing: 6, runSpacing: 6, children: [
+            for (var d = 1; d <= 7; d++)
+              NChip(
+                label: weekdayLetter(d),
+                selected: sch.days.contains(d),
+                onTap: () {
+                  final days = {...sch.days};
+                  days.contains(d) ? days.remove(d) : days.add(d);
+                  if (days.isEmpty) return;
+                  store.updateScene(scene,
+                      schedule: sch.bySun
+                          ? SceneSchedule.sun(sch.sun!, lat: sch.lat!, lon: sch.lon!, offset: sch.offset, days: days)
+                          : SceneSchedule(hour: sch.hour, minute: sch.minute, days: days));
+                },
+              ),
+          ]),
+          const SizedBox(height: 8),
+          Text(
+              [
+                tr(sch.daysLabel),
+                if (sch.bySun && next != null) trf('next at {0}', [clockText(next, h24)]),
+              ].join(' · '),
+              key: const Key('scene-schedule-next'),
+              style: NType.body(13, color: p.textDim)),
+        ],
+        const SizedBox(height: 8),
+        Text(
+            SceneAlarms.supported
+                ? 'Runs at this time even when SmartHomeKJ is closed.'
+                : 'Runs at this time while SmartHomeKJ is open.',
+            style: NType.body(12.5, color: p.textDim)),
+      ]),
+    );
+  }
+}
+
+Future<void> showSceneStepSheet(BuildContext context, Scene s, Device d) => showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      constraints: const BoxConstraints(maxWidth: 560),
+      builder: (_) => SceneStepSheet(sceneId: s.id, deviceId: d.id),
+    );
+
+/// What one device does in a scene. Changing it here does not touch the device until the scene runs.
+class SceneStepSheet extends StatelessWidget {
+  const SceneStepSheet({super.key, required this.sceneId, required this.deviceId});
+  final String sceneId;
+  final String deviceId;
+
+  static String _pct(double v) => v <= 0.005 ? 'OFF' : '${(v * 100).round()}%';
+  static String _open(double v) => v <= 0.01 ? 'Closed' : (v >= 0.99 ? 'Open' : '${(v * 100).round()}%');
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<HomeStore>();
+    final s = store.scene(sceneId);
+    final d = store.device(deviceId);
+    final a = s?.actions.where((x) => x.deviceId == deviceId).firstOrNull;
+    if (s == null || d == null || a == null) {
+      return const SizedBox(height: 120, child: Center(child: Text('Not in the scene any more')));
+    }
+    final p = context.palette;
+    final c = a.command;
+    final lit = c.on != false;
+    final robot = d.has(Capability.run) && (d.kind == DeviceKind.vacuum || d.kind == DeviceKind.mower);
+
+    // Changes go through the saved form, so a field can be dropped as well as set.
+    void edit(void Function(Map<String, dynamic> j) change) {
+      final j = a.toJson();
+      change(j);
+      store.setSceneStep(s, SceneAction.fromJson(j));
+    }
+
+    void only(Map<String, dynamic> fields) => store.setSceneStep(s, SceneAction.fromJson({'deviceId': d.id, ...fields}));
+    void lightUp(Map<String, dynamic> j) {
+      if (d.has(Capability.onOff)) j['on'] = true;
+    }
+
+    Widget chip(String key, String label, bool selected, VoidCallback onTap) =>
+        PresetChip(key: Key('step-$key'), label: label, selected: selected, onTap: onTap);
+
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.7,
+      maxChildSize: 0.95,
+      minChildSize: 0.4,
+      builder: (context, scroll) => ListView(
+        key: const Key('scene-step-sheet'),
+        controller: scroll,
+        padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+        children: [
+          Row(children: [
+            Icon(deviceIcon(d.kind, active: !a.isOff), size: 30),
+            const SizedBox(width: 12),
+            Expanded(child: DisplayText(d.name, size: 26, maxLines: 2)),
+          ]),
+          const SizedBox(height: 6),
+          Text('In ${s.name}: ${describeAction(d, c)}', style: NType.body(14, color: p.textDim)),
+          if (d.has(Capability.onOff)) ...[
+            const SectionLabel('Power'),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              chip('off', 'Off', c.on == false, () => only({'on': false})),
+              chip('on', 'On', c.on == true, () => edit((j) => j['on'] = true)),
+            ]),
+          ],
+          if (lit && d.has(Capability.brightness))
+            LevelControl(
+              label: 'Brightness',
+              value: c.brightness ?? d.state.brightness ?? 1,
+              display: _pct,
+              presets: DeviceSheet.brightnessPresets,
+              onChangeEnd: (v) => v <= 0.01
+                  ? only({'on': false})
+                  : edit((j) => j
+                    ..['brightness'] = v
+                    ..addAll({if (d.has(Capability.onOff)) 'on': true})),
+            ),
+          if (lit && d.has(Capability.colorTemp)) ...[
+            SectionLabel('White', trailing: c.color != null ? Text('Colour', style: NType.display(18, color: p.text)) : null),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final (label, k) in const [('Warm', 2700), ('Neutral', 4000), ('Cool', 5000), ('Daylight', 6500)])
+                chip('white-$k', label, c.color == null && c.colorTempK == k, () => edit((j) {
+                      lightUp(j);
+                      j['colorTempK'] = k;
+                      j.remove('color');
+                    })),
+            ]),
+          ],
+          if (lit && d.has(Capability.color)) ...[
+            const SectionLabel('Colour'),
+            Center(
+              child: ColorRing(
+                size: 200,
+                color: c.color ?? d.state.color ?? 0xFFFFFF,
+                onChangeEnd: (col) => edit((j) {
+                  lightUp(j);
+                  j['color'] = col;
+                  j.remove('colorTempK');
+                }),
+              ),
+            ),
+          ],
+          if (lit && d.has(Capability.targetTemp)) ...[
+            SectionLabel('Temperature',
+                trailing: Text('${(c.targetTemp ?? d.state.targetTemp ?? 21).toStringAsFixed(1)}°',
+                    style: NType.display(18, color: p.text))),
+            Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+              for (final (label, t) in const [('Eco', 18.0), ('Comfort', 21.0), ('Warm', 23.0)])
+                chip('temp-${t.round()}', '$label ${t.round()}°', c.targetTemp == t, () => edit((j) {
+                      lightUp(j);
+                      j['targetTemp'] = t;
+                    })),
+              for (final (key, icon, step) in const [('down', Icons.remove, -0.5), ('up', Icons.add, 0.5)])
+                IconButton.outlined(
+                  key: Key('step-temp-$key'),
+                  onPressed: () => edit((j) {
+                    lightUp(j);
+                    j['targetTemp'] = ((c.targetTemp ?? d.state.targetTemp ?? 21) + step).clamp(5, 35).toDouble();
+                  }),
+                  icon: Icon(icon, size: 18),
+                ),
+            ]),
+          ],
+          if (lit && d.has(Capability.speed))
+            LevelControl(
+              label: 'Speed',
+              value: c.speed ?? d.state.speed ?? 1,
+              display: _pct,
+              presets: DeviceSheet.speedPresets,
+              onChangeEnd: (v) => v <= 0.01
+                  ? only({'on': false})
+                  : edit((j) {
+                      lightUp(j);
+                      j['speed'] = v;
+                    }),
+            ),
+          if (lit && d.has(Capability.volume))
+            LevelControl(
+              label: 'Volume',
+              value: c.volume ?? d.state.volume ?? 0.2,
+              display: (v) => '${(v * 100).round()}',
+              presets: const [('10', 0.1), ('20', 0.2), ('40', 0.4)],
+              onChangeEnd: (v) => edit((j) => j['volume'] = v),
+            ),
+          if (d.has(Capability.position))
+            LevelControl(
+              label: 'Position',
+              value: c.position ?? d.state.position ?? 0,
+              display: _open,
+              presets: const [('Closed', 0.0), ('Half', 0.5), ('Open', 1.0)],
+              onChangeEnd: (v) => edit((j) => j['position'] = v),
+            ),
+          if (d.has(Capability.lock)) ...[
+            const SectionLabel('Lock'),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              chip('lock', 'Locked', c.locked == true, () => only({'locked': true})),
+              chip('unlock', 'Unlocked', c.locked == false, () => only({'locked': false})),
+              chip('lock-leave', 'Leave as it is', c.locked == null, () => edit((j) => j.remove('locked'))),
+            ]),
+          ],
+          if (robot) ...[
+            SectionLabel(d.kind == DeviceKind.mower ? 'Mowing' : 'Cleaning'),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              chip('start', d.kind == DeviceKind.mower ? 'Mow' : 'Clean', c.action == DeviceAction.start,
+                  () => edit((j) => j['action'] = DeviceAction.start.name)),
+              if (d.has(Capability.dock))
+                chip('dock', 'Go home', c.action == DeviceAction.dock, () => only({'action': DeviceAction.dock.name})),
+              chip('robot-leave', 'Leave as it is', c.action == null, () => edit((j) => j.remove('action'))),
+            ]),
+          ],
+          if (d.has(Capability.alarm)) ...[
+            const SectionLabel('Alarm'),
+            if (d.props['codeArmRequired'] == true)
+              Text('This alarm needs its code to arm, so scenes leave it as it is.',
+                  style: NType.body(13, color: p.textDim))
+            else ...[
+              Wrap(spacing: 8, runSpacing: 8, children: [
+                for (final arm in alarmArms(d))
+                  chip('arm-${arm.name}', 'Arm ${alarmArmLabel(arm).toLowerCase()}', c.action == arm,
+                      () => only({'action': arm.name})),
+                chip('alarm-leave', 'Leave as it is', c.action == null, () => edit((j) => j.remove('action'))),
+              ]),
+              const SizedBox(height: 8),
+              Text('Scenes never disarm an alarm. That needs its code.', style: NType.body(12.5, color: p.textDim)),
+            ],
+          ],
+          if (d.has(Capability.mode) && d.modes.isNotEmpty && (lit || robot)) ...[
+            SectionLabel(modeTitle(d)),
+            Wrap(spacing: 8, runSpacing: 8, children: [
+              for (final m in d.modes)
+                chip('mode-$m', modeLabel(m), c.mode == m, () => edit((j) {
+                      lightUp(j);
+                      j['mode'] = m;
+                    })),
+              chip('mode-leave', 'Leave as it is', c.mode == null, () => edit((j) => j.remove('mode'))),
+            ]),
+          ],
+          const SizedBox(height: 26),
+          FilledButton.icon(
+            key: const Key('step-try'),
+            onPressed: () async {
+              if (await store.command(d, c)) store.toast('${d.name} is now how ${s.name} sets it.');
+            },
+            icon: const Icon(Icons.play_arrow),
+            label: const Text('Try it on the device'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            key: const Key('step-capture'),
+            onPressed: () {
+              store.setSceneStep(s, SceneAction.capture(d));
+              store.toast('Saved how ${d.name} is now.');
+            },
+            icon: const Icon(Icons.save_outlined),
+            label: const Text('Use how it is now'),
+          ),
+          const SizedBox(height: 8),
+          TextButton.icon(
+            key: const Key('step-remove'),
+            onPressed: () {
+              store.removeSceneStep(s, d.id);
+              Navigator.pop(context);
+            },
+            icon: const Icon(Icons.remove_circle_outline, color: KJPalette.danger),
+            label: const Text('Take out of this scene', style: TextStyle(color: KJPalette.danger)),
+          ),
+        ],
+      ),
+    );
+  }
+}

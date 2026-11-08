@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:ui' show Rect, Size;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -119,5 +120,149 @@ void main() {
     store.removeFloor(up);
     expect(lamp.mapPos, isNull);
     expect(store.rooms.where((r) => r.floorId == up.id), isEmpty);
+  });
+
+  test('undo puts the floor plan back one step at a time', () {
+    final office = store.rooms.firstWhere((r) => r.name == 'Office');
+    final lamp = store.devicesIn(office.id).single;
+    final spot = lamp.mapPos;
+    store.setRoomRect(office, x: office.x + 2, y: office.y);
+    expect(lamp.mapPos, spot!.translate(2, 0), reason: 'the lamp moved with its room');
+    store.addRoom(office.floorId, name: 'Garage');
+    store.undoLayout();
+    expect(store.rooms.map((r) => r.name), isNot(contains('Garage')));
+    expect(office.x, 21, reason: 'only the last step was undone');
+    store.undoLayout();
+    expect(office.x, 19);
+    expect(lamp.mapPos, spot);
+    expect(store.canUndoLayout, isFalse);
+  });
+
+  test('undo brings back a deleted room or floor with its devices', () {
+    final bath = store.rooms.firstWhere((r) => r.name == 'Bath');
+    final fan = store.devicesIn(bath.id).single;
+    store.removeRoom(bath);
+    expect(fan.roomId, isNull);
+    store.undoLayout();
+    expect(store.room(bath.id)?.name, 'Bath');
+    expect(fan.roomId, bath.id);
+
+    final up = store.addFloor('Upstairs');
+    final attic = store.addRoom(up.id, name: 'Attic');
+    store.placeDevice(fan, up.id, attic.rect.center);
+    store.removeFloor(up);
+    expect(fan.mapPos, isNull);
+    store.undoLayout();
+    expect(store.floors.map((f) => f.name), contains('Upstairs'));
+    expect(fan.roomId, attic.id);
+    expect(fan.floorId, up.id);
+  });
+
+  test('new and copied rooms land in a free spot with their own name', () {
+    final floor = store.floors.first.id;
+    final at = store.freeSpot(floor, 6, 5, near: const Offset(10, 10));
+    final spot = Rect.fromLTWH(at.dx, at.dy, 6, 5);
+    expect(store.roomsOn(floor).any((r) => r.rect.overlaps(spot)), isFalse, reason: 'the middle of the living room is taken');
+    final copy = store.duplicateRoom(store.rooms.firstWhere((r) => r.name == 'Kitchen'));
+    expect(copy.name, 'Kitchen 2');
+    expect(copy.rect.size, const Size(10, 7));
+    expect(store.roomsOn(floor).where((r) => r != copy).any((r) => r.rect.overlaps(copy.rect)), isFalse);
+    expect(store.addRoom(floor, name: 'Kitchen').name, 'Kitchen 3');
+  });
+
+  test('shrinking a room lets go of the devices left outside it', () {
+    final living = store.rooms.firstWhere((r) => r.name == 'Living');
+    final tv = store.devices.firstWhere((d) => d.name == 'TV');
+    store.setRoomRect(living, width: 8, moveDevices: false);
+    expect(tv.roomId, isNull, reason: 'the TV now stands outside every room');
+    store.setRoomRect(living, width: 15, moveDevices: false);
+    expect(tv.roomId, living.id, reason: 'and joins again when the room grows back');
+  });
+
+  test('favourites can be reordered without moving other devices', () {
+    final favs = store.favorites.map((d) => d.name).toList();
+    final others = store.devices.where((d) => !d.favorite).map((d) => d.name).toList();
+    store.moveFavorite(0, 2);
+    expect(store.favorites.map((d) => d.name).toList(), [favs[1], favs[2], favs[0], ...favs.skip(3)]);
+    expect(store.devices.where((d) => !d.favorite).map((d) => d.name).toList(), others);
+    store.setFavorites([store.devices.firstWhere((d) => d.name == 'Bath fan')]);
+    expect(store.favorites.map((d) => d.name), ['Bath fan']);
+  });
+
+  test('room power: everything off, then only the lights back on', () async {
+    final living = store.rooms.firstWhere((r) => r.name == 'Living');
+    final tv = store.devices.firstWhere((d) => d.name == 'TV');
+    await store.command(tv, const DeviceCommand(on: true));
+    await store.toggleRoom(living.id);
+    expect(store.switchablesIn(living.id).any((d) => d.state.on == true), isFalse);
+    await store.toggleRoom(living.id);
+    expect(tv.state.on, isFalse);
+    expect(store.devicesIn(living.id).where((d) => d.kind == DeviceKind.light).every((d) => d.state.on == true), isTrue);
+  });
+
+  test('a room\'s lights dim together and switch off at zero', () async {
+    final living = store.rooms.firstWhere((r) => r.name == 'Living');
+    final lights = store.devicesIn(living.id).where((d) => d.has(Capability.brightness)).toList();
+    expect(lights.length, 2);
+    await store.setBrightness(store.devicesIn(living.id), 0.3);
+    expect(lights.every((d) => d.state.brightness == 0.3 && d.state.on == true), isTrue);
+    await store.setBrightness(lights, 0);
+    expect(lights.every((d) => d.state.on == false), isTrue);
+  });
+
+  group('homes', () {
+    test('a new home is empty and has its own devices', () async {
+      final sample = store.devices.length;
+      final beach = await store.addHome('Beach house');
+      expect(store.homeId, beach.id);
+      expect(store.homeName, 'Beach house');
+      expect(store.devices, isEmpty);
+      expect(store.floors.single.name, 'Ground floor');
+      store.addVirtualDevice('demo', 'Porch light', DeviceKind.light);
+      await store.openHome('home');
+      expect(store.devices.length, sample);
+      expect(store.devices.any((d) => d.name == 'Porch light'), isFalse);
+      await store.openHome(beach.id);
+      expect(store.devices.single.name, 'Porch light');
+    });
+
+    test('the open home and the list are remembered', () async {
+      final office = await store.addHome('Office');
+      await store.renameHome(office, 'Studio');
+      store.addRoom(store.floors.first.id, name: 'Desk');
+      await store.saveNow();
+      final again = HomeStore(repository: repo, client: MockClient((_) async => http.Response('', 500)));
+      await again.load();
+      expect(again.homes.map((h) => h.name), ['My home', 'Studio']);
+      expect(again.homeName, 'Studio');
+      expect(again.rooms.single.name, 'Desk');
+      again.dispose();
+    });
+
+    test('the theme stays when another home opens', () async {
+      store.themeMode = 'light';
+      await store.addHome('Office');
+      expect(store.themeMode, 'light');
+      store.themeMode = 'dark';
+      await store.openHome('home');
+      expect(store.themeMode, 'dark');
+    });
+
+    test('deleting a home opens another, and the last home stays', () async {
+      final first = store.homes.single;
+      expect(await store.removeHome(first), isFalse);
+      final office = await store.addHome('Office');
+      expect(await store.removeHome(office), isTrue);
+      expect(store.homeId, first.id);
+      expect(store.homes.single, first);
+      expect(await repo.load(office.id), isNull);
+    });
+
+    test('scenes of the other homes are known, for their timers', () async {
+      store.addScene('Morning', store.devices.take(1));
+      await store.addHome('Office');
+      expect(store.scenes, isEmpty);
+      expect(store.allScenes.map((s) => s.name), ['Morning']);
+    });
   });
 }

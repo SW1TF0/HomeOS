@@ -1,0 +1,8 @@
+{
+  "name": "smartmenukj-matter-sim",
+  "private": true,
+  "description": "A simulated Matter device (matter.js) for the end-to-end tests in test/matter_sim_test.dart",
+  "dependencies": {
+    "@matter/main": "0.17.9"
+  }
+}
