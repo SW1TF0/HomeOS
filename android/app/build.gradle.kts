@@ -29,11 +29,25 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        // The app's own key, which tool/android_key.py makes on GitHub from the ANDROID_SIGNING_SECRET secret.
+        // Every version signed with it installs over the one before and keeps the user's home.
+        val keystore = file("release-key.p12")
+        if (keystore.exists()) {
+            create("release") {
+                storeFile = keystore
+                storeType = "PKCS12"
+                storePassword = "smartmenukj"
+                keyAlias = "smartmenukj"
+                keyPassword = "smartmenukj"
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Without that key (local builds, forks) the debug keys are used, so `flutter run --release` works.
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 }
