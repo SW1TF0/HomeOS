@@ -190,6 +190,15 @@ class MemoryCloudApi implements CloudApi {
   }
 
   @override
+  Future<void> deleteAccount() async {
+    final s = session;
+    if (s == null) return;
+    cloud._accounts.removeWhere((_, v) => v.$2 == s.uid);
+    cloud.names.remove(s.uid);
+    _set(null);
+  }
+
+  @override
   void signOut() => _set(null);
 
   @override

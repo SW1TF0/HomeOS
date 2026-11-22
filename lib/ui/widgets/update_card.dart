@@ -10,12 +10,15 @@ import '../../l10n/text.dart';
 import 'kj_widgets.dart';
 
 /// Opens [url] in the browser, which downloads the file; says so when nothing could open it.
-Future<void> openDownload(BuildContext context, String url) async {
+Future<void> openDownload(BuildContext context, String url) => openLink(context, url, failed: 'The download is at');
+
+/// Opens [url] in the browser, or says where it is when no browser opens.
+Future<void> openLink(BuildContext context, String url, {String failed = 'It is at'}) async {
   final store = context.read<HomeStore>();
   try {
     if (await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication)) return;
   } catch (_) {}
-  store.toast('Could not open the browser. The download is at $url');
+  store.toast('Could not open the browser. $failed $url');
 }
 
 /// On the home screen when a newer SmartHomeKJ is out: download it, or put it off until the next one.

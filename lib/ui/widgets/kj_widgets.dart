@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart' hide Text;
+import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 
 import '../../models/device.dart';
 import '../../theme/app_theme.dart';
@@ -674,22 +675,34 @@ class _DeviceTileState extends State<DeviceTile> with TickerProviderStateMixin {
         ),
       ),
     );
-    final pressable = PressScale(child: tile);
-    if (level == null) return pressable;
-    final pct = (level * 100).round();
-    return Semantics(
-      value: '$pct%',
-      increasedValue: '${math.min(100, pct + 10)}%',
-      decreasedValue: '${math.max(0, pct - 10)}%',
-      onIncrease: () => widget.onLevelEnd!(math.min(1, level + 0.1)),
-      onDecrease: () => widget.onLevelEnd!(math.max(0, level - 0.1)),
-      child: GestureDetector(
-        onHorizontalDragStart: _start,
-        onHorizontalDragUpdate: _update,
-        onHorizontalDragEnd: (_) => _end(),
-        onHorizontalDragCancel: _end,
-        child: pressable,
-      ),
+    // Screen readers hear one entry per row: the name, the state, whether it is on (as for a switch in Settings),
+    // and for dimmable devices the level, which a swipe up or down changes by 10%.
+    final pct = level == null ? null : (level * 100).round();
+    final semantic = Semantics(
+      container: true,
+      button: !widget.toggles,
+      toggled: widget.toggles ? active : null,
+      label: d.name,
+      value: pct == null ? (widget.subtitle ?? describeState(d)) : '$pct%',
+      increasedValue: pct == null ? null : '${math.min(100, pct + 10)}%',
+      decreasedValue: pct == null ? null : '${math.max(0, pct - 10)}%',
+      onIncrease: pct == null ? null : () => widget.onLevelEnd!(math.min(1, level! + 0.1)),
+      onDecrease: pct == null ? null : () => widget.onLevelEnd!(math.max(0, level! - 0.1)),
+      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
+      customSemanticsActions: {
+        if (widget.onOpen != null) const CustomSemanticsAction(label: 'All controls'): widget.onOpen!,
+      },
+      // The row's own texts and buttons are said once, above, instead of one by one.
+      child: ExcludeSemantics(child: PressScale(child: tile)),
+    );
+    if (level == null) return semantic;
+    return GestureDetector(
+      onHorizontalDragStart: _start,
+      onHorizontalDragUpdate: _update,
+      onHorizontalDragEnd: (_) => _end(),
+      onHorizontalDragCancel: _end,
+      child: semantic,
     );
   }
 }

@@ -30,7 +30,7 @@ class UpdateCheck extends ChangeNotifier {
   static const _key = 'smartmenukj.updates.v1';
   static const every = Duration(hours: 12);
   static const releasesApi = 'https://api.github.com/repos/SW1TF0/HomeOS/releases/latest';
-  static const allDownloads = '$appSourceUrl/releases/latest';
+  static const allDownloads = '$appReleasesUrl/releases/latest';
 
   /// The newest version GitHub has, as "1.18.0", once asked.
   String? latest;
@@ -48,7 +48,7 @@ class UpdateCheck extends ChangeNotifier {
   bool get upToDate => latest != null && !isNewer(latest!, current);
 
   /// Where this phone or computer downloads the newest version; the page of every download elsewhere.
-  String get downloadUrl => platform.asset == null ? allDownloads : '$appSourceUrl/releases/latest/download/${platform.asset}';
+  String get downloadUrl => platform.asset == null ? allDownloads : '$appReleasesUrl/releases/latest/download/${platform.asset}';
 
   Future<void> load() async {
     try {

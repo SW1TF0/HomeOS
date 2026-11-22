@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.21.0+24
+version: 1.22.0+25
 
 environment:
   sdk: ^3.13.5
@@ -59,6 +59,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  msix: ^3.18.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -83,3 +84,17 @@ flutter:
           weight: 700
         - asset: assets/fonts/Inter-800.ttf
           weight: 800
+
+# The Microsoft Store package (MSIX): dart run msix:create --store
+# identity_name and publisher come from Partner Center (Product identity); CI passes them as --identity-name and
+# --publisher from the MSSTORE_IDENTITY_NAME and MSSTORE_PUBLISHER secrets. Store builds pass STORE=msstore so
+# the app leaves updates to the Store. The version comes from "version:" above.
+msix_config:
+  display_name: SmartHomeKJ
+  publisher_display_name: SW1TF0
+  identity_name: SW1TF0.SmartHomeKJ
+  logo_path: windows/runner/resources/store_logo.png
+  capabilities: internetClient,internetClientServer,privateNetworkClientServer
+  languages: en-us,bg-bg
+  store: true
+  build_windows: false

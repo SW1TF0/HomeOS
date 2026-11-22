@@ -107,6 +107,9 @@ abstract class CloudApi {
 
   /// Emails the signed-in account a link that confirms its address.
   Future<void> sendEmailCheck();
+
+  /// Deletes the signed-in account itself (its sign-in), then signs out. Its data is deleted first, by CloudSync.
+  Future<void> deleteAccount();
   void signOut();
 
   Future<Object?> get(String path, {bool shallow = false});
@@ -176,6 +179,13 @@ class FirebaseClient implements CloudApi {
   @override
   Future<void> sendPasswordReset(String email) async =>
       await _authPost('${config.authHost}/v1/accounts:sendOobCode', {'requestType': 'PASSWORD_RESET', 'email': email.trim()});
+
+  @override
+  Future<void> deleteAccount() async {
+    if (session == null) return;
+    await _authPost('${config.authHost}/v1/accounts:delete', {'idToken': await token()});
+    _setSession(null);
+  }
 
   @override
   void signOut() => _setSession(null);

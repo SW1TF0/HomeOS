@@ -3,13 +3,19 @@
     "users": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid"
+        ".write": "auth != null && auth.uid === $uid && (!root.child('deleted/' + auth.uid).exists() || !newData.exists())"
       }
     },
     "homes": {
       "$home": {
         ".read": "auth != null && data.child('members/' + auth.uid).exists()",
-        ".write": "auth != null && ((data.child('members/' + auth.uid).exists() && (newData.exists() || data.child('members/' + auth.uid).val() === 'owner')) || (!data.exists() && newData.child('members/' + auth.uid).val() === 'owner'))"
+        ".write": "auth != null && (!root.child('deleted/' + auth.uid).exists() || !newData.child('members/' + auth.uid).exists()) && ((data.child('members/' + auth.uid).exists() && (newData.exists() || data.child('members/' + auth.uid).val() === 'owner')) || (!data.exists() && newData.child('members/' + auth.uid).val() === 'owner'))"
+      }
+    },
+    "deleted": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid && !data.exists()"
       }
     }
   }

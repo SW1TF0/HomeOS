@@ -92,6 +92,50 @@ void main() {
     expect(cloud.read('homes/${home.cloudId}/doc') as String, isNot(contains('"state"')));
   });
 
+  test('deleting the account removes it and everything it keeps online, and the homes stay on the device', () async {
+    await shareHome();
+    final uid = a.api.session!.uid;
+    final home = a.store.homes.single.cloudId!;
+    expect(cloud.read('homes/$home'), isNotNull);
+
+    await expectLater(a.sync.deleteAccount('wrong'), throwsA(isA<CloudException>()), reason: 'the password confirms it');
+    expect(cloud.read('homes/$home'), isNotNull, reason: 'nothing is deleted without the right password');
+
+    await a.sync.deleteAccount('secret1');
+    expect(a.sync.signedIn, isFalse);
+    expect(cloud.read('homes/$home'), isNull, reason: 'the home it owned is gone');
+    expect(cloud.read('users/$uid'), isNull, reason: 'its list of homes is gone');
+    expect(a.store.homes.single.cloudId, isNull, reason: 'the home stays here, no longer linked');
+    expect(a.store.devices.any((d) => d.name == 'Porch light'), isTrue);
+    await expectLater(a.sync.signIn('me@example.com', 'secret1'), throwsA(isA<CloudException>()),
+        reason: 'the account itself is gone');
+
+    // The tablet was signed in to the same account and is still running: it must not put the home back.
+    await settle(400);
+    await b.sync.resumed();
+    await settle(400);
+    expect(cloud.read('homes/$home'), isNull, reason: 'another device does not upload the deleted home again');
+    expect(cloud.read('users/$uid'), isNull);
+    expect(b.store.devices.any((d) => d.name == 'Porch light'), isTrue, reason: 'the tablet keeps its copy too');
+  });
+
+  test('deleting an account a home was shared with only takes it off that home', () async {
+    a.store.addVirtualDevice('demo', 'Porch light', DeviceKind.light);
+    await a.sync.signIn('owner@example.com', 'secret1', create: true);
+    await settle();
+    final home = a.store.homes.single.cloudId!;
+    await b.sync.signIn('guest@example.com', 'secret2', create: true);
+    final guest = b.api.session!.uid;
+    // The owner shares the home with the guest.
+    cloud.write('homes/$home/members/$guest', 'member');
+    cloud.write('users/$guest/homes/$home', true);
+
+    await b.sync.deleteAccount('secret2');
+    expect(cloud.read('homes/$home/members'), {a.api.session!.uid: 'owner'}, reason: 'the owner keeps the home');
+    expect(cloud.read('users/$guest'), isNull);
+    await settle();
+  });
+
   test('another device signing in gets the homes, and its sample home goes', () async {
     await shareHome();
     expect(b.store.homes.length, 1);

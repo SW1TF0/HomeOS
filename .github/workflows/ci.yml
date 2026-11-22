@@ -29,7 +29,7 @@ jobs:
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
 
-  # Builds the app for Windows, macOS, Linux and Android. Catches what tests cannot: native code, plugins, Gradle,
+  # Builds the app for Windows, macOS, Linux, Android and iOS. Catches what tests cannot: native code, plugins, Gradle,
   # CMake and Xcode settings, paths and line endings.
   build:
     name: Build (${{ matrix.target }})
@@ -42,6 +42,7 @@ jobs:
           - { os: macos-latest, target: macos }
           - { os: ubuntu-latest, target: linux }
           - { os: ubuntu-latest, target: apk }
+          - { os: macos-latest, target: ios }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -56,4 +57,5 @@ jobs:
         with:
           flutter-version-file: pubspec.yaml
           cache: true
-      - run: flutter build ${{ matrix.target }} --debug
+      # iOS builds unsigned here; signing for the App Store happens on the Mac that uploads it (docs/DEPLOY.md).
+      - run: flutter build ${{ matrix.target }} --debug ${{ matrix.target == 'ios' && '--no-codesign' || '' }}

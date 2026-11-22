@@ -6,6 +6,7 @@
 // with debugDefaultTargetPlatformOverride; any exception, overflow or missing widget fails it.
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Text;
+import 'package:flutter/semantics.dart' show SemanticsAction;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -195,6 +196,20 @@ void main() {
     AppPlatform.pretend(null);
     await tester.pumpAndSettle();
     expect(AppPlatform.pretending, isNull);
+  });
+
+  testWidgets('a screen reader hears each device row as a switch with its state', (tester) async {
+    final handle = tester.ensureSemantics();
+    final store = await _pump(tester, _sizes['phone']!);
+    final light = store.devices.firstWhere((d) => d.name == 'Ceiling light');
+    final node = tester.getSemantics(find.bySemanticsLabel('Ceiling light').first);
+    final data = node.getSemanticsData();
+    expect(data.hasAction(SemanticsAction.tap), isTrue, reason: 'a double tap switches it');
+    expect(data.customSemanticsActionIds, isNotEmpty, reason: 'All controls');
+    expect(node.label, contains('Ceiling light'));
+    expect(node.getSemanticsData().flagsCollection.isToggled.toBoolOrNull(), light.state.on);
+    expect(node.value, '72%', reason: 'its brightness, which swiping changes');
+    handle.dispose();
   });
 
   testWidgets('big text (130%) still fits on a phone', (tester) async {
