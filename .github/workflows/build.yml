@@ -93,7 +93,9 @@ jobs:
       # The Microsoft Store package. Built again with STORE=msstore so it leaves updates to the Store. Its identity
       # comes from Partner Center (Product identity) through two secrets; without them it still builds, to check.
       - run: flutter build windows --release --dart-define=STORE=msstore --obfuscate --split-debug-info=build/symbols/msstore
+      # Never holds up the GitHub release: without the Partner Center identity it makes a test package only.
       - name: Make the Store package
+        continue-on-error: true
         shell: bash
         env:
           MSSTORE_IDENTITY_NAME: ${{ secrets.MSSTORE_IDENTITY_NAME }}
@@ -101,12 +103,18 @@ jobs:
         run: |
           args=(--store --build-windows false)
           [ -n "$MSSTORE_IDENTITY_NAME" ] && args+=(--identity-name "$MSSTORE_IDENTITY_NAME")
-          [ -n "$MSSTORE_PUBLISHER" ] && args+=(--publisher "$MSSTORE_PUBLISHER")
+          if [ -n "$MSSTORE_PUBLISHER" ]; then
+            args+=(--publisher "$MSSTORE_PUBLISHER")
+          else
+            echo "::warning::No MSSTORE_PUBLISHER secret: this .msix is a test package and cannot be uploaded to the Store (see docs/DEPLOY.md)."
+            args+=(--publisher "CN=00000000-0000-0000-0000-000000000000")
+          fi
           dart run msix:create "${args[@]}" --output-path . --output-name SmartMenuKJ-msstore
       - uses: actions/upload-artifact@v4
         with:
           name: SmartMenuKJ-msstore
           path: SmartMenuKJ-msstore.msix
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         with:
           name: symbols-windows
