@@ -18,8 +18,6 @@ const sweepPorts = [
   9999, 55443, 6668, 1883, 8123, 5000, 62078, 49152, 49153, 5555, 8443, 8883, 8291, 8728,
 ];
 
-// "Connection refused" on Linux / Android, macOS / iOS and Windows.
-const _refused = {111, 61, 10061};
 
 /// Finds every address in [hosts] that answers on any of [ports]. A device
 /// that refuses a connection counts too: it answered, so it exists.
@@ -42,7 +40,7 @@ Future<void> sweepHosts(
         open.add(port);
         alive = true;
       } on SocketException catch (e) {
-        if (_refused.contains(e.osError?.errorCode)) alive = true;
+        if (AppPlatform.current.connectionRefused(e.osError?.errorCode)) alive = true;
       } catch (_) {}
     }));
     if (alive) found(SweepHit(host, open));

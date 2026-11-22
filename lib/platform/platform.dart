@@ -82,6 +82,10 @@ abstract class PlatformProfile {
   /// Starts or stops running in the background while this device keeps a home online.
   Future<void> keepRunning(bool on) async {}
 
+  /// Whether a failed connection's error code means the device turned it down (so it is there) rather than not
+  /// answering. Each system has its own codes: Linux and Android 111, macOS and iOS 61, Windows 10061 or 1225.
+  bool connectionRefused(int? code) => const {111, 61, 10061, 1225}.contains(code);
+
   /// How long to wait on a connection to tell a device that turns it down from one that is not there. Windows
   /// tries again for about two seconds before it reports "refused"; the others say so at once.
   Duration connectWait(Duration usual) => usual;
