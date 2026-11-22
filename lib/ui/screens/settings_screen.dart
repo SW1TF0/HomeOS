@@ -341,6 +341,8 @@ class SettingsScreen extends StatelessWidget {
                           subtitle: const Text('The log, connections and devices that fail, to copy into a bug report'),
                           onTap: () => openDiagnostics(context),
                         ),
+                        // A store updates its apps itself, so store builds have no update check or downloads.
+                        if (!fromAppStore) ...[
                         ListTile(
                           key: const Key('settings-updates'),
                           leading: const Icon(CupertinoIcons.arrow_down_circle),
@@ -374,14 +376,13 @@ class SettingsScreen extends StatelessWidget {
                           subtitle: const Text('Android, Windows, Mac and Linux'),
                           onTap: () => openDownload(context, UpdateCheck.allDownloads),
                         ),
+                        ],
                         ListTile(
-                          leading: const Icon(Icons.code),
-                          title: const Text('Source code'),
-                          subtitle: Text('${appSourceUrl.replaceFirst('https://', '')} · tap to copy the link'),
-                          onTap: () async {
-                            await Clipboard.setData(const ClipboardData(text: appSourceUrl));
-                            store.toast('Link copied.');
-                          },
+                          key: const Key('settings-privacy'),
+                          leading: const Icon(Icons.privacy_tip_outlined),
+                          title: const Text('Privacy policy'),
+                          subtitle: const Text('No ads, no tracking: what stays on this device and what does not'),
+                          onTap: () => openLink(context, appPrivacyUrl),
                         ),
                         ListTile(
                           leading: const Icon(Icons.description_outlined),

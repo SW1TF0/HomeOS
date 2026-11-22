@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../cloud/cloud_sync.dart';
+import '../../cloud/firebase.dart';
 import '../../state/home_store.dart';
 import '../../theme/app_theme.dart';
 import '../widgets/dialogs.dart';
@@ -208,6 +209,42 @@ class _AccountSheetState extends State<AccountSheet> {
       ]),
       const SizedBox(height: 10),
       Text('Signing out keeps your homes on this device.', style: NType.body(12.5, color: p.textDim)),
+      const SizedBox(height: 18),
+      Center(
+        child: TextButton(
+          key: const Key('account-delete'),
+          style: TextButton.styleFrom(foregroundColor: KJPalette.danger),
+          onPressed: cloud.busy ? null : () => deleteAccount(context),
+          child: const Text('Delete account'),
+        ),
+      ),
     ];
+  }
+}
+
+/// Asks twice (what goes, then the password), then deletes the account and everything it keeps online. The
+/// homes stay on this device.
+Future<void> deleteAccount(BuildContext context) async {
+  final cloud = context.read<CloudSync>();
+  final store = context.read<HomeStore>();
+  final ok = await confirm(
+    context,
+    title: 'Delete your account?',
+    body: 'Your account and everything it keeps online are deleted for good: the homes you own, from every device '
+        'signed in to it, and your place in homes shared with you. Your homes stay on this device. This cannot be '
+        'undone.',
+    action: 'Continue',
+  );
+  if (!ok || !context.mounted) return;
+  final password = await promptText(context, title: 'Your password', hint: 'To confirm it is you', action: 'Delete account', secret: true);
+  if (password == null || password.isEmpty || !context.mounted) return;
+  try {
+    await cloud.deleteAccount(password);
+    store.toast('Your account is deleted. Your homes stay on this device.');
+    if (context.mounted) Navigator.of(context).maybePop();
+  } on CloudException catch (e) {
+    store.toast(e.message);
+  } catch (e) {
+    store.toast('The account could not be deleted: $e');
   }
 }

@@ -1208,6 +1208,18 @@ const bgWords = <String, String>{
   'macOS': 'macOS',
   'Windows': 'Windows',
   'Linux': 'Linux',
+  'It may run a few minutes late. Allow alarms to run it on the minute.': 'Може да закъснее с няколко минути. Разрешете алармите, за да се пуска точно навреме.',
+  'Allow': 'Разреши',
+  'Delete account': 'Изтриване на профила',
+  'Delete your account?': 'Да се изтрие ли профилът ви?',
+  'Your account and everything it keeps online are deleted for good: the homes you own, from every device signed in to it, and your place in homes shared with you. Your homes stay on this device. This cannot be undone.': 'Профилът ви и всичко, което пази онлайн, се изтриват завинаги: домовете, които притежавате, от всяко устройство, влязло в него, и мястото ви в домове, споделени с вас. Домовете ви остават на това устройство. Това не може да се отмени.',
+  'Your password': 'Вашата парола',
+  'To confirm it is you': 'За да потвърдите, че сте вие',
+  'Your account is deleted. Your homes stay on this device.': 'Профилът ви е изтрит. Домовете ви остават на това устройство.',
+  'This account was deleted on another device. Your homes stay here.': 'Този профил е изтрит на друго устройство. Домовете ви остават тук.',
+  'Privacy policy': 'Политика за поверителност',
+  'No ads, no tracking: what stays on this device and what does not': 'Без реклами, без следене: какво остава на това устройство и какво не',
+  'It is at': 'Намира се на',
 };
 
 const bgPatterns = <String, String>{
@@ -1488,4 +1500,6 @@ const bgPatterns = <String, String>{
   '{0} not responding': '{0} не отговарят',
   '{0} homes': '{0} дома',
   '{0} is open': '{0} е отворен',
+  'The account could not be deleted: {0}': 'Профилът не можа да се изтрие: {0}',
+  'Could not open the browser. {0} {1}': 'Браузърът не се отвори. {0} {1}',
 };

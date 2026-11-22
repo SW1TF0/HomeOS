@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/device.dart';
 import '../models/home.dart';
 import '../state/home_store.dart';
+import '../util/app_log.dart';
 import '../state/repository.dart';
 import '../state/seed.dart';
 import 'firebase.dart';
@@ -80,13 +81,19 @@ class CloudSync extends ChangeNotifier implements RemoteControl {
     "users": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
-        ".write": "auth != null && auth.uid === $uid"
+        ".write": "auth != null && auth.uid === $uid && (!root.child('deleted/' + auth.uid).exists() || !newData.exists())"
       }
     },
     "homes": {
       "$home": {
         ".read": "auth != null && data.child('members/' + auth.uid).exists()",
-        ".write": "auth != null && ((data.child('members/' + auth.uid).exists() && (newData.exists() || data.child('members/' + auth.uid).val() === 'owner')) || (!data.exists() && newData.child('members/' + auth.uid).val() === 'owner'))"
+        ".write": "auth != null && (!root.child('deleted/' + auth.uid).exists() || !newData.child('members/' + auth.uid).exists()) && ((data.child('members/' + auth.uid).exists() && (newData.exists() || data.child('members/' + auth.uid).val() === 'owner')) || (!data.exists() && newData.child('members/' + auth.uid).val() === 'owner'))"
+      }
+    },
+    "deleted": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid && !data.exists()"
       }
     }
   }
@@ -160,8 +167,66 @@ class CloudSync extends ChangeNotifier implements RemoteControl {
 
   Future<void> resetPassword(String email) => api!.sendPasswordReset(email);
 
+  /// Whether the account was deleted on another device; if so, signs out here and keeps the homes, unlinked.
+  Future<bool> _deletedElsewhere(CloudApi api, String uid) async {
+    try {
+      if (await api.get('deleted/$uid') != true) return false;
+    } catch (_) {
+      return false;
+    }
+    _unfollow();
+    for (final h in store.homes) {
+      h.unlink();
+    }
+    await store.saveHomeList();
+    api.signOut();
+    problem = null;
+    store.toast('This account was deleted on another device. Your homes stay here.');
+    return true;
+  }
+
   /// Signs out. The homes stay on this device and sync again after the next sign-in.
   void signOut() => api?.signOut();
+
+  /// Deletes the account and everything it keeps online: the homes it owns, its place in homes shared with it, and
+  /// its list of homes; then the account itself. [password] confirms it is the owner (and Firebase only deletes an
+  /// account signed in a moment ago). The homes stay on this device, no longer linked to an account.
+  /// Throws a [CloudException] with a message for the user.
+  Future<void> deleteAccount(String password) async {
+    final api = this.api;
+    final me = account;
+    if (api == null || me == null) return;
+    busy = true;
+    problem = null;
+    notifyListeners();
+    try {
+      await api.signIn(me.email, password);
+      _unfollow();
+      final uid = api.session!.uid;
+      // First a mark that the account is going (no personal data, only its id): other devices still signed in see
+      // it and stop, and the database rules refuse anything they would still save with their old sign-in.
+      // Databases still on the older rules refuse the mark; the account is deleted all the same.
+      await api.put('deleted/$uid', true).catchError((Object e) => AppLog.warn('account', 'No deletion mark: $e'));
+      final ids = await api.get('users/$uid/homes', shallow: true);
+      for (final id in ids is Map ? ids.keys.map((k) => '$k') : const <String>[]) {
+        final role = await api.get('homes/$id/members/$uid');
+        if (role == 'owner') {
+          await api.delete('homes/$id');
+        } else if (role != null) {
+          await api.delete('homes/$id/members/$uid');
+        }
+      }
+      await api.delete('users/$uid');
+      await api.deleteAccount();
+      for (final h in store.homes) {
+        h.unlink();
+      }
+      await store.saveHomeList();
+    } finally {
+      busy = false;
+      notifyListeners();
+    }
+  }
 
   void _signedOut() {
     _unfollow();
@@ -211,6 +276,7 @@ class CloudSync extends ChangeNotifier implements RemoteControl {
     final api = this.api;
     final me = account;
     if (api == null || me == null || _syncing) return;
+    if (await _deletedElsewhere(api, me.uid)) return;
     _syncing = true;
     busy = true;
     notifyListeners();

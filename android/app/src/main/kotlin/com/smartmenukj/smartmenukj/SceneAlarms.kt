@@ -64,6 +64,28 @@ object SceneAlarms {
             context, id, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
     }
 
+    /** Whether exact alarms are allowed, so scenes run on the minute. */
+    fun onTime(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+        val manager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return false
+        return manager.canScheduleExactAlarms()
+    }
+
+    /** Opens Settings > Alarms & reminders for this app. False when there is no such page. */
+    fun askOnTime(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false
+        return try {
+            context.startActivity(
+                Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                    .setData(android.net.Uri.parse("package:" + context.packageName))
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            true
+        } catch (e: Exception) {
+            Log.w(TAG, "No Alarms & reminders page", e)
+            false
+        }
+    }
+
     private fun book(context: Context, id: Int, at: Long) {
         val manager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
         val intent = pending(context, id)

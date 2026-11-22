@@ -4,12 +4,12 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE"/>
-    <!-- Timed scenes: an exact alarm wakes the app at the scene's time, also after a restart.
-         USE_EXACT_ALARM is granted on install from Android 13; older versions grant SCHEDULE_EXACT_ALARM. -->
+    <!-- Timed scenes: an exact alarm wakes the app at the scene's time, also after a restart. Google Play keeps
+         USE_EXACT_ALARM for alarm clocks and calendars, so the app asks for SCHEDULE_EXACT_ALARM ("Alarms &
+         reminders"), which the person can allow; without it scenes still run, a few minutes late at most. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32"/>
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <!-- Keeping a home online for devices away from home: the app runs on in the background with a notification. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>

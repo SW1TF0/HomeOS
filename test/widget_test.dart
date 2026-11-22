@@ -1143,6 +1143,43 @@ void main() {
     expect(find.byKey(Key('room-${kitchen.id}')), findsOneWidget);
   });
 
+  testWidgets('an account is deleted from the account screen after a warning and the password', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(420, 900) * 2;
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    final store = HomeStore(repository: MemoryHomeRepository(), client: MockClient((_) async => http.Response('[]', 200)));
+    await store.load();
+    store.addVirtualDevice('demo', 'Porch light', DeviceKind.light);
+    final memory = MemoryCloud();
+    final cloud = CloudSync(store: store, api: memory.app(), delay: const Duration(milliseconds: 10), storageKey: 'd');
+    await cloud.start();
+    await tester.runAsync(() => cloud.signIn('me@example.com', 'secret1', create: true));
+    final home = store.homes.single.cloudId!;
+    await tester.pumpWidget(SmartMenuApp(store: store, cloud: cloud, poll: false));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('tab-more')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('more-account')));
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(find.byKey(const Key('account-delete')), 200, scrollable: find.byType(Scrollable).last);
+    await tester.tap(find.byKey(const Key('account-delete')));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete your account?'), findsOneWidget);
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, 'secret1');
+    await tester.tap(find.text('Delete account').last);
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+    await tester.pumpAndSettle();
+    expect(cloud.signedIn, isFalse);
+    expect(memory.read('homes/$home'), isNull);
+    expect(store.devices.any((d) => d.name == 'Porch light'), isTrue, reason: 'the home stays on this device');
+    expect(find.text('Your account is deleted. Your homes stay on this device.'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    cloud.dispose();
+  });
+
   testWidgets('an account is made from the profile menu, and the home device switch turns on', (tester) async {
     SharedPreferences.setMockInitialValues({});
     tester.view.physicalSize = const Size(420, 900) * 2;

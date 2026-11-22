@@ -45,6 +45,24 @@ class SceneAlarms {
   /// The alarm number of a device's timer.
   static int timerAlarm(String deviceId) => idOf('timer:$deviceId');
 
+  /// Whether timed scenes run on the minute. On Android 12 and later that needs "Alarms & reminders" allowed;
+  /// without it they still run, up to a few minutes late.
+  static Future<bool> onTime([MethodChannel channel = const MethodChannel('smartmenukj/alarms')]) async {
+    if (!supported) return true;
+    try {
+      return await channel.invokeMethod<bool>('onTime') ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Opens the system page that allows exact alarms.
+  static Future<void> askOnTime([MethodChannel channel = const MethodChannel('smartmenukj/alarms')]) async {
+    try {
+      await channel.invokeMethod<bool>('askOnTime');
+    } catch (_) {}
+  }
+
   /// Books the next run of every timed scene and device timer, and cancels every other alarm.
   Future<void> sync(Iterable<Scene> scenes, [DateTime? now, Iterable<DeviceTimer> timers = const []]) =>
       _channel.invokeMethod<void>('sync', plan(scenes, now ?? DateTime.now(), timers));

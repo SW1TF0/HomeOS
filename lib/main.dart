@@ -26,6 +26,9 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   AppLog.install();
   AppPlatform.applyStartupPretend();
+  // In a release build a part of a screen that fails shows a short note instead of a grey box; debug builds keep
+  // Flutter's red error, which says what went wrong. Either way the error is in the log (Diagnostics).
+  if (kReleaseMode) ErrorWidget.builder = (details) => const _BrokenPart();
   AppLog.info('app', 'SmartHomeKJ $appVersion starting on ${AppPlatform.current.label}'
       '${AppPlatform.pretending == null ? '' : ', pretending to be ${AppPlatform.pretending!.name}'}');
   LicenseRegistry.addLicense(_bundledLicenses);
@@ -55,7 +58,8 @@ Future<void> main() async {
     onHubChanged: _keepRunning,
   );
   unawaited(cloud.start());
-  final updates = UpdateCheck();
+  // Store builds are kept up to date by their store (see appStore in app_info.dart).
+  final updates = fromAppStore ? UpdateCheck.off() : UpdateCheck();
   await updates.load();
   Motion.allowed = true;
   runApp(SmartMenuApp(store: store, cloud: cloud, settings: settings, backups: backups, updates: updates, intro: true));
@@ -87,3 +91,21 @@ void _keepRunning(bool on) {
 /// Started by Android without a screen when a timed scene is due, or for a widget tap (see SceneAlarmReceiver.kt).
 @pragma('vm:entry-point')
 Future<void> sceneAlarmMain(List<String> args) => runSceneAlarm(args);
+
+/// What a part of a screen shows when it fails in a release build.
+class _BrokenPart extends StatelessWidget {
+  const _BrokenPart();
+
+  @override
+  Widget build(BuildContext context) => const Padding(
+        padding: EdgeInsets.all(12),
+        child: Center(
+          child: Text(
+            'This part could not be shown. More > Diagnostics has the details.',
+            textAlign: TextAlign.center,
+            textDirection: TextDirection.ltr,
+            style: TextStyle(fontSize: 13, color: Color(0xFF8E8E93)),
+          ),
+        ),
+      );
+}

@@ -608,6 +608,65 @@ class _ScheduleCard extends StatelessWidget {
                 ? 'Runs at this time even when SmartHomeKJ is closed.'
                 : 'Runs at this time while SmartHomeKJ is open.',
             style: NType.body(12.5, color: p.textDim)),
+        if (sch != null && SceneAlarms.supported) const _OnTimeNotice(),
+      ]),
+    );
+  }
+}
+
+/// On Android, when "Alarms & reminders" is not allowed: says a timed scene may run a few minutes late, with a
+/// button to allow it. Checks again when the app comes back from Settings.
+class _OnTimeNotice extends StatefulWidget {
+  const _OnTimeNotice();
+
+  @override
+  State<_OnTimeNotice> createState() => _OnTimeNoticeState();
+}
+
+class _OnTimeNoticeState extends State<_OnTimeNotice> with WidgetsBindingObserver {
+  bool _onTime = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _check();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _check();
+  }
+
+  Future<void> _check() async {
+    final ok = await SceneAlarms.onTime();
+    if (mounted && ok != _onTime) setState(() => _onTime = ok);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_onTime) return const SizedBox.shrink();
+    final p = context.palette;
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(children: [
+        const Icon(Icons.alarm, size: 18, color: KJPalette.orange),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text('It may run a few minutes late. Allow alarms to run it on the minute.',
+              style: NType.body(12.5, color: p.textDim)),
+        ),
+        TextButton(
+          key: const Key('scene-allow-alarms'),
+          onPressed: SceneAlarms.askOnTime,
+          child: const Text('Allow'),
+        ),
       ]),
     );
   }

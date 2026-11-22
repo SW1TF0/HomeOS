@@ -79,6 +79,10 @@ object HomeEngine {
                     SceneAlarms.sync(app, SceneAlarms.parse(call.arguments))
                     result.success(null)
                 }
+                // Whether timed scenes run on the minute ("Alarms & reminders" allowed).
+                "onTime" -> result.success(SceneAlarms.onTime(app))
+                // Opens the system page that allows it.
+                "askOnTime" -> result.success(SceneAlarms.askOnTime(app))
                 else -> result.notImplemented()
             }
         }
