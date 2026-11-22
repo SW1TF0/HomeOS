@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Flutter, at the version this repo uses (pubspec.yaml), from .sdk/flutter. Sets it up the first time.
+#   ./flutterw run -d macos      ./flutterw test      ./flutterw build linux
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+[[ -x "$ROOT/.sdk/flutter/bin/flutter" ]] || "$ROOT/tool/setup.sh" || exit 1
+[[ -d "$ROOT/.sdk/jdk/Contents/Home" ]] && export JAVA_HOME="$ROOT/.sdk/jdk/Contents/Home"
+[[ -x "$ROOT/.sdk/jdk/bin/java" ]] && export JAVA_HOME="$ROOT/.sdk/jdk"
+exec "$ROOT/.sdk/flutter/bin/flutter" "$@"

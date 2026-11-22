@@ -50,3 +50,6 @@ app.*.map.json
 # Matter simulator (tool/matter): installed packages and device storage
 /tool/matter/node_modules
 /tool/matter/store/
+
+# The Flutter SDK that tool/setup.sh / tool/setup.ps1 download for this repo.
+/.sdk/

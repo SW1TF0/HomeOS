@@ -6,6 +6,7 @@ import 'dart:ui' show Offset, Rect;
 import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import '../util/app_log.dart';
 
 import '../integrations/camera/camera_setup.dart';
 import '../integrations/catalog.dart';
@@ -94,6 +95,14 @@ class HomeStore extends ChangeNotifier {
   final Map<String, Future<void>> _starting = {};
   final Map<String, IntegrationStatus> status = {};
 
+  /// The last thing that went wrong talking to each device, by device id, for Settings > Diagnostics.
+  final Map<String, ({DateTime at, String error})> lastErrors = {};
+
+  void _deviceFailed(Device d, Object e) {
+    lastErrors[d.id] = (at: clock.now(), error: '$e');
+    AppLog.warn('device ${d.name} (${d.integrationId})', e);
+  }
+
   /// Short messages for the user (errors, confirmations), shown as toasts.
   final ValueNotifier<String?> message = ValueNotifier(null);
 
@@ -137,6 +146,7 @@ class HomeStore extends ChangeNotifier {
       '$prefix-${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}${_rand.nextInt(1 << 20).toRadixString(36)}';
 
   void toast(String text) {
+    AppLog.info('message', text);
     _lastToast = text;
     message.value = text;
   }
@@ -1088,13 +1098,14 @@ class HomeStore extends ChangeNotifier {
       _changed();
       return true;
     } catch (e) {
+      _deviceFailed(d, e);
       if (hub != null) return _sendViaHub(hub, d, c, before);
       if (overtaken()) return false;
       d.state = before.merge(DeviceState.unreachable);
       _changed(save: false);
       toast(_offHomeNetwork && networked(d) && !anywhere
-          ? '${d.name} only answers on your home Wi-Fi. To switch it from anywhere, see Connect, then Control from '
-              'anywhere.'
+          ? '${d.name} only answers on your home Wi-Fi. To switch it from anywhere, see More, then Add devices, then '
+              'Control from anywhere.'
           : '${d.name}: $e');
       return false;
     }
@@ -1107,6 +1118,7 @@ class HomeStore extends ChangeNotifier {
       _changed();
       return true;
     } catch (e) {
+      _deviceFailed(d, e);
       d.state = before;
       _changed(save: false);
       toast('${d.name}: $e');
@@ -1292,6 +1304,7 @@ class HomeStore extends ChangeNotifier {
       _changed(save: false);
     }, onError: (Object e) {
       status[cfg.id] = IntegrationStatus(ok: false, message: '$e');
+      AppLog.error('connection ${cfg.type} "${cfg.name}"', e);
       _changed(save: false);
     });
   }
@@ -1390,6 +1403,7 @@ class HomeStore extends ChangeNotifier {
       return added;
     } catch (e) {
       status[cfg.id] = IntegrationStatus(ok: false, message: '$e');
+      AppLog.error('connection ${cfg.type} "${cfg.name}"', e);
       _changed(save: false);
       toast('${cfg.name}: $e');
       return 0;

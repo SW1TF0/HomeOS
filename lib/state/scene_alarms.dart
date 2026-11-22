@@ -1,10 +1,8 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
 import 'dart:ui' show DartPluginRegistrant;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/widgets.dart' show WidgetsFlutterBinding, debugPrint;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/home.dart';
@@ -12,6 +10,7 @@ import '../models/scene.dart';
 import 'home_store.dart';
 import 'repository.dart';
 import 'scenes_widget.dart';
+import '../platform/platform.dart';
 
 /// Timed scenes that run even when the app is closed, on Android.
 ///
@@ -23,7 +22,7 @@ class SceneAlarms {
   SceneAlarms([this._channel = const MethodChannel('smartmenukj/alarms')]);
   final MethodChannel _channel;
 
-  static bool get supported => !kIsWeb && Platform.isAndroid;
+  static bool get supported => AppPlatform.current.timedSceneAlarms;
 
   /// The alarm number of a scene. A fixed hash, since String.hashCode may
   /// change between runs of the app.

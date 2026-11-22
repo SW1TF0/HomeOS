@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../../models/device.dart';
 import '../integration.dart';
+import '../../platform/platform.dart';
 
 /// Builds a [Device] that belongs to the network-devices connection.
 typedef DeviceFactory = Device Function({
@@ -86,7 +87,8 @@ class LanContext {
   /// there), null when nothing answered.
   Future<bool?> knock(String host, int port, {Duration? within}) async {
     try {
-      final s = await Socket.connect(host, this.port(port), timeout: within ?? const Duration(milliseconds: 1200));
+      final s = await Socket.connect(host, this.port(port),
+          timeout: AppPlatform.current.connectWait(within ?? const Duration(milliseconds: 1200)));
       s.destroy();
       return true;
     } on SocketException catch (e) {

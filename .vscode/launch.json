@@ -1,0 +1,8 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    { "name": "SmartHomeKJ (this computer)", "type": "dart", "request": "launch", "program": "lib/main.dart" },
+    { "name": "SmartHomeKJ (release)", "type": "dart", "request": "launch", "program": "lib/main.dart", "flutterMode": "release" },
+    { "name": "All tests", "type": "dart", "request": "launch", "program": "test/" }
+  ]
+}

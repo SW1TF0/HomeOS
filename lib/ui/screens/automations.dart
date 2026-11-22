@@ -200,128 +200,111 @@ Future<Automation?> createAutomation(BuildContext context) async {
   return a;
 }
 
+/// The automations page, opened from the home screen.
 class AutomationsScreen extends StatelessWidget {
   const AutomationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final store = context.watch<HomeStore>();
-    final h24 = context.select<AppSettings, bool>((s) => s.clock24);
-    final p = context.palette;
-    final list = store.automations;
-    return Scaffold(
-      body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
-            child: Column(children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 8, 20, 4),
-                child: Row(children: [
-                  IconButton(
-                    key: const Key('automations-back'),
-                    tooltip: tr('Back'),
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(CupertinoIcons.back, color: KJPalette.accent, size: 28),
-                  ),
-                  const SizedBox(width: 6),
-                  const Expanded(child: DisplayText('Automations', size: 30)),
-                ]),
-              ),
-              Expanded(
-                child: ListView(
-                  key: const Key('automations-list'),
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 4, 4, 16),
-                      child: Text(
-                          'When something happens at home, SmartHomeKJ does something. Automations run while the app '
-                          'is open, and all the time on a phone or tablet that keeps your home online.',
-                          style: NType.body(13.5, color: p.textDim)),
-                    ),
-                    FilledButton.icon(
-                      key: const Key('automation-add'),
-                      onPressed: () => createAutomation(context),
-                      icon: const Icon(Icons.add),
-                      label: const Text('New automation'),
-                    ),
-                    SectionLabel(list.isEmpty ? 'Ideas' : 'Yours',
-                        trailing: list.isEmpty ? null : Text('${list.length}', style: NType.label(color: p.textDim))),
-                    if (list.isEmpty)
-                      NCard(
-                        key: const Key('automations-empty'),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          for (final idea in const [
-                            'When the hall sensor sees motion, turn the hall light on and off again after 5 minutes',
-                            'When the TV turns on, run Movie night',
-                            'When it gets colder than 18°, turn the heating on',
-                            'When the front door unlocks after dark, turn the porch light on',
-                            'At sunset, turn the garden lights on; when it starts to rain, close the blinds',
-                          ])
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                const Padding(
-                                  padding: EdgeInsets.only(top: 7, right: 10),
-                                  child: SizedBox(
-                                      width: 5,
-                                      height: 5,
-                                      child: DecoratedBox(
-                                          decoration: BoxDecoration(color: KJPalette.accent, shape: BoxShape.circle))),
-                                ),
-                                Expanded(child: Text(idea, style: NType.body(14, color: p.text))),
-                              ]),
-                            ),
-                        ]),
-                      ),
-                    for (final a in list)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: NCard(
-                          key: Key('automation-${a.id}'),
-                          onTap: () => showAutomationSheet(context, a),
-                          padding: const EdgeInsets.fromLTRB(18, 14, 10, 14),
-                          child: Row(children: [
-                            Icon(triggerIcon(store, a.trigger), color: a.enabled ? p.text : p.textDim),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                Text(whenText(store, a.trigger),
-                                    style: NType.body(14.5, color: a.enabled ? p.text : p.textDim, weight: 500)),
-                                const SizedBox(height: 3),
-                                Text(thenText(store, a.then), style: NType.body(13.5, color: p.textDim)),
-                                const SizedBox(height: 3),
-                                Text(
-                                    [
-                                      hoursText(a, h24),
-                                      if (store.automationRuns[a.id] case final at?) 'Ran ${clockText(at, h24)}',
-                                    ].join(' · '),
-                                    style: NType.label(color: p.textDim)),
-                              ]),
-                            ),
-                            Switch(
-                              key: Key('automation-switch-${a.id}'),
-                              value: a.enabled,
-                              activeTrackColor: KJPalette.accent,
-                              onChanged: (v) {
-                                a.enabled = v;
-                                store.automationChanged(a);
-                              },
-                            ),
-                          ]),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ]),
+  Widget build(BuildContext context) => PageScaffold(
+        title: 'Automations',
+        backKey: const Key('automations-back'),
+        children: [
+          KeyedSubtree(
+            key: const Key('automations-list'),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: automationItems(context)),
           ),
+        ],
+      );
+}
+
+/// What the automations page and the Automate tab show: what automations are, a button to add one, and the
+/// list (or ideas when there are none).
+List<Widget> automationItems(BuildContext context) {
+  final store = context.watch<HomeStore>();
+  final h24 = context.select<AppSettings, bool>((s) => s.clock24);
+  final p = context.palette;
+  final list = store.automations;
+  return [
+    Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 16),
+      child: Text(
+          'When something happens at home, SmartHomeKJ does something. Automations run while the app '
+          'is open, and all the time on a phone or tablet that keeps your home online.',
+          style: NType.body(13.5, color: p.textDim)),
+    ),
+    FilledButton.icon(
+      key: const Key('automation-add'),
+      onPressed: () => createAutomation(context),
+      icon: const Icon(Icons.add),
+      label: const Text('New automation'),
+    ),
+    SectionLabel(list.isEmpty ? 'Ideas' : 'Yours',
+        trailing: list.isEmpty ? null : Text('${list.length}', style: NType.label(color: p.textDim))),
+    if (list.isEmpty)
+      NCard(
+        key: const Key('automations-empty'),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          for (final idea in const [
+            'When the hall sensor sees motion, turn the hall light on and off again after 5 minutes',
+            'When the TV turns on, run Movie night',
+            'When it gets colder than 18°, turn the heating on',
+            'When the front door unlocks after dark, turn the porch light on',
+            'At sunset, turn the garden lights on; when it starts to rain, close the blinds',
+          ])
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 7, right: 10),
+                  child: SizedBox(
+                      width: 5,
+                      height: 5,
+                      child: DecoratedBox(
+                          decoration: BoxDecoration(color: KJPalette.accent, shape: BoxShape.circle))),
+                ),
+                Expanded(child: Text(idea, style: NType.body(14, color: p.text))),
+              ]),
+            ),
+        ]),
+      ),
+    for (final a in list)
+      Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: NCard(
+          key: Key('automation-${a.id}'),
+          onTap: () => showAutomationSheet(context, a),
+          padding: const EdgeInsets.fromLTRB(18, 14, 10, 14),
+          child: Row(children: [
+            Icon(triggerIcon(store, a.trigger), color: a.enabled ? p.text : p.textDim),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(whenText(store, a.trigger),
+                    style: NType.body(14.5, color: a.enabled ? p.text : p.textDim, weight: 500)),
+                const SizedBox(height: 3),
+                Text(thenText(store, a.then), style: NType.body(13.5, color: p.textDim)),
+                const SizedBox(height: 3),
+                Text(
+                    [
+                      hoursText(a, h24),
+                      if (store.automationRuns[a.id] case final at?) 'Ran ${clockText(at, h24)}',
+                    ].join(' · '),
+                    style: NType.label(color: p.textDim)),
+              ]),
+            ),
+            Switch(
+              key: Key('automation-switch-${a.id}'),
+              value: a.enabled,
+              activeTrackColor: KJPalette.accent,
+              onChanged: (v) {
+                a.enabled = v;
+                store.automationChanged(a);
+              },
+            ),
+          ]),
         ),
       ),
-    );
-  }
+  ];
 }
 
 Future<void> showAutomationSheet(BuildContext context, Automation a) => showModalBottomSheet(

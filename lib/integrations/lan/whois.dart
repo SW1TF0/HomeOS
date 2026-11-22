@@ -9,6 +9,7 @@ import 'mdns.dart';
 import 'net.dart';
 import 'sweep.dart';
 import 'wol.dart';
+import '../../platform/platform.dart';
 
 /// What the router (or this computer) knows about an address on the network.
 class Neighbor {
@@ -136,21 +137,11 @@ Future<Map<String, String>> arpTable() {
 
 Future<Map<String, String>> _readArp() async {
   try {
-    if (Platform.isLinux || Platform.isAndroid) {
-      try {
-        final t = parseArpTable(await File('/proc/net/arp').readAsString());
-        if (t.isNotEmpty || !Platform.isAndroid) return t;
-      } on FileSystemException {
-        // Android 10 and later.
-      }
-      final r = await Process.run('ip', ['neigh', 'show']).timeout(const Duration(seconds: 2));
-      final t = parseArpTable('${r.stdout}');
+    final text = await AppPlatform.current.readArpTable();
+    if (text != null) {
+      final t = parseArpTable(text);
       if (t.isEmpty) _noArp = true;
       return t;
-    }
-    if (Platform.isMacOS || Platform.isWindows) {
-      final r = await Process.run('arp', [if (Platform.isMacOS) '-an' else '-a']).timeout(const Duration(seconds: 3));
-      return parseArpTable('${r.stdout}');
     }
   } catch (_) {
     _noArp = true;

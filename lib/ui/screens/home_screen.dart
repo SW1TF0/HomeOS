@@ -36,9 +36,18 @@ import '../../l10n/text.dart';
 import '../widgets/motion.dart';
 import '../widgets/alive.dart';
 
-/// Overview: clock, what's going on, scenes, favourites and rooms.
-class HomeScreen extends StatelessWidget {
+/// Overview: what is going on, scenes, then every device as a row with a switch: favourites first, then room by
+/// room. The chips at the top narrow the list to one room.
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  /// The room the list is narrowed to; null shows everything.
+  String? _roomId;
 
   @override
   Widget build(BuildContext context) {
@@ -47,10 +56,41 @@ class HomeScreen extends StatelessWidget {
     final p = context.palette;
     final favorites = store.favorites;
     final active = store.activeCount;
+    final rooms = store.rooms;
+    final room = rooms.where((r) => r.id == _roomId).firstOrNull;
+    final loose = store.devices.where((d) => store.room(d.roomId) == null && !d.favorite).toList();
+
+    SliverPadding pad(Widget sliver, {double bottom = 0}) =>
+        SliverPadding(padding: EdgeInsets.fromLTRB(20, 0, 20, bottom), sliver: sliver);
+    Widget grid(double width, List<Device> devices, {bool withRoom = false}) => pad(SliverGrid(
+          gridDelegate: deviceGridDelegate(width - 40),
+          delegate: SliverChildListDelegate([
+            for (final d in devices) DeviceCard(device: d, subtitle: withRoom ? _withRoom(store, d) : null),
+          ]),
+        ));
+    // In the full list a favourite shows once, at the top; a room's own chip shows all of the room.
+    List<Widget> roomSection(double width, Room r, {bool skipFavorites = false}) {
+      final all = store.devicesIn(r.id);
+      final shown = skipFavorites ? all.where((d) => !d.favorite).toList() : all;
+      return [
+        pad(SliverToBoxAdapter(child: _RoomHeader(room: r))),
+        if (all.isEmpty)
+          pad(SliverToBoxAdapter(
+            child: Text('No devices in this room yet. Put some here on the floor plan or from a device\'s settings.',
+                style: NType.body(14, color: p.textDim)),
+          ))
+        else if (shown.isEmpty)
+          pad(SliverToBoxAdapter(
+            child: Text('All of this room\'s devices are in Favourites.', style: NType.body(14, color: p.textDim)),
+          ))
+        else
+          grid(width, shown),
+      ];
+    }
 
     return SkyWallpaper(child: LayoutBuilder(builder: (context, c) {
-      final columns = (c.maxWidth / 190).floor().clamp(2, 6);
       return CustomScrollView(
+        key: const Key('home-list'),
         slivers: [
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
@@ -62,13 +102,13 @@ class HomeScreen extends StatelessWidget {
                     key: const Key('home-edit'),
                     tooltip: tr('Edit home'),
                     onPressed: () => showHomeEditor(context),
-                    icon: CupertinoIcons.ellipsis,
+                    icon: CupertinoIcons.slider_horizontal_3,
                   ),
                   const SizedBox(width: 10),
                   const ProfileButton(),
                 ]),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               const Entrance(index: 1, child: _Greeting()),
               Entrance(
                 index: 1,
@@ -107,14 +147,9 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ]),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               const Entrance(index: 3, child: _StatusStrip()),
               const _AwayCard(),
-            ]),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            sliver: SliverList.list(children: [
               if (context.watch<UpdateCheck>().offer) ...[
                 const SizedBox(height: 18),
                 const UpdateCard(),
@@ -153,12 +188,27 @@ class HomeScreen extends StatelessWidget {
                       label: store.automations.isEmpty ? 'Automations' : 'Automations · ${store.automations.length}',
                       onTap: () => showAutomations(context))),
               const Entrance(index: 4, child: ScenesRow()),
-              SectionLabel('Favourites',
+              const SizedBox(height: 22),
+              Entrance(
+                index: 5,
+                child: _RoomChips(
+                  selected: room?.id,
+                  onSelect: (id) => setState(() => _roomId = id),
+                  onEdit: () => nav.openMap(edit: true),
+                ),
+              ),
+            ]),
+          ),
+          if (room != null) ...roomSection(c.maxWidth, room) else ...[
+            pad(SliverToBoxAdapter(
+              child: SectionLabel('Favourites',
                   accent: true,
                   trailing: _HeaderAction(
                       key: const Key('favourites-edit'), label: 'Edit', onTap: () => showHomeEditor(context))),
-              if (favorites.isEmpty)
-                NCard(
+            )),
+            if (favorites.isEmpty)
+              pad(SliverToBoxAdapter(
+                child: NCard(
                   key: const Key('favourites-empty'),
                   glass: true,
                   onTap: () => pickFavorites(context),
@@ -173,69 +223,85 @@ class HomeScreen extends StatelessWidget {
                     const Icon(Icons.add),
                   ]),
                 ),
-            ]),
-          ),
-          if (favorites.isNotEmpty)
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              sliver: SliverGrid(
-                gridDelegate: deviceGridDelegate(c.maxWidth - 40),
-                delegate: SliverChildListDelegate([
-                  for (final (i, d) in favorites.indexed)
-                    Entrance(index: 5 + i, child: DeviceCard(device: d, subtitle: _withRoom(store, d))),
-                ]),
-              ),
-            ),
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            sliver: SliverToBoxAdapter(
-              child: SectionLabel('Rooms',
-                  trailing: _HeaderAction(
-                      key: const Key('rooms-edit'),
-                      label: 'Edit',
-                      onTap: () => nav.openMap(edit: true))),
-            ),
-          ),
-          if (store.rooms.isEmpty)
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              sliver: SliverToBoxAdapter(
-                child: NCard(
-                  glass: true,
-                  onTap: () => nav.openMap(edit: true),
-                  padding: const EdgeInsets.all(16),
-                  child: Row(children: [
-                    const Icon(Icons.add_home_outlined),
-                    const SizedBox(width: 14),
-                    Expanded(
-                        child: Text('Draw your rooms on the map to group your devices.',
-                            style: NType.body(14, color: p.textDim))),
-                    const Icon(Icons.arrow_outward, size: 18),
-                  ]),
+              ))
+            else
+              grid(c.maxWidth, favorites, withRoom: true),
+            if (rooms.isEmpty)
+              pad(SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 22),
+                  child: NCard(
+                    key: const Key('rooms-empty'),
+                    glass: true,
+                    onTap: () => nav.openMap(edit: true),
+                    padding: const EdgeInsets.all(16),
+                    child: Row(children: [
+                      const Icon(Icons.add_home_outlined),
+                      const SizedBox(width: 14),
+                      Expanded(
+                          child: Text('Draw your rooms on the map to group your devices.',
+                              style: NType.body(14, color: p.textDim))),
+                      const Icon(Icons.arrow_outward, size: 18),
+                    ]),
+                  ),
                 ),
-              ),
-            ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
-            sliver: SliverGrid.count(
-              crossAxisCount: (columns / 1.5).ceil().clamp(1, 4),
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 10,
-              childAspectRatio: 1.6,
-              children: [
-                for (final (i, r) in store.rooms.indexed)
-                  Entrance(index: 6 + favorites.length + i, child: _RoomCard(room: r)),
-              ],
-            ),
-          ),
+              )),
+            for (final r in rooms) ...roomSection(c.maxWidth, r, skipFavorites: favorites.isNotEmpty),
+            if (loose.isNotEmpty) ...[
+              pad(const SliverToBoxAdapter(child: SectionLabel('Other devices'))),
+              grid(c.maxWidth, loose),
+            ],
+          ],
+          const SliverToBoxAdapter(child: SizedBox(height: 32)),
         ],
       );
     }));
   }
+}
 
-  static String _withRoom(HomeStore store, Device d) {
-    final room = store.room(d.roomId);
-    return room == null ? describeState(d) : '${room.name} · ${describeState(d)}';
+String _withRoom(HomeStore store, Device d) {
+  final room = store.room(d.roomId);
+  return room == null ? describeState(d) : '${room.name} · ${describeState(d)}';
+}
+
+/// "All" and a chip per room; picking one narrows the device list to that room. The last chip edits the rooms.
+class _RoomChips extends StatelessWidget {
+  const _RoomChips({required this.selected, required this.onSelect, required this.onEdit});
+  final String? selected;
+  final ValueChanged<String?> onSelect;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final store = context.watch<HomeStore>();
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        key: const Key('room-chips'),
+        scrollDirection: Axis.horizontal,
+        clipBehavior: Clip.none,
+        children: [
+          NChip(key: const Key('room-filter-all'), label: 'All', selected: selected == null, onTap: () => onSelect(null)),
+          for (final r in store.rooms) ...[
+            const SizedBox(width: 8),
+            NChip(
+              key: Key('room-filter-${r.id}'),
+              label: r.name,
+              selected: selected == r.id,
+              onTap: () => onSelect(selected == r.id ? null : r.id),
+            ),
+          ],
+          const SizedBox(width: 8),
+          NChip(
+            key: const Key('rooms-edit'),
+            label: store.rooms.isEmpty ? 'Add rooms' : 'Edit rooms',
+            icon: Icons.edit_outlined,
+            selected: false,
+            onTap: onEdit,
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -685,8 +751,10 @@ class _Pill extends StatelessWidget {
   }
 }
 
-class _RoomCard extends StatelessWidget {
-  const _RoomCard({required this.room});
+/// The heading of a room in the device list: its name and what is on, a button that switches the room off (or
+/// its lights back on), and a tap that opens the room with all its controls.
+class _RoomHeader extends StatelessWidget {
+  const _RoomHeader({required this.room});
   final Room room;
 
   @override
@@ -698,73 +766,68 @@ class _RoomCard extends StatelessWidget {
     final on = devices.where((d) => d.countsAsOn).length;
     final anyOn = switchable.any((d) => d.state.on == true);
     final temp = averageTemperature(devices);
-    return NCard(
-      key: Key('room-card-${room.id}'),
-      glass: true,
-      onTap: () => showRoomSheet(context, room.id),
-      padding: const EdgeInsets.fromLTRB(16, 12, 10, 14),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Expanded(
+    return Padding(
+      padding: const EdgeInsets.only(top: 22, bottom: 10),
+      child: Row(children: [
+        Expanded(
+          child: InkWell(
+            key: Key('room-card-${room.id}'),
+            borderRadius: BorderRadius.circular(10),
+            onTap: () {
+              Sounds.tap();
+              showRoomSheet(context, room.id);
+            },
             child: Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: DisplayText(room.name, size: 22, maxLines: 1),
-            ),
-          ),
-          if (switchable.isNotEmpty)
-            Semantics(
-              button: true,
-              toggled: anyOn,
-              label: anyOn ? 'Turn ${room.name} off' : 'Turn ${room.name} lights on',
-              child: GestureDetector(
-                key: Key('room-power-${room.id}'),
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  Sounds.power(!anyOn);
-                  store.toggleRoom(room.id);
-                },
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 6),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: anyOn ? KJPalette.yellow : p.text.withValues(alpha: p.isDark ? 0.14 : 0.08),
-                    ),
-                    child: Icon(anyOn ? CupertinoIcons.lightbulb_fill : CupertinoIcons.lightbulb,
-                        size: 17, color: anyOn ? Colors.black : p.text),
+              padding: const EdgeInsets.fromLTRB(4, 2, 4, 2),
+              child: Row(children: [
+                Flexible(child: DisplayText(room.name, size: 22, maxLines: 1)),
+                const SizedBox(width: 4),
+                Icon(CupertinoIcons.chevron_right, size: 15, color: p.textDim),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: RollText(
+                    [
+                      devices.isEmpty ? 'No devices' : '$on on',
+                      if (temp != null) '${temp.toStringAsFixed(1)}°',
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: NType.body(14, color: p.textDim),
                   ),
                 ),
-              ),
+              ]),
             ),
-        ]),
-        const Spacer(),
-        Row(children: [
-          for (var i = 0; i < devices.length && i < 12; i++)
-            Container(
-              margin: const EdgeInsets.only(right: 4),
-              width: 7,
-              height: 7,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: !devices[i].state.reachable
-                    ? KJPalette.danger
-                    : (devices[i].state.isActive ? kindColor(devices[i].kind) : p.text.withValues(alpha: 0.18)),
-              ),
-            ),
-        ]),
-        const SizedBox(height: 6),
-        RollText(
-          [
-            devices.isEmpty ? 'No devices' : '$on on · ${counted(devices.length, 'device')}',
-            if (temp != null) '${temp.toStringAsFixed(1)}°',
-          ].join(' · '),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: NType.body(12.5, color: p.textDim),
+          ),
         ),
+        if (switchable.isNotEmpty)
+          Semantics(
+            button: true,
+            toggled: anyOn,
+            label: anyOn ? 'Turn ${room.name} off' : 'Turn ${room.name} lights on',
+            child: GestureDetector(
+              key: Key('room-power-${room.id}'),
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                Sounds.power(!anyOn);
+                store.toggleRoom(room.id);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(999),
+                  color: anyOn ? KJPalette.yellow : p.glass,
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(anyOn ? CupertinoIcons.lightbulb_fill : CupertinoIcons.lightbulb,
+                      size: 16, color: anyOn ? Colors.black : p.text),
+                  const SizedBox(width: 6),
+                  Text(anyOn ? 'All off' : 'Lights on',
+                      style: NType.body(13.5, color: anyOn ? Colors.black : p.text, weight: 600)),
+                ]),
+              ),
+            ),
+          ),
       ]),
     );
   }

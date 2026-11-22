@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../models/device.dart';
 import '../models/scene.dart';
 import 'home_store.dart';
+import '../platform/platform.dart';
 
 /// The SmartHomeKJ widget on the Android home screen (ScenesWidget.kt): the open home's first scenes and All off.
 /// The All off tile in Quick Settings (AllOffTile.kt) comes through here too.
@@ -15,7 +15,7 @@ class ScenesWidget {
   const ScenesWidget([this.channel = const MethodChannel('smartmenukj/widget')]);
   final MethodChannel channel;
 
-  static bool get supported => !kIsWeb && Platform.isAndroid;
+  static bool get supported => AppPlatform.current.homeScreenWidget;
 
   /// How many scenes the widget has room for.
   static const shown = 4;

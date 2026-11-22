@@ -96,7 +96,8 @@ class NCard extends StatelessWidget {
     this.onLongPress,
     this.inverted = false,
     this.glass = false,
-    this.radius = 18,
+    this.accent = false,
+    this.radius = 20,
   });
 
   final Widget child;
@@ -105,6 +106,9 @@ class NCard extends StatelessWidget {
   final VoidCallback? onLongPress;
   final bool inverted;
   final bool glass;
+
+  /// Filled with the accent blue, for the one main thing to do on a screen. Put white content on it.
+  final bool accent;
   final double radius;
 
   @override
@@ -117,7 +121,7 @@ class NCard extends StatelessWidget {
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOut,
         decoration: BoxDecoration(
-          color: inverted ? p.tileOn : (glass ? p.glass : p.surface),
+          color: accent ? KJPalette.accent : (inverted ? p.tileOn : (glass ? p.glass : p.surface)),
           borderRadius: BorderRadius.circular(radius),
           boxShadow: inverted ? p.cardShadow : const [],
         ),
@@ -223,10 +227,10 @@ class SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
+      padding: const EdgeInsets.fromLTRB(4, 24, 4, 10),
       child: Row(
         children: [
-          Expanded(child: Text(text, style: NType.body(20, color: p.text, weight: 700))),
+          Expanded(child: Text(text, style: NType.body(21, color: p.text, weight: 700))),
           ?trailing,
         ],
       ),
@@ -433,10 +437,14 @@ class DeviceTile extends StatefulWidget {
     this.onOpen,
     this.onLevel,
     this.onLevelEnd,
+    this.toggles = false,
   });
 
-  /// Height of a tile in a grid.
-  static const height = 76.0;
+  /// Height of a device row.
+  static const height = 72.0;
+
+  /// A tap switches the device on or off, so the row shows a switch.
+  final bool toggles;
 
   final Device device;
   final VoidCallback onTap;
@@ -531,7 +539,7 @@ class _DeviceTileState extends State<DeviceTile> with TickerProviderStateMixin {
             ),
           ]
         : const <BoxShadow>[];
-    const radius = BorderRadius.all(Radius.circular(18));
+    const radius = BorderRadius.all(Radius.circular(20));
     final tile = AnimatedContainer(
       duration: const Duration(milliseconds: 240),
       curve: Curves.easeOut,
@@ -579,15 +587,15 @@ class _DeviceTileState extends State<DeviceTile> with TickerProviderStateMixin {
                   ),
                 ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 0, 8),
+                padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
                 child: Row(children: [
                   Stack(clipBehavior: Clip.none, children: [
                     _pop(
                       flash,
                       AnimatedContainer(
                         duration: const Duration(milliseconds: 240),
-                        width: 36,
-                        height: 36,
+                        width: 42,
+                        height: 42,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: iconBg,
@@ -600,7 +608,7 @@ class _DeviceTileState extends State<DeviceTile> with TickerProviderStateMixin {
                         ),
                         child: Icon(
                           deviceIcon(d.kind, active: active),
-                          size: 19,
+                          size: 21,
                           color: active ? (iconBg.computeLuminance() > 0.6 ? p.onTileOn : Colors.white) : dim,
                         ),
                       ),
@@ -620,24 +628,30 @@ class _DeviceTileState extends State<DeviceTile> with TickerProviderStateMixin {
                         ),
                       ),
                   ]),
-                  const SizedBox(width: 9),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(d.name,
-                          maxLines: 2, overflow: TextOverflow.ellipsis, style: NType.body(14, color: fg, weight: 600, height: 1.15)),
-                      const SizedBox(height: 1),
+                          maxLines: 1, overflow: TextOverflow.ellipsis, style: NType.body(16, color: fg, weight: 600, height: 1.2)),
+                      const SizedBox(height: 2),
                       if (_drag != null)
                         Text(levelLabel(d, _drag!),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: NType.body(12.5, color: dim, height: 1.15))
+                            style: NType.body(13.5, color: dim, height: 1.2))
                       else
                         RollText(widget.subtitle ?? describeState(d),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: NType.body(12.5, color: d.state.reachable ? dim : KJPalette.danger, height: 1.15)),
+                            style: NType.body(13.5, color: d.state.reachable ? dim : KJPalette.danger, height: 1.2)),
                     ]),
                   ),
+                  // A switch shows at a glance whether a tap turns it on or off; the rest only open.
+                  if (widget.toggles)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: PowerPill(on: active, color: tint),
+                    ),
                   if (widget.onOpen != null)
                     Semantics(
                       button: true,
@@ -647,9 +661,9 @@ class _DeviceTileState extends State<DeviceTile> with TickerProviderStateMixin {
                         behavior: HitTestBehavior.opaque,
                         onTap: widget.onOpen,
                         child: SizedBox(
-                          width: 26,
-                          height: 56,
-                          child: Icon(CupertinoIcons.chevron_right, size: 13, color: dim.withValues(alpha: 0.5)),
+                          width: 34,
+                          height: 52,
+                          child: Icon(CupertinoIcons.chevron_right, size: 15, color: dim.withValues(alpha: 0.6)),
                         ),
                       ),
                     ),
@@ -720,11 +734,54 @@ class _WashPainter extends CustomPainter {
 
 /// A grid of [DeviceTile]s: two across on a phone, more on wider screens.
 SliverGridDelegate deviceGridDelegate(double width) => SliverGridDelegateWithFixedCrossAxisCount(
-      crossAxisCount: (width / 190).floor().clamp(2, 6),
-      mainAxisSpacing: 10,
+      crossAxisCount: deviceColumns(width),
+      mainAxisSpacing: 8,
       crossAxisSpacing: 10,
       mainAxisExtent: DeviceTile.height,
     );
+
+/// Device rows across: one on a phone, so names are never cut off, more side by side on wide screens.
+int deviceColumns(double width) => (width / 340).floor().clamp(1, 4);
+
+/// The switch on a device row: green and to the right when on, like an iOS switch. It only shows the state;
+/// the row around it does the switching.
+class PowerPill extends StatelessWidget {
+  const PowerPill({super.key, required this.on, this.color});
+  final bool on;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    const ms = Duration(milliseconds: 200);
+    return ExcludeSemantics(
+      child: AnimatedContainer(
+        duration: ms,
+        width: 46,
+        height: 28,
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(999),
+          color: on ? KJPalette.green : (p.isDark ? const Color(0xFF39393D) : const Color(0xFFE3E3E8)),
+        ),
+        child: AnimatedAlign(
+          duration: ms,
+          curve: Curves.easeOutCubic,
+          alignment: on ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            width: 22,
+            height: 22,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: Color(0x26000000), blurRadius: 3, offset: Offset(0, 1))],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 /// A slider with a round white knob on a thick track. [onChanged] fires while dragging,
 /// [onChangeEnd] once when the finger lifts (send that to the device).
@@ -1005,3 +1062,86 @@ class _ToastListenerState extends State<ToastListener> {
   @override
   Widget build(BuildContext context) => widget.child;
 }
+
+/// A page opened on top of a tab: a back button, a big title and a scrolling column, no wider than [maxWidth].
+class PageScaffold extends StatelessWidget {
+  const PageScaffold({
+    super.key,
+    required this.title,
+    required this.children,
+    this.backKey,
+    this.actions = const [],
+    this.maxWidth = 720,
+  });
+  final String title;
+  final List<Widget> children;
+  final Key? backKey;
+  final List<Widget> actions;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: SafeArea(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxWidth),
+              child: Column(children: [
+                PageHeader(title: title, backKey: backKey, actions: actions),
+                Expanded(
+                  child: ListView(padding: const EdgeInsets.fromLTRB(20, 0, 20, 40), children: children),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      );
+}
+
+/// The top of a page opened on top of a tab: a back chevron and the page's title.
+class PageHeader extends StatelessWidget {
+  const PageHeader({super.key, required this.title, this.backKey, this.actions = const []});
+  final String title;
+  final Key? backKey;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(8, 8, 16, 8),
+        child: Row(children: [
+          IconButton(
+            key: backKey,
+            tooltip: tr('Back'),
+            onPressed: () => Navigator.maybePop(context),
+            icon: const Icon(CupertinoIcons.back, color: KJPalette.accent, size: 28),
+          ),
+          const SizedBox(width: 4),
+          Expanded(child: DisplayText(title, size: 30, maxLines: 1)),
+          ...actions,
+        ]),
+      );
+}
+
+/// Shows [child] (a tab's screen) as a page of its own, with a back button above it.
+Future<void> pushTabPage(BuildContext context, Widget child, {Key? backKey}) =>
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (context) => Scaffold(
+        body: SafeArea(
+          child: Column(children: [
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+                child: IconButton(
+                  key: backKey,
+                  tooltip: tr('Back'),
+                  onPressed: () => Navigator.maybePop(context),
+                  icon: const Icon(CupertinoIcons.back, color: KJPalette.accent, size: 28),
+                ),
+              ),
+            ),
+            Expanded(child: child),
+          ]),
+        ),
+      ),
+    ));

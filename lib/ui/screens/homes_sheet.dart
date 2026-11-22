@@ -127,7 +127,7 @@ class HomesSheet extends StatelessWidget {
               if (name == null || name.isEmpty || !context.mounted) return;
               Navigator.pop(context);
               final home = await store.addHome(name);
-              store.toast('${home.name} added. Connect its devices on the Connect tab.');
+              store.toast('${home.name} added. Add its devices from More, then Add devices.');
             },
             icon: const Icon(Icons.add_home_outlined, size: 18),
             label: const Text('Add home'),
