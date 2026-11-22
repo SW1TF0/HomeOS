@@ -1,7 +1,5 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import '../platform/platform.dart';
 
 /// Short sounds for taps, switching things on and off and running scenes,
 /// unless turned off in Settings. Played by Android (UiSounds.kt); elsewhere
@@ -10,7 +8,6 @@ class Sounds {
   static bool enabled = true;
 
   static const _channel = MethodChannel('smartmenukj/sounds');
-  static final _android = !kIsWeb && Platform.isAndroid;
 
   /// Buttons, tabs, chips and cards.
   static void tap() => _play('tap');
@@ -26,9 +23,10 @@ class Sounds {
 
   static void _play(String name) {
     if (!enabled) return;
-    if (_android) {
+    final platform = AppPlatform.current;
+    if (platform.appSounds) {
       _channel.invokeMethod<void>('play', name).catchError((Object _) {});
-    } else if (name == 'tap' && !kIsWeb && (Platform.isMacOS || Platform.isWindows)) {
+    } else if (name == 'tap' && platform.clickOnTap) {
       SystemSound.play(SystemSoundType.click);
     }
   }

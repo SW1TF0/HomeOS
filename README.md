@@ -162,6 +162,7 @@ lib/
   integrations/   One driver per system + catalog + network scan
   state/          HomeStore (all changes go through it), local storage, sample home
   cloud/          Accounts, sync and remote control over Firebase (REST, no SDK)
+  platform/       Everything that differs per system: one file each for Android, iOS, macOS, Windows, Linux, web
   theme/          colours and type (Apple Home look)
   ui/             Screens and shared widgets
 test/             Model, driver, store and widget tests
@@ -169,8 +170,15 @@ tool/             Setup and check scripts, screenshot generator
 firebase/         Database rules and emulator settings
 ```
 
+### Fixing something on one system without breaking another
+
+- **Only `lib/platform/` knows which system it runs on.** Everything that differs (sounds, the background service, reading the network, timeouts, download files, look tweaks) is in `lib/platform/<system>.dart`. A Mac-only fix goes in `macos.dart`, a Windows-only fix in `windows.dart`, so one cannot change the other. `test/architecture_test.dart` fails, naming the file and line, if code elsewhere checks `Platform.isWindows` and the like.
+- **The back end never uses screens.** `models/`, `state/`, `integrations/`, `cloud/` and `util/` cannot import widgets or `ui/` (the same test enforces it), so changing how something looks cannot break how devices are controlled.
+- **See Windows on a Mac:** `./run.sh --as windows` (or `--as android`, `ios`, `linux`; on Windows `run.bat --as macos`) runs the app looking and behaving like that system. In a debug build, **More → Diagnostics → Pretend to be** switches it while the app runs.
+- **When something breaks on one system only,** open **More → Diagnostics** there and tap **Copy report**: it has the system, the connections, failing devices and the log.
+
 - Every pull request is analyzed and tested on **Linux, macOS and Windows**, and the desktop app is built on each, all with the Flutter version from `pubspec.yaml`. A fix made on a Mac that breaks Windows fails there before it is merged.
-- `test/platform_test.dart` opens every tab, page and device control as Android, iOS, macOS, Windows and Linux each behave, on a phone and on a desktop, and at 130% text size. Run it on any computer: `./flutterw test test/platform_test.dart`.
+- `test/platform_test.dart` opens every tab, page and device control as Android, iOS, macOS, Windows and Linux each behave, on a phone and on a desktop, at 130% text size, and at Windows' 125–175% screen scaling. Run it on any computer: `./flutterw test test/platform_test.dart`.
 - `.gitattributes` keeps line endings the same (LF) on every computer, so files read by tests compare the same on Windows.
 - Errors go to `AppLog` (`lib/util/app_log.dart`): Flutter errors, uncaught errors, failed device commands, failed connections and messages shown to the user. See them in **More → Diagnostics**.
 - `flutter test tool/screenshots_test.dart --update-goldens` regenerates the screenshots in `docs/screenshots/`.

@@ -4,12 +4,15 @@
 // Flutter draws the same widgets everywhere, but some behave differently by platform: scrolling, text selection,
 // keyboard focus, menus, back buttons, page transitions, scrollbars on desktops. Each test here sets the platform
 // with debugDefaultTargetPlatformOverride; any exception, overflow or missing widget fails it.
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Text;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:smartmenukj/app.dart';
+import 'package:smartmenukj/platform/platform.dart';
+import 'package:smartmenukj/state/updates.dart';
 import 'package:smartmenukj/state/home_store.dart';
 import 'package:smartmenukj/state/repository.dart';
 import 'package:smartmenukj/ui/screens/device_sheet.dart';
@@ -116,6 +119,76 @@ void main() {
     });
   }
 
+  // Windows laptops usually scale the screen by 125%, 150% or 175%: hairlines and rounding look different there.
+  for (final scale in [1.0, 1.25, 1.5, 1.75]) {
+    testWidgets('Windows at ${(scale * 100).round()}% screen scaling: every tab draws without overflow',
+        variant: TargetPlatformVariant.only(TargetPlatform.windows), (tester) async {
+      tester.view.physicalSize = const Size(1366, 768) * scale;
+      tester.view.devicePixelRatio = scale;
+      addTearDown(tester.view.reset);
+      final store = HomeStore(repository: MemoryHomeRepository(), client: MockClient((_) async => http.Response('[]', 200)));
+      await store.load();
+      await tester.pumpWidget(SmartMenuApp(store: store, poll: false));
+      await tester.pumpAndSettle();
+      for (final tab in ['rooms', 'automate', 'more', 'home']) {
+        await tester.tap(find.byKey(Key('tab-$tab')));
+        await tester.pumpAndSettle();
+      }
+    });
+  }
+
+  group('platform profiles', () {
+    test('only Android runs in the background, keeps a widget, timed scenes, backups and RTSP', () {
+      for (final os in AppOS.values) {
+        final p = AppPlatform.of(os);
+        final android = os == AppOS.android;
+        expect([p.keepsRunningInBackground, p.homeScreenWidget, p.timedSceneAlarms, p.backupFolder, p.playsRtsp],
+            everyElement(android), reason: os.name);
+      }
+    });
+
+    test('Windows waits long enough to hear a connection turned down; the others do not wait longer', () {
+      const usual = Duration(milliseconds: 600);
+      expect(AppPlatform.of(AppOS.windows).connectWait(usual), greaterThanOrEqualTo(const Duration(seconds: 2)));
+      for (final os in [AppOS.macos, AppOS.linux, AppOS.android, AppOS.ios]) {
+        expect(AppPlatform.of(os).connectWait(usual), usual, reason: os.name);
+      }
+    });
+
+    test('each computer downloads its own update', () {
+      for (final (os, update) in [
+        (AppOS.android, UpdatePlatform.android),
+        (AppOS.windows, UpdatePlatform.windows),
+        (AppOS.macos, UpdatePlatform.macos),
+        (AppOS.linux, UpdatePlatform.linux),
+      ]) {
+        expect(AppPlatform.of(os).downloadAsset, update.asset, reason: os.name);
+      }
+      expect(AppPlatform.of(AppOS.ios).downloadAsset, isNull);
+    });
+
+    test('desktops are desktops', () {
+      expect(AppOS.values.where((o) => AppPlatform.of(o).isDesktop), {AppOS.macos, AppOS.windows, AppOS.linux});
+    });
+  });
+
+  testWidgets('Diagnostics can make the app pretend to be Windows, and back', (tester) async {
+    await _pump(tester, _sizes['phone']!);
+    addTearDown(() => AppPlatform.pretend(null));
+    await tester.tap(find.byKey(const Key('tab-more')));
+    await tester.pumpAndSettle();
+    await _tap(tester, find.byKey(const Key('more-diagnostics')));
+    await tester.scrollUntilVisible(find.byKey(const Key('pretend-windows')), 200,
+        scrollable: find.byType(Scrollable).last);
+    await _tap(tester, find.byKey(const Key('pretend-windows')));
+    expect(AppPlatform.pretending, AppOS.windows);
+    expect(defaultTargetPlatform, TargetPlatform.windows);
+    expect(Theme.of(tester.element(find.byKey(const Key('tab-home')))).platform, TargetPlatform.windows);
+    AppPlatform.pretend(null);
+    await tester.pumpAndSettle();
+    expect(AppPlatform.pretending, isNull);
+  });
+
   testWidgets('big text (130%) still fits on a phone', (tester) async {
     await _pump(tester, _sizes['phone']!, textScale: 1.3);
     for (final tab in ['rooms', 'automate', 'more', 'home']) {
@@ -137,7 +210,8 @@ void main() {
     expect(find.textContaining('1 error'), findsOneWidget, reason: 'More says something went wrong');
     await _tap(tester, find.byKey(const Key('more-diagnostics')));
     expect(find.byKey(const Key('diagnostics-system')), findsOneWidget);
-    expect(find.text('windows'), findsOneWidget, reason: 'the platform the app looks like');
+    expect(find.descendant(of: find.byKey(const Key('diagnostics-system')), matching: find.text('windows')), findsWidgets,
+        reason: 'the platform the app looks like');
 
     final ctx = tester.element(find.byType(DiagnosticsScreen));
     final report = diagnosticsReport(ctx);

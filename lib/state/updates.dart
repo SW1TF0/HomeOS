@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
 
 import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
@@ -8,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app_info.dart';
+import '../platform/platform.dart';
 
 /// Asks GitHub, at most twice a day, whether a newer SmartHomeKJ is out, so the home screen can offer it.
 class UpdateCheck extends ChangeNotifier {
@@ -138,11 +138,7 @@ enum UpdatePlatform {
   final String? asset;
 
   static UpdatePlatform get here {
-    if (kIsWeb) return other;
-    if (Platform.isAndroid) return android;
-    if (Platform.isWindows) return windows;
-    if (Platform.isMacOS) return macos;
-    if (Platform.isLinux) return linux;
-    return other;
+    final asset = AppPlatform.current.downloadAsset;
+    return values.where((p) => p.asset != null && p.asset == asset).firstOrNull ?? other;
   }
 }

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Text;
@@ -12,6 +11,7 @@ import '../../cloud/cloud_sync.dart';
 import '../../models/device.dart';
 import '../../state/home_store.dart';
 import '../../theme/app_theme.dart';
+import '../../platform/platform.dart';
 import '../../util/app_log.dart';
 import '../widgets/kj_widgets.dart';
 import '../widgets/motion.dart';
@@ -27,10 +27,11 @@ List<(String, String)> systemFacts(BuildContext context) {
   return [
     ('App', 'SmartHomeKJ $appVersion'),
     ('Mode', kReleaseMode ? 'release' : (kProfileMode ? 'profile' : 'debug')),
-    ('Platform', kIsWeb ? 'web' : Platform.operatingSystem),
-    ('OS version', kIsWeb ? '-' : Platform.operatingSystemVersion),
-    ('Dart', kIsWeb ? '-' : Platform.version.split(' ').first),
+    ('Platform', AppPlatform.current.label),
+    ('OS version', AppPlatform.current.osVersion),
+    ('Dart', AppPlatform.current.dartVersion),
     ('Look', defaultTargetPlatform.name),
+    if (AppPlatform.pretending case final os?) ('Pretending', os.name),
     ('Language', L10n.code),
     if (size != null)
       ('Screen', '${size.width.round()} × ${size.height.round()} @${media!.devicePixelRatio.toStringAsFixed(1)}x'),
@@ -124,6 +125,32 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
               ),
           ]),
         ),
+        // Only in debug and profile builds: see on a Mac how the app looks and behaves on Windows, and so on.
+        if (!kReleaseMode) ...[
+          const SectionLabel('Pretend to be'),
+          Text('Draws the app the way another system does: scrolling, menus, text selection, the profile in '
+              'lib/platform/. What only the real system can do (its own video player, background service) stays.',
+              style: NType.body(13.5, color: p.textDim)),
+          const SizedBox(height: 10),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            NChip(
+              key: const Key('pretend-none'),
+              label: 'Itself',
+              selected: AppPlatform.pretending == null,
+              onTap: () => AppPlatform.pretend(null),
+            ),
+            for (final os in AppOS.values.where((o) => o != AppOS.web))
+              NChip(
+                key: Key('pretend-${os.name}'),
+                label: AppPlatform.of(os).label,
+                selected: AppPlatform.pretending == os,
+                onTap: () {
+                  AppLog.info('app', 'Pretending to be ${os.name}');
+                  AppPlatform.pretend(os);
+                },
+              ),
+          ]),
+        ],
         SectionLabel('Connections', trailing: Text('${store.integrations.length}', style: NType.label(color: p.textDim))),
         if (store.integrations.isEmpty) Text('No connections yet.', style: NType.body(14, color: p.textDim)),
         for (final c in store.integrations)

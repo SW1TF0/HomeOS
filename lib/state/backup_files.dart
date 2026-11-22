@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io' show Platform;
 
 import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
@@ -10,6 +9,7 @@ import '../models/home.dart';
 import 'app_settings.dart';
 import 'home_store.dart';
 import 'repository.dart';
+import '../platform/platform.dart';
 
 /// A copy of every home kept in a file on the phone, in Downloads/SmartHomeKJ. The file stays when the app is
 /// uninstalled, so a new install can take the homes back from it. Android only (BackupFiles.kt); elsewhere the
@@ -22,7 +22,7 @@ class BackupFiles extends ChangeNotifier {
   });
 
   /// For the device the app runs on.
-  factory BackupFiles.here() => BackupFiles(available: !kIsWeb && Platform.isAndroid);
+  factory BackupFiles.here() => BackupFiles(available: AppPlatform.current.backupFolder);
 
   /// Whether this device keeps a backup file.
   final bool available;

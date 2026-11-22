@@ -7,6 +7,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 import 'cloud/cloud_sync.dart';
+import 'platform/platform.dart';
 import 'state/app_settings.dart';
 import 'state/backup_files.dart';
 import 'state/history.dart';
@@ -74,18 +75,23 @@ class SmartMenuApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: AppLog.instance),
         ChangeNotifierProvider(create: (_) => AppNav()),
       ],
-      child: Consumer2<HomeStore, AppSettings>(
+      // Draws everything again when the app starts or stops pretending to be another system (Diagnostics).
+      child: ValueListenableBuilder<AppOS?>(
+        valueListenable: AppPlatform.pretendChanges,
+        builder: (context, _, _) => Consumer2<HomeStore, AppSettings>(
         builder: (context, store, settings, _) => L10nScope(
           code: L10n.code,
-          child: MaterialApp(
+          child: AppPlatform.looks.wrapApp(MaterialApp(
+            key: ValueKey(AppPlatform.pretending),
             title: 'SmartHomeKJ',
             debugShowCheckedModeBanner: false,
             locale: Locale(L10n.code),
             supportedLocales: const [Locale('en'), Locale('bg')],
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
             scrollBehavior: const _AppleScroll(),
-            theme: buildAppTheme(Brightness.light),
-            darkTheme: buildAppTheme(Brightness.dark),
+            // Each system's own look fixes come last (lib/platform/<system>.dart).
+            theme: AppPlatform.looks.adjustTheme(buildAppTheme(Brightness.light)),
+            darkTheme: AppPlatform.looks.adjustTheme(buildAppTheme(Brightness.dark)),
             themeMode: switch (store.themeMode) {
               'dark' => ThemeMode.dark,
               'system' => ThemeMode.system,
@@ -93,8 +99,9 @@ class SmartMenuApp extends StatelessWidget {
             },
             builder: intro ? (context, child) => LaunchCurtain(child: child!) : null,
             home: _Start(intro: intro, poll: poll, initialTab: settings.startTab),
-          ),
+          )),
         ),
+      ),
       ),
     );
   }

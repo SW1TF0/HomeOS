@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -21,11 +20,14 @@ import 'state/updates.dart';
 import 'ui/widgets/motion.dart';
 import 'util/app_log.dart';
 import 'app_info.dart';
+import 'platform/platform.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   AppLog.install();
-  AppLog.info('app', 'SmartHomeKJ $appVersion starting on ${kIsWeb ? 'web' : '${Platform.operatingSystem} ${Platform.operatingSystemVersion}'}');
+  AppPlatform.applyStartupPretend();
+  AppLog.info('app', 'SmartHomeKJ $appVersion starting on ${AppPlatform.current.label}'
+      '${AppPlatform.pretending == null ? '' : ', pretending to be ${AppPlatform.pretending!.name}'}');
   LicenseRegistry.addLicense(_bundledLicenses);
   final settings = AppSettings();
   await settings.load();
@@ -68,21 +70,18 @@ Stream<LicenseEntry> _bundledLicenses() async* {
       ['MAC address makers (IEEE, oui-data)'], await rootBundle.loadString('assets/mac_vendors-LICENSE.txt'));
 }
 
-const _hub = MethodChannel('smartmenukj/hub');
-
 /// What this device is called when it keeps a home online: the phone's model, or the computer's name.
 Future<String> _deviceName() async {
   try {
-    if (!kIsWeb && Platform.isAndroid) return await _hub.invokeMethod<String>('name') ?? 'Android device';
-    if (!kIsWeb) return Platform.localHostname;
-  } catch (_) {}
-  return 'Home device';
+    return await AppPlatform.current.deviceName();
+  } catch (_) {
+    return 'Home device';
+  }
 }
 
 /// On Android a device that keeps a home online runs on in the background, with a notification saying so.
 void _keepRunning(bool on) {
-  if (kIsWeb || !Platform.isAndroid) return;
-  _hub.invokeMethod<void>(on ? 'start' : 'stop').catchError((Object e) => debugPrint('Home device service: $e'));
+  if (AppPlatform.current.keepsRunningInBackground) AppPlatform.current.keepRunning(on);
 }
 
 /// Started by Android without a screen when a timed scene is due, or for a widget tap (see SceneAlarmReceiver.kt).

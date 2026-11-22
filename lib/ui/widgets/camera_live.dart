@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Text;
@@ -11,10 +10,11 @@ import '../../integrations/integration.dart';
 import '../../theme/app_theme.dart';
 import '../../util/digest_auth.dart';
 import '../../l10n/text.dart';
+import '../../platform/platform.dart';
 
 /// Whether RTSP video plays here. Android plays it; Apple's player and the desktop apps have no RTSP, so there a
 /// camera shows pictures (or MJPEG) instead.
-bool get rtspPlays => debugRtspPlays ?? (!kIsWeb && Platform.isAndroid);
+bool get rtspPlays => debugRtspPlays ?? AppPlatform.current.playsRtsp;
 
 /// Tests have no video player: they set these to play RTSP with a stand-in. Always null in the app.
 bool? debugRtspPlays;

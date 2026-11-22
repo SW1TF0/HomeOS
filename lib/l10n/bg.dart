@@ -1199,6 +1199,15 @@ const bgWords = <String, String>{
   '1 failing connection': '1 връзка с проблем',
   '1 error': '1 грешка',
   'devices': 'устройства',
+  'Pretend to be': 'Престори се на',
+  'Draws the app the way another system does: scrolling, menus, text selection, the profile in lib/platform/. What only the real system can do (its own video player, background service) stays.': 'Рисува приложението така, както го прави друга система: превъртане, менюта, избор на текст, профилът в lib/platform/. Каквото може само истинската система (собственият ѝ видео плейър, работата във фона), остава.',
+  'Itself': 'Себе си',
+  'Pretending': 'Преструва се на',
+  'Android': 'Android',
+  'iOS': 'iOS',
+  'macOS': 'macOS',
+  'Windows': 'Windows',
+  'Linux': 'Linux',
 };
 
 const bgPatterns = <String, String>{

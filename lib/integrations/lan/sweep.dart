@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import '../../platform/platform.dart';
 
 /// What knocking on an address found.
 class SweepHit {
@@ -36,7 +37,7 @@ Future<void> sweepHosts(
     var alive = false;
     await Future.wait(ports.map((port) async {
       try {
-        final s = await Socket.connect(host, portMap[port] ?? port, timeout: timeout);
+        final s = await Socket.connect(host, portMap[port] ?? port, timeout: AppPlatform.current.connectWait(timeout));
         s.destroy();
         open.add(port);
         alive = true;
@@ -59,7 +60,10 @@ Future<void> sweepHosts(
 /// A name for [host] from the router's DNS (many routers know every device's name).
 Future<String?> reverseName(String host) async {
   try {
-    final r = await InternetAddress(host).reverse().timeout(const Duration(milliseconds: 1500));
+    final address = InternetAddress(host);
+    // This computer itself: Windows names it after the computer, which is no device's name.
+    if (address.isLoopback) return null;
+    final r = await address.reverse().timeout(const Duration(milliseconds: 1500));
     final name = r.host;
     if (name.isEmpty || name == host || RegExp(r'^[\d.]+$').hasMatch(name)) return null;
     return name.replaceFirst(RegExp(r'\.(local|lan|home|localdomain|home\.arpa|fritz\.box|domain)$', caseSensitive: false), '');
