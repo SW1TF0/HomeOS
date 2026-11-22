@@ -79,14 +79,26 @@ void main() {
     final closed = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
     final closedPort = closed.port;
     await closed.close();
+    // How this system turns down a connection to a closed port: how long it takes and which error it gives.
+    final probe = Stopwatch()..start();
+    String refusal;
+    try {
+      (await Socket.connect('127.0.0.1', closedPort, timeout: const Duration(seconds: 10))).destroy();
+      refusal = 'connected?!';
+    } on SocketException catch (e) {
+      refusal = 'code ${e.osError?.errorCode} "${e.osError?.message ?? e.message}"';
+    }
+    final how = '$refusal after ${probe.elapsedMilliseconds} ms';
     final hits = <SweepHit>[];
     await sweepHosts(['127.0.0.1'], hits.add, ports: [8060, 22], portMap: {8060: open.port, 22: closedPort});
+    expect(hits, hasLength(1), reason: 'refusal here: $how');
     expect(hits.single.host, '127.0.0.1');
     expect(hits.single.openPorts, {8060});
     expect(guessFromPorts(hits.single.openPorts), 'roku');
 
     hits.clear();
     await sweepHosts(['127.0.0.1'], hits.add, ports: [22], portMap: {22: closedPort});
+    expect(hits, hasLength(1), reason: 'only refused; refusal here: $how');
     expect(hits.single.openPorts, isEmpty, reason: 'a refusal still proves the device is there');
     await open.close();
   });
