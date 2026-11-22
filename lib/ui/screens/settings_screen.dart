@@ -18,6 +18,7 @@ import '../widgets/kj_widgets.dart';
 import '../widgets/update_card.dart';
 import 'account_sheet.dart';
 import 'backup_restore.dart';
+import 'diagnostics_screen.dart';
 import 'help_sheet.dart';
 import 'home_screen.dart';
 import 'homes_sheet.dart';
@@ -164,7 +165,7 @@ class SettingsScreen extends StatelessWidget {
                           icon: Icons.open_in_new,
                           title: 'Open the app on',
                           choices: [
-                            for (final (i, name) in const ['Home', 'Map', 'Devices'].indexed)
+                            for (final (i, name) in const ['Home', 'Rooms', 'Automate'].indexed)
                               (name, settings.startTab == i, () => settings.startTab = i),
                           ],
                         ),
@@ -332,6 +333,13 @@ class SettingsScreen extends StatelessWidget {
                           title: const Text('Welcome tour'),
                           subtitle: const Text('The screens a new install opens with'),
                           onTap: () => replayWelcome(context),
+                        ),
+                        ListTile(
+                          key: const Key('settings-diagnostics'),
+                          leading: const Icon(CupertinoIcons.waveform_path_ecg),
+                          title: const Text('Diagnostics'),
+                          subtitle: const Text('The log, connections and devices that fail, to copy into a bug report'),
+                          onTap: () => openDiagnostics(context),
                         ),
                         ListTile(
                           key: const Key('settings-updates'),

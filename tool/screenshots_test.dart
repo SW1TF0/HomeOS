@@ -30,8 +30,10 @@ import 'package:smartmenukj/ui/screens/router_screen.dart';
 import 'package:smartmenukj/ui/widgets/camera_live.dart';
 import 'package:smartmenukj/ui/widgets/motion.dart';
 import 'package:smartmenukj/util/sun.dart';
+import 'package:smartmenukj/util/app_log.dart';
 
 import '../test/weather_fixture.dart';
+import '../test/nav_helpers.dart';
 
 Future<void> _loadFonts() async {
   final inter = FontLoader('Inter');
@@ -46,7 +48,11 @@ Future<void> _loadFonts() async {
       ..addFont(Future.value(ByteData.sublistView(icons.readAsBytesSync())));
     await loader.load();
   }
-  final cupertino = File('${Platform.environment['HOME']}/.pub-cache/hosted/pub.dev/cupertino_icons-1.0.9/assets/CupertinoIcons.ttf');
+  // The pub cache: PUB_CACHE if set, else ~/.pub-cache on Mac and Linux, %LOCALAPPDATA%\Pub\Cache on Windows.
+  final env = Platform.environment;
+  final pubCache = env['PUB_CACHE'] ??
+      (Platform.isWindows ? '${env['LOCALAPPDATA']}/Pub/Cache' : '${env['HOME']}/.pub-cache');
+  final cupertino = File('$pubCache/hosted/pub.dev/cupertino_icons-1.0.9/assets/CupertinoIcons.ttf');
   if (cupertino.existsSync()) {
     final loader = FontLoader('packages/cupertino_icons/CupertinoIcons')
       ..addFont(Future.value(ByteData.sublistView(cupertino.readAsBytesSync())));
@@ -115,7 +121,7 @@ void main() {
 
   testWidgets('phone map', (tester) async {
     final store = await _app(tester, phone);
-    await tester.tap(find.byKey(const Key('tab-map')));
+    await tester.tap(find.byKey(const Key('tab-rooms')));
     await _shot(tester, 'phone-map');
     store.unplaceDevice(store.devices.firstWhere((d) => d.name == 'Bath fan'));
     await tester.tap(find.byKey(const Key('map-edit')));
@@ -126,7 +132,7 @@ void main() {
 
   testWidgets('phone map drawing', (tester) async {
     await _app(tester, phone);
-    await tester.tap(find.byKey(const Key('tab-map')));
+    await tester.tap(find.byKey(const Key('tab-rooms')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('map-edit')));
     await tester.pumpAndSettle();
@@ -203,7 +209,7 @@ void main() {
 
   testWidgets('phone connect', (tester) async {
     await _app(tester, phone);
-    await tester.tap(find.byKey(const Key('tab-connect')));
+    await openConnectTab(tester);
     await _shot(tester, 'phone-connect');
   });
 
@@ -214,7 +220,7 @@ void main() {
     store.addVirtualDevice(shelly.id, 'Porch light', DeviceKind.outlet,
         props: {'host': '192.168.1.40', 'mac': 'a8032ab12345', 'gen': 2, 'component': 'switch', 'channel': 0});
     store.addIntegration('tuya', settings: {'access_id': 'id', 'access_secret': 'secret', 'region': 'eu'});
-    await tester.tap(find.byKey(const Key('tab-connect')));
+    await openConnectTab(tester);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('control-anywhere')));
     await _shot(tester, 'phone-anywhere');
@@ -222,7 +228,7 @@ void main() {
 
   testWidgets('phone matter pairing', (tester) async {
     await _app(tester, phone);
-    await tester.tap(find.byKey(const Key('tab-connect')));
+    await openConnectTab(tester);
     await tester.pumpAndSettle();
     final card = find.byKey(const Key('spec-matter'));
     await tester.scrollUntilVisible(card, 200, scrollable: find.byType(Scrollable).last);
@@ -451,13 +457,53 @@ void main() {
 
   testWidgets('phone light theme', (tester) async {
     await _app(tester, phone, theme: 'light');
-    await tester.tap(find.byKey(const Key('tab-devices')));
+    await openDevicesTab(tester);
     await _shot(tester, 'phone-devices-light');
+  });
+
+  testWidgets('phone automate', (tester) async {
+    final store = await _app(tester, phone);
+    Device named(String n) => store.devices.firstWhere((d) => d.name == n);
+    store.addScene('Good night', [named('Ceiling light'), named('Front door'), named('TV')], icon: 'night');
+    final movie = store.addScene('Movie night', [named('Floor lamp'), named('TV')], icon: 'movie');
+    store
+      ..addAutomation(Automation(
+          id: 'auto-tv',
+          trigger: AutomationTrigger(deviceId: named('TV').id, kind: TriggerKind.turnsOn),
+          then: AutomationStep.scene(movie.id)))
+      ..addAutomation(Automation(
+          id: 'auto-dusk',
+          trigger: const AutomationTrigger(deviceId: AutomationTrigger.home, kind: TriggerKind.sunset, number: -15),
+          then: AutomationStep.device(named('Floor lamp').id, on: true)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('tab-automate')));
+    await _shot(tester, 'phone-automate');
+  });
+
+  testWidgets('phone more', (tester) async {
+    await _app(tester, phone);
+    await tester.tap(find.byKey(const Key('tab-more')));
+    await _shot(tester, 'phone-more');
+  });
+
+  testWidgets('phone diagnostics', (tester) async {
+    final store = await _app(tester, phone);
+    AppLog.instance.clear();
+    AppLog.info('app', 'SmartHomeKJ starting on macos');
+    final tv = store.devices.firstWhere((d) => d.name == 'TV');
+    store.lastErrors[tv.id] = (at: DateTime(2026, 11, 22, 18, 4), error: 'Connection refused (192.168.1.31:8001)');
+    AppLog.warn('device TV (demo)', 'Connection refused (192.168.1.31:8001)');
+    await tester.tap(find.byKey(const Key('tab-more')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('more-diagnostics')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('more-diagnostics')));
+    await _shot(tester, 'phone-diagnostics');
   });
 
   testWidgets('desktop map', (tester) async {
     await _app(tester, desktop);
-    await tester.tap(find.text('Map'));
+    await tester.tap(find.byKey(const Key('tab-rooms')));
     await _shot(tester, 'desktop-map');
   });
 

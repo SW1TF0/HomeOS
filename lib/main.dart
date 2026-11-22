@@ -19,9 +19,13 @@ import 'state/scene_alarms.dart';
 import 'state/scenes_widget.dart';
 import 'state/updates.dart';
 import 'ui/widgets/motion.dart';
+import 'util/app_log.dart';
+import 'app_info.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  AppLog.install();
+  AppLog.info('app', 'SmartHomeKJ $appVersion starting on ${kIsWeb ? 'web' : '${Platform.operatingSystem} ${Platform.operatingSystemVersion}'}');
   LicenseRegistry.addLicense(_bundledLicenses);
   final settings = AppSettings();
   await settings.load();

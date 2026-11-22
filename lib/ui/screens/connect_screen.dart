@@ -41,19 +41,19 @@ class ConnectScreen extends StatelessWidget {
             const SizedBox(height: 18),
             NCard(
               key: const Key('scan-network'),
-              inverted: true,
+              accent: true,
               onTap: () => openScanSheet(context),
               child: Row(children: [
-                Icon(Icons.wifi_tethering, color: p.background, size: 28),
+                const Icon(Icons.wifi_tethering, color: Colors.white, size: 28),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Scan network', style: NType.body(17, color: p.background, weight: 600)),
+                    Text('Scan network', style: NType.body(17, color: Colors.white, weight: 600)),
                     Text('Find TVs, speakers, plugs, lights, hubs and anything else on your Wi-Fi',
-                        style: NType.body(13, color: p.background.withValues(alpha: 0.65))),
+                        style: NType.body(13, color: Colors.white.withValues(alpha: 0.8))),
                   ]),
                 ),
-                Icon(Icons.arrow_forward, color: p.background),
+                const Icon(Icons.arrow_forward, color: Colors.white),
               ]),
             ),
             const SizedBox(height: 10),

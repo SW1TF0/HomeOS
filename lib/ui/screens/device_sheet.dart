@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart' hide Text;
 import 'package:provider/provider.dart';
 
@@ -58,7 +59,7 @@ class DeviceCard extends StatelessWidget {
     // With a timer set, the tile counts down to it instead of naming the room.
     if (timer != null) {
       return _Every(const Duration(seconds: 20),
-          (_) => _tile(context, store, '${tr(describeState(d))} · ${timerText(timer, DateTime.now())}'));
+          (_) => _tile(context, store, '${tr(describeState(d))} · ${timerText(timer, clock.now())}'));
     }
     return _tile(context, store, subtitle);
   }
@@ -68,6 +69,7 @@ class DeviceCard extends StatelessWidget {
     return DeviceTile(
       device: d,
       subtitle: subtitle,
+      toggles: HomeStore.tapControls(d),
       onTap: () {
         if (!HomeStore.tapControls(d)) {
           showDeviceSheet(context, d);
@@ -163,7 +165,8 @@ class _TimerCardState extends State<TimerCard> {
     final p = context.palette;
     final d = widget.device;
     final timer = store.timerFor(d.id);
-    final now = DateTime.now();
+    // The same clock the store sets timers by, so the countdown and the timer always agree.
+    final now = clock.now();
     if (timer != null) {
       return NCard(
         key: const Key('timer-set'),

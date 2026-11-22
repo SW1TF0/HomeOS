@@ -95,7 +95,7 @@ List<Device> sceneCandidates(HomeStore store) => store.devices
         (d.has(Capability.run) && (d.kind == DeviceKind.vacuum || d.kind == DeviceKind.mower)))
     .toList();
 
-String _sceneSubtitle(Scene s) {
+String sceneSubtitle(Scene s) {
   final n = s.actions.length;
   final devices = '$n device${n == 1 ? '' : 's'}';
   return s.schedule == null ? devices : '$devices · ${tr(s.schedule!.label)}';
@@ -203,8 +203,10 @@ class _ScenesRowState extends State<ScenesRow> {
             ),
           ),
         );
+    // Taller with bigger text, so the two lines in each tile always fit.
+    final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0);
     return SizedBox(
-      height: 62,
+      height: 62 * scale,
       child: ListView(
         scrollDirection: Axis.horizontal,
         clipBehavior: Clip.none,
@@ -215,7 +217,7 @@ class _ScenesRowState extends State<ScenesRow> {
               color: sceneColor(s.icon),
               icon: sceneIcon(s.icon),
               name: s.name,
-              detail: _running == s.id ? 'Running...' : (_done == s.id ? 'Done' : _sceneSubtitle(s)),
+              detail: _running == s.id ? 'Running...' : (_done == s.id ? 'Done' : sceneSubtitle(s)),
               running: _running == s.id,
               done: _done == s.id,
               onTap: () => _run(store, s),

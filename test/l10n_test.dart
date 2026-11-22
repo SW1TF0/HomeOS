@@ -138,7 +138,7 @@ void main() {
     expect(find.byKey(const Key('home-greeting')), findsOneWidget);
 
     final ctx = tester.element(find.byType(HomeScreen));
-    for (final tab in ['tab-map', 'tab-devices', 'tab-connect', 'tab-home']) {
+    for (final tab in ['tab-rooms', 'tab-automate', 'tab-more', 'tab-home']) {
       await tester.tap(find.byKey(Key(tab)));
       await tester.pumpAndSettle();
     }

@@ -13,15 +13,16 @@ import 'state/history.dart';
 import 'state/home_store.dart';
 import 'state/updates.dart';
 import 'theme/app_theme.dart';
-import 'ui/screens/connect_screen.dart';
-import 'ui/screens/devices_screen.dart';
+import 'ui/screens/automate_screen.dart';
 import 'ui/screens/home_screen.dart';
+import 'ui/screens/more_screen.dart';
 import 'ui/nav.dart';
 import 'ui/screens/map_screen.dart';
 import 'ui/screens/welcome_screen.dart';
 import 'ui/widgets/kj_widgets.dart';
 import 'ui/widgets/launch_curtain.dart';
 import 'ui/widgets/motion.dart';
+import 'util/app_log.dart';
 import 'util/sounds.dart';
 import 'l10n/text.dart';
 
@@ -70,6 +71,7 @@ class SmartMenuApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: history),
         ChangeNotifierProvider.value(value: updates),
         ChangeNotifierProvider.value(value: store.weather),
+        ChangeNotifierProvider.value(value: AppLog.instance),
         ChangeNotifierProvider(create: (_) => AppNav()),
       ],
       child: Consumer2<HomeStore, AppSettings>(
@@ -141,11 +143,12 @@ class _Tab {
   final IconData activeIcon;
 }
 
+/// The four tabs: the home for everyday control, the floor plan of rooms, scenes and automations, and the rest.
 const _tabs = [
   _Tab('Home', CupertinoIcons.house, CupertinoIcons.house_fill),
-  _Tab('Map', CupertinoIcons.square_grid_2x2, CupertinoIcons.square_grid_2x2_fill),
-  _Tab('Devices', CupertinoIcons.lightbulb, CupertinoIcons.lightbulb_fill),
-  _Tab('Connect', CupertinoIcons.antenna_radiowaves_left_right, CupertinoIcons.antenna_radiowaves_left_right),
+  _Tab('Rooms', CupertinoIcons.square_grid_2x2, CupertinoIcons.square_grid_2x2_fill),
+  _Tab('Automate', CupertinoIcons.wand_stars_inverse, CupertinoIcons.wand_stars),
+  _Tab('More', CupertinoIcons.ellipsis_circle, CupertinoIcons.ellipsis_circle_fill),
 ];
 
 class AppShell extends StatefulWidget {
@@ -211,8 +214,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     final pages = [
       const HomeScreen(),
       MapScreen(key: _mapKey),
-      DevicesScreen(onOpenConnect: () => nav.go(AppNav.connect)),
-      const ConnectScreen(),
+      const AutomateScreen(),
+      const MoreScreen(),
     ];
     final body = ToastListener(
       message: context.read<HomeStore>().message,
@@ -313,6 +316,7 @@ class _RailItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     return GestureDetector(
+      key: Key('tab-${tab.label.toLowerCase()}'),
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Padding(
@@ -337,7 +341,8 @@ class _BottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
-    return ClipRect(
+    // Tab labels stay their size, as in iOS, so bigger text does not push the icons out of the bar.
+    return MediaQuery.withNoTextScaling(child: ClipRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
         child: Container(
@@ -403,6 +408,6 @@ class _BottomBar extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }

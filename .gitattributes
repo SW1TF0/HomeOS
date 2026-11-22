@@ -1,0 +1,19 @@
+# The same line endings on every computer. Without this, Git on Windows checks text files out with CRLF, so
+# anything that reads a file and compares it (tests, the database rules, fixtures) passes on a Mac and fails on
+# Windows.
+* text=auto eol=lf
+
+# Windows-only scripts keep Windows line endings.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Never touch binaries.
+*.png binary
+*.jpg binary
+*.ico binary
+*.icns binary
+*.ttf binary
+*.otf binary
+*.apk binary
+*.p12 binary

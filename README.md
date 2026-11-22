@@ -8,17 +8,21 @@ Everything is free and local-first. There is no subscription and no paywall, and
 
 **[Download for Android](https://github.com/SW1TF0/HomeOS/releases/latest/download/SmartMenuKJ-android.apk)** · [Windows, macOS and Linux](https://github.com/SW1TF0/HomeOS/releases/latest)
 
-| Home | A room | Light controls | Thermostat |
+| Home | Automate | More | Diagnostics |
 | --- | --- | --- | --- |
-| ![Home](docs/screenshots/phone-home.png) | ![Room](docs/screenshots/phone-room.png) | ![Light](docs/screenshots/phone-device.png) | ![Thermostat](docs/screenshots/phone-thermostat.png) |
+| ![Home](docs/screenshots/phone-home.png) | ![Automate](docs/screenshots/phone-automate.png) | ![More](docs/screenshots/phone-more.png) | ![Diagnostics](docs/screenshots/phone-diagnostics.png) |
+
+| A room | Light controls | Thermostat | Add devices |
+| --- | --- | --- | --- |
+| ![Room](docs/screenshots/phone-room.png) | ![Light](docs/screenshots/phone-device.png) | ![Thermostat](docs/screenshots/phone-thermostat.png) | ![Add devices](docs/screenshots/phone-connect.png) |
 
 | Floor plan | Editing the plan | Drawing a room | Editing the home screen |
 | --- | --- | --- | --- |
 | ![Map](docs/screenshots/phone-map.png) | ![Map editing](docs/screenshots/phone-map-edit.png) | ![Drawing a room](docs/screenshots/phone-map-draw.png) | ![Edit home](docs/screenshots/phone-home-edit.png) |
 
-| Colour | Connections | Adding a Matter device | Light theme |
-| --- | --- | --- | --- |
-| ![Colour](docs/screenshots/phone-colour.png) | ![Connect](docs/screenshots/phone-connect.png) | ![Matter](docs/screenshots/phone-matter.png) | ![Light theme](docs/screenshots/phone-devices-light.png) |
+| Colour | Adding a Matter device | All devices |
+| --- | --- | --- |
+| ![Colour](docs/screenshots/phone-colour.png) | ![Matter](docs/screenshots/phone-matter.png) | ![All devices](docs/screenshots/phone-devices-light.png) |
 
 | Robot vacuum | Alarm | More than one home | Account |
 | --- | --- | --- | --- |
@@ -56,6 +60,9 @@ Everything is free and local-first. There is no subscription and no paywall, and
 
 ## What it does
 
+- **Four tabs.** **Home** for everyday control, **Rooms** for the floor plan, **Automate** for scenes and automations, and **More** for adding devices, all devices, activity, homes, weather, the account, settings, help and diagnostics. On a computer they sit in a rail on the left.
+- **One row per device.** Every device on the home screen is a full-width row with its name, its room and state, and a switch: tap the row to switch it, drag sideways to dim it, tap the arrow (or hold) for all its controls. Chips at the top narrow the list to one room; favourites come first.
+- **Diagnostics.** **More → Diagnostics** (also in **Settings**) shows the app's version and the system it runs on, every connection and whether it works, the devices that are not answering with their last error and raw data, and the app's log of errors, failed commands and messages. **Copy report** puts all of it on the clipboard for a bug report. Nothing leaves the device.
 - **Opening and welcome.** The app opens with a short animation: the house mark draws itself, its door lights up, your devices fly out around it and switch on, and the door opens into your home (tap to skip it). A new install then shows three moving welcome pages, asks your name, and offers to make a free account, sign in, or carry on without one. The home screen greets you by name ("Good evening, Krasimir"), and screens and tiles glide in as they open. **Settings → Animations** turns all of it off (so does the phone's own "remove animations"), and **Settings → Welcome tour** shows the welcome again.
 - **A home that feels alive.** The home screen sits under a sky that follows the time of day where you live: pink at dawn, blue by day, golden before sunset, then dusk and, on the dark theme, a night of twinkling stars. The sun or moon crosses it, and it turns grey under rain and clouds. A tile you switch on lights up: its icon pops, its light washes across the tile, and a lamp glows in its own colour around its tile, more the brighter it is; the brightness control glows the same way and shows the percentage as you drag. Numbers and states roll in like on an iPhone, the weather icon moves with the weather (the sun turns, rain falls, a storm flashes), a running scene shimmers and ends with a tick, and a soft pill slides to the open tab. All of it follows **Settings → Animations**.
 - **Sign up and sign in.** A screen of its own with Sign in and Create account side by side, your name, a password meter, a shake when something is wrong, a reset link, and a tick when you are in. A new account gets an email to confirm the address, and its name comes along to every phone you sign in on.
@@ -71,7 +78,7 @@ Everything is free and local-first. There is no subscription and no paywall, and
 - **Automations.** "When this happens, do that": a sensor detects motion, a door opens, a room gets warmer than 25°, a light turns on, the alarm goes off, a robot finishes or a device stops answering, the sun rises or sets, it starts to rain, or it gets colder or warmer outside than a number of degrees, and a scene runs or a device switches, maybe off again a few minutes later (a light after motion). An automation can be kept to some hours, like the night. They run while the app is open, and all the time on a device that keeps the home online.
 - **Home-screen widget and All off tile (Android).** A black widget with the open home's first four scenes and All off, and an All off tile in Quick Settings. They work with the app closed. **Settings → Shortcuts** adds them.
 - **Matter, with no hub.** SmartHomeKJ is its own Matter controller: type a device's pairing code and its lights, plugs, sensors, blinds, locks, thermostat, robot vacuum, washer, dishwasher, air purifier, water valve or smoke alarm appear, controlled directly on your network. Matter bridges (Hue, IKEA, Aqara...) bring all their devices at once.
-- **Cameras, live.** **Connect → Add a camera** finds cameras on your Wi-Fi (ONVIF), asks for the camera's own login and works out where its video is: from ONVIF, or the usual addresses of Tapo, Reolink, Hikvision / Ezviz and Dahua / Imou / Amcrest, or a link you type. The video plays straight from the camera over your Wi-Fi, never through a cloud: RTSP in the Android app (HD or the quicker SD picture, sound, full screen with zoom), MJPEG on every device, and Home Assistant cameras on every device too. Elsewhere a camera shows a new picture every few seconds. Ring, Arlo, Nest, Blink and Wyze only stream to their own cloud; add them through Home Assistant.
+- **Cameras, live.** **More → Add devices → Add a camera** finds cameras on your Wi-Fi (ONVIF), asks for the camera's own login and works out where its video is: from ONVIF, or the usual addresses of Tapo, Reolink, Hikvision / Ezviz and Dahua / Imou / Amcrest, or a link you type. The video plays straight from the camera over your Wi-Fi, never through a cloud: RTSP in the Android app (HD or the quicker SD picture, sound, full screen with zoom), MJPEG on every device, and Home Assistant cameras on every device too. Elsewhere a camera shows a new picture every few seconds. Ring, Arlo, Nest, Blink and Wyze only stream to their own cloud; add them through Home Assistant.
 - **Camera recordings.** Dahua, Imou, Amcrest, Hikvision and Ezviz cameras play back what they recorded on their memory card: **Recordings** under the live video shows a week of days, a line through the day with what was recorded and, in red, when something moved, and the list of clips. Tap a clip or anywhere on the line to watch from then, skip 30 seconds either way, or zoom the line to 4 hours or 1 hour. Recordings play in the Android app on your home Wi-Fi; ones saved to a camera maker's cloud stay in its own app.
 - **Scan network.** Finds everything on your Wi-Fi that answers (mDNS, UPnP / SSDP, ONVIF cameras, Kasa, Yeelight and iRobot discovery, and a knock on every address): TVs, speakers, plugs, lights, robots, routers, hubs, printers, phones and more. Everything it finds can be added in one tap, or by typing a device's IP address. Each one is named, not just numbered: from the router's list of who has which address (a MikroTik with its login), the device's own Bonjour or Windows name, DNS or its web page, and its maker from the first half of its MAC address (the IEEE list ships with the app), so "192.168.88.23" reads "Galaxy-S23 · Samsung" or "iPhone or iPad · Apple". Devices without controls of their own show whether they are online, who made them, can be woken with Wake-on-LAN and open their own web page.
 - **iRobot Roomba, on your Wi-Fi.** Roombas and Braavas are found by the scan. Hold the robot's HOME button until it plays a tone, tap **Get password**, and it starts, pauses, resumes, goes home and beeps from the app, with its battery, bin and errors, without the iRobot cloud.
@@ -79,7 +86,7 @@ Everything is free and local-first. There is no subscription and no paywall, and
 - **TV remote.** Power, volume, mute, channels, arrows, OK, back, home and play / pause for Samsung, LG, Sony and Roku TVs, plus volume and play / pause for Chromecast, Google TV and UPnP speakers. TVs that are fully off are woken with Wake-on-LAN.
 - **More than one home.** Tap the home's name at the top of the home screen to switch homes, add one, rename, reorder or delete them. Each home has its own floor plan, devices, connections and scenes.
 - **Profile menu.** The round button in the top right of every tab opens your account, a quick switch between homes, **Settings** and **Help**. Settings has the theme, the language, a 24- or 12-hour clock, the tab the app opens on, how often devices are checked, vibration, the widget and Quick Settings tile, backups, the update check and the app's licences.
-- **Control from anywhere with nothing at home.** Devices with a cloud of their own answer from anywhere by themselves: Shelly once its Shelly Cloud key is added (at home the app still talks to them straight over Wi-Fi, and switches to the cloud on mobile data or when they stop answering), Tuya and Smart Life devices, Imou cameras, and everything in Home Assistant once its outside address is added. **Connect → Control from anywhere** shows which of your devices answer away from home and opens each of these. Everything else only listens on the home Wi-Fi, as in Apple Home, which needs an Apple TV or HomePod at home; for those, see the next point. iRobot, Philips Hue, TP-Link Tapo and Kasa, Google and Apple keep their clouds closed to other apps.
+- **Control from anywhere with nothing at home.** Devices with a cloud of their own answer from anywhere by themselves: Shelly once its Shelly Cloud key is added (at home the app still talks to them straight over Wi-Fi, and switches to the cloud on mobile data or when they stop answering), Tuya and Smart Life devices, Imou cameras, and everything in Home Assistant once its outside address is added. **More → Add devices → Control from anywhere** shows which of your devices answer away from home and opens each of these. Everything else only listens on the home Wi-Fi, as in Apple Home, which needs an Apple TV or HomePod at home; for those, see the next point. iRobot, Philips Hue, TP-Link Tapo and Kasa, Google and Apple keep their clouds closed to other apps.
 - **Account and control from anywhere (optional, free).** Sign in from the profile button and your homes are saved to your account and stay in step on every device you sign in on. Most devices only answer on your home Wi-Fi, so on mobile data your phone cannot reach them by itself. Leave a second phone, tablet or computer at home with the app, signed in and plugged in, and turn on **Keep … online from this device** there (not on the phone you carry). Your other devices then switch things through it from anywhere, straight away when they are off Wi-Fi; the home screen shows *Away · through …* when they do, and an *Away from home* card saying what is missing when nothing at home is passing commands on. If the Firebase database rules were never set, the account screen says so and copies them for you. On Android it keeps running in the background with a small notification.
 - **Backups.** On Android the app keeps a backup file of every home in *Downloads/SmartHomeKJ*, written after each change. The file stays when the app is uninstalled, so after a reinstall the home screen offers to take your homes back from it (or **Settings → Restore from a file**). The file includes your connection passwords; it can be switched off in Settings. On every device you can also copy a home as text and paste it back elsewhere.
 - **English and Bulgarian.** The app follows the phone's language, or pick one in **Settings → Language**. It switches at once, on every screen.
@@ -106,7 +113,7 @@ No app can speak every protocol on its own, so SmartHomeKJ combines direct local
 | **ESPHome** | Lights, switches, fans, covers, locks and sensors | The `web_server:` component |
 | **Virtual devices** | Placeholders for trying the app or planning before you buy | Built in |
 
-**Matter:** the device has to be on your network already. If it is set up in Google Home, Apple Home, SmartThings or Alexa, open it there and choose *Linked Matter apps* (or *Turn on pairing mode*) to get a new pairing code, then type it in **Connect → Matter** or **Devices → Add device**. It stays in the other app too. Brand-new devices that join Wi-Fi over Bluetooth need to be set up once in another Matter app first; SmartHomeKJ cannot do Bluetooth setup yet.
+**Matter:** the device has to be on your network already. If it is set up in Google Home, Apple Home, SmartThings or Alexa, open it there and choose *Linked Matter apps* (or *Turn on pairing mode*) to get a new pairing code, then type it in **More → Add devices → Matter** or **Devices → Add device**. It stays in the other app too. Brand-new devices that join Wi-Fi over Bluetooth need to be set up once in another Matter app first; SmartHomeKJ cannot do Bluetooth setup yet.
 
 New device families are added by writing one driver class in `lib/integrations/` and listing it in `lib/integrations/catalog.dart`.
 
@@ -122,15 +129,29 @@ The macOS app is not signed, so the first time you open it, right-click it and c
 
 ### Build it yourself
 
-1. Install [Flutter](https://docs.flutter.dev/get-started/install) (stable channel).
-2. `flutter pub get`
-3. Run it: `flutter run` (pick a phone, emulator, or `-d windows` / `-d macos` / `-d linux`).
+You don't need to install Flutter yourself. The repo sets up everything it needs, at the exact Flutter version in `pubspec.yaml`, inside its own `.sdk/` folder (ignored by Git), so it never clashes with anything else on the computer and every computer builds with the same Flutter.
+
+| | Set up once | Run the app | Check everything (like CI) |
+| --- | --- | --- | --- |
+| **Windows** | double-click `setup.bat` | double-click `run.bat` | `tool\check.bat` |
+| **macOS** | `./tool/setup.sh` | `./run.sh` | `./tool/check.sh` |
+| **Linux** | `./tool/setup.sh` | `./run.sh` | `./tool/check.sh` |
+
+What setup installs:
+
+- **Everywhere:** Flutter (into `.sdk/flutter`) and the app's packages.
+- **Windows:** Git and the Visual Studio 2022 C++ build tools (through winget) if they are missing. It also opens the Developer Mode setting, which Flutter needs to build plugins.
+- **macOS:** the Xcode command line tools. Building the Mac app also needs the full Xcode, free from the App Store.
+- **Linux:** clang, CMake, Ninja and GTK, through apt, dnf or pacman.
+- **Android (optional):** add `--android` (or `setup.bat -Android`) for Java 17 and the Android SDK, also into `.sdk/`.
+
+Then use `./flutterw` (or `flutterw.bat`) instead of `flutter` for any other command, e.g. `./flutterw build macos` or `flutterw.bat build windows`. VS Code picks up the repo's Flutter by itself (`.vscode/settings.json`).
 
 ## First steps in the app
 
 1. The app opens with a sample home of virtual devices so you can try everything right away. Delete or move anything you like.
-2. Go to **Connect** and tap **Scan network**, or pick a connection and type its address.
-3. New devices appear on the **Devices** tab. Open **Map** and tap **Edit**: new devices wait in the tray at the bottom, drag each one into its room.
+2. Go to **More → Add devices** and tap **Scan network**, or pick a connection and type its address.
+3. New devices appear on the home screen and in **More → All devices**. Open **Rooms** and tap **Edit**: new devices wait in the tray at the bottom, drag each one into its room.
 4. To control your home when you are out, tap the profile button in the top right, then **Sign in or create account**, and on a device that stays at home turn on **Keep … online from this device**.
 
 ## For developers
@@ -144,11 +165,14 @@ lib/
   theme/          colours and type (Apple Home look)
   ui/             Screens and shared widgets
 test/             Model, driver, store and widget tests
-tool/             Screenshot generator
+tool/             Setup and check scripts, screenshot generator
 firebase/         Database rules and emulator settings
 ```
 
-- `flutter analyze` and `flutter test` run on every pull request.
+- Every pull request is analyzed and tested on **Linux, macOS and Windows**, and the desktop app is built on each, all with the Flutter version from `pubspec.yaml`. A fix made on a Mac that breaks Windows fails there before it is merged.
+- `test/platform_test.dart` opens every tab, page and device control as Android, iOS, macOS, Windows and Linux each behave, on a phone and on a desktop, and at 130% text size. Run it on any computer: `./flutterw test test/platform_test.dart`.
+- `.gitattributes` keeps line endings the same (LF) on every computer, so files read by tests compare the same on Windows.
+- Errors go to `AppLog` (`lib/util/app_log.dart`): Flutter errors, uncaught errors, failed device commands, failed connections and messages shown to the user. See them in **More → Diagnostics**.
 - `flutter test tool/screenshots_test.dart --update-goldens` regenerates the screenshots in `docs/screenshots/`.
 - `firebase emulators:exec --only auth,database --config firebase/firebase.json "FIREBASE_EMULATOR=1 flutter test test/firebase_emulator_test.dart"` checks accounts, sync and the database rules against the real Firebase emulators.
 - `python3 tool/make_icons.py` redraws the app icon for every platform (needs Pillow).

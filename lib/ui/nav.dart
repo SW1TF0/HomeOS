@@ -7,7 +7,10 @@ typedef MapRequest = ({bool edit, String? roomId});
 class AppNav extends ChangeNotifier {
   AppNav({this.tab = 0});
 
-  static const home = 0, map = 1, devices = 2, connect = 3;
+  /// The tabs, in the order of the tab bar. The floor plan is the Rooms tab.
+  static const home = 0, rooms = 1, automate = 2, more = 3;
+  static const map = rooms;
+  static const count = 4;
 
   int tab;
   MapRequest? _mapRequest;

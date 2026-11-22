@@ -20,6 +20,9 @@ version: 1.21.0+24
 
 environment:
   sdk: ^3.13.5
+  # The one Flutter version for every computer and for CI. tool/setup.sh and tool/setup.ps1 download exactly this
+  # into .sdk/flutter, and GitHub Actions reads it from here, so Mac, Windows and Linux all build with the same one.
+  flutter: 3.50.0
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions

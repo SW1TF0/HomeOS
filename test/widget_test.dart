@@ -26,6 +26,7 @@ import 'package:smartmenukj/state/repository.dart';
 import 'package:smartmenukj/ui/widgets/camera_live.dart';
 import 'package:smartmenukj/ui/widgets/history_chart.dart';
 import 'package:smartmenukj/ui/widgets/kj_widgets.dart';
+import 'nav_helpers.dart';
 
 Future<HomeStore> pumpApp(WidgetTester tester, {Size size = const Size(420, 900), http.Client? client}) async {
   tester.view.physicalSize = size * 2;
@@ -85,7 +86,7 @@ Future<void> openControls(WidgetTester tester, String name) async {
 }
 
 Future<void> openMapEditor(WidgetTester tester) async {
-  await tester.tap(find.byKey(const Key('tab-map')));
+  await tester.tap(find.byKey(const Key('tab-rooms')));
   await tester.pumpAndSettle();
   await tester.tap(find.byKey(const Key('map-edit')));
   await tester.pumpAndSettle();
@@ -137,7 +138,8 @@ void main() {
     expect(light.state.brightness, closeTo(0.72, 0.001));
     final tile = find.ancestor(of: find.text('Ceiling light'), matching: find.byType(DeviceTile));
     await scrollHomeTo(tester, tile);
-    await dragSlowly(tester, tester.getCenter(tile), const Offset(-100, 0));
+    // A full-width row: a drag across a third of it takes off about a third.
+    await dragSlowly(tester, tester.getCenter(tile), Offset(-tester.getSize(tile).width / 3, 0));
     expect(light.state.brightness, lessThan(0.5));
     expect(light.state.on, isTrue);
     await dragSlowly(tester, tester.getCenter(tile), const Offset(-400, 0));
@@ -207,7 +209,7 @@ void main() {
 
   testWidgets('map: tap a device to switch it', (tester) async {
     final store = await pumpApp(tester);
-    await tester.tap(find.byKey(const Key('tab-map')));
+    await tester.tap(find.byKey(const Key('tab-rooms')));
     await tester.pumpAndSettle();
     final fan = store.devices.firstWhere((d) => d.name == 'Bath fan');
     await tester.tap(find.byKey(Key('marker-${fan.id}')));
@@ -218,7 +220,7 @@ void main() {
 
   testWidgets('map edit: drag a room to move it and a device into another room', (tester) async {
     final store = await pumpApp(tester);
-    await tester.tap(find.byKey(const Key('tab-map')));
+    await tester.tap(find.byKey(const Key('tab-rooms')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('map-edit')));
     await tester.pumpAndSettle();
@@ -365,7 +367,7 @@ void main() {
   testWidgets('map: tap a room to see it, then edit it from there', (tester) async {
     final store = await pumpApp(tester);
     final bath = store.rooms.firstWhere((r) => r.name == 'Bath');
-    await tester.tap(find.byKey(const Key('tab-map')));
+    await tester.tap(find.byKey(const Key('tab-rooms')));
     await tester.pumpAndSettle();
     await tester.tapAt(tester.getTopLeft(find.byKey(Key('room-${bath.id}'))) + const Offset(10, 10));
     await tester.pumpAndSettle();
@@ -441,7 +443,7 @@ void main() {
 
   testWidgets('connect: add a Shelly by address', (tester) async {
     final store = await pumpApp(tester);
-    await tester.tap(find.byKey(const Key('tab-connect')));
+    await openConnectTab(tester);
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(find.byKey(const Key('spec-shelly')), 200,
         scrollable: find.byType(Scrollable).last);
@@ -461,7 +463,7 @@ void main() {
     final shelly = store.addIntegration('shelly', settings: {'hosts': '10.0.0.5'});
     store.addVirtualDevice(shelly.id, 'Hall light', DeviceKind.outlet,
         props: {'host': '10.0.0.5', 'mac': 'a8032ab12345', 'gen': 2, 'component': 'switch', 'channel': 0});
-    await tester.tap(find.byKey(const Key('tab-connect')));
+    await openConnectTab(tester);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('control-anywhere')));
     await tester.pumpAndSettle();
@@ -618,7 +620,9 @@ void main() {
   testWidgets('desktop width uses a side rail', (tester) async {
     await pumpApp(tester, size: const Size(1280, 800));
     expect(find.text('KJ'), findsOneWidget);
-    expect(find.byKey(const Key('tab-map')), findsNothing);
+    expect(find.byType(BottomNavigationBar), findsNothing);
+    expect(find.byKey(const Key('tab-rooms')), findsOneWidget, reason: 'in the rail');
+    expect(tester.getTopLeft(find.byKey(const Key('tab-rooms'))).dx, lessThan(100), reason: 'on the left');
   });
 
   testWidgets('connect: Matter asks for the pairing code and explains a wrong one', (tester) async {
@@ -626,7 +630,7 @@ void main() {
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(lock, (_) async => true);
     addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(lock, null));
     final store = await pumpApp(tester);
-    await tester.tap(find.byKey(const Key('tab-connect')));
+    await openConnectTab(tester);
     await tester.pumpAndSettle();
     final card = find.byKey(const Key('spec-matter'));
     await tester.scrollUntilVisible(card, 200, scrollable: find.byType(Scrollable).last);
@@ -1109,7 +1113,7 @@ void main() {
 
   testWidgets('the Connect tab has a way to add a camera', (tester) async {
     await pumpApp(tester);
-    await tester.tap(find.byKey(const Key('tab-connect')));
+    await openConnectTab(tester);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('add-camera')), findsOneWidget);
   });
@@ -1133,7 +1137,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('My home'), findsOneWidget);
     expect(store.devices, isNotEmpty);
-    await tester.tap(find.byKey(const Key('tab-map')));
+    await tester.tap(find.byKey(const Key('tab-rooms')));
     await tester.pumpAndSettle();
     final kitchen = store.rooms.firstWhere((r) => r.name == 'Kitchen');
     expect(find.byKey(Key('room-${kitchen.id}')), findsOneWidget);
@@ -1217,9 +1221,9 @@ void main() {
     await tester.tap(find.byKey(const Key('away-set-up')));
     await tester.pumpAndSettle();
     expect(find.textContaining('0 of 1 devices answer away from home'), findsOneWidget);
-    expect(find.textContaining('Needed by Porch plug'), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const Key('anywhere-hub')));
+    await tester.scrollUntilVisible(find.byKey(const Key('anywhere-hub')), 150, scrollable: find.byType(Scrollable).last);
     await tester.pumpAndSettle();
+    expect(find.textContaining('Needed by Porch plug'), findsOneWidget);
     await tester.tap(find.byKey(const Key('anywhere-hub')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('account-email')), findsOneWidget);
@@ -1246,7 +1250,7 @@ void main() {
       await store.addHome('Cabin');
       await store.openHome(store.homes.first.id);
       await tester.pumpAndSettle();
-      for (final tab in ['map', 'devices', 'connect', 'home']) {
+      for (final tab in ['rooms', 'automate', 'more', 'home']) {
         await tester.tap(find.byKey(Key('tab-$tab')));
         await tester.pumpAndSettle();
         expect(find.byKey(const Key('profile-button')).hitTestable(), findsOneWidget, reason: tab);

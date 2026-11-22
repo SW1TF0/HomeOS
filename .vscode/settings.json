@@ -1,0 +1,7 @@
+{
+  // Use the Flutter that tool/setup.sh / tool/setup.ps1 put in this repo, not one installed elsewhere.
+  "dart.flutterSdkPath": ".sdk/flutter",
+  "dart.lineLength": 120,
+  "files.eol": "\n",
+  "search.exclude": { ".sdk/**": true, "build/**": true }
+}
