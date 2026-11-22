@@ -155,6 +155,14 @@ void main() {
       }
     });
 
+    test('a refused connection is recognised by each system\'s own error code', () {
+      expect(AppPlatform.of(AppOS.windows).connectionRefused(1225), isTrue, reason: 'what Windows really reports');
+      expect(AppPlatform.of(AppOS.windows).connectionRefused(10061), isTrue);
+      expect(AppPlatform.of(AppOS.linux).connectionRefused(111), isTrue);
+      expect(AppPlatform.of(AppOS.macos).connectionRefused(61), isTrue);
+      expect(AppPlatform.of(AppOS.windows).connectionRefused(10060), isFalse, reason: 'a timeout is not a refusal');
+    });
+
     test('each computer downloads its own update', () {
       for (final (os, update) in [
         (AppOS.android, UpdatePlatform.android),

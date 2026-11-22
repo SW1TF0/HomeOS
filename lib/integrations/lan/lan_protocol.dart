@@ -92,14 +92,11 @@ class LanContext {
       s.destroy();
       return true;
     } on SocketException catch (e) {
-      return refusedCodes.contains(e.osError?.errorCode) ? false : null;
+      return AppPlatform.current.connectionRefused(e.osError?.errorCode) ? false : null;
     } catch (_) {
       return null;
     }
   }
-
-  /// "Connection refused" on Linux / Android, macOS / iOS and Windows.
-  static const refusedCodes = {111, 61, 10061};
 }
 
 /// One way of talking to devices on the local network (a TV brand, a plug family...).
