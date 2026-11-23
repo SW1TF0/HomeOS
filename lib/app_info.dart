@@ -1,5 +1,5 @@
 /// Shown in Settings and the profile menu. Keep in step with the version in pubspec.yaml.
-const appVersion = '1.22.0';
+const appVersion = '1.22.1';
 
 /// Where the app's releases are published (GitHub Releases); the update check and download links use it.
 const appReleasesUrl = 'https://github.com/SW1TF0/HomeOS';
