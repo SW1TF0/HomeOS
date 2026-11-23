@@ -6,7 +6,7 @@ A free smart home app for phones and computers. Draw your home as a floor plan, 
 
 Everything is free and local-first. There is no subscription and no paywall, and no account is needed: the app talks to your devices directly on your home network, and your homes are saved on your own device. A free account is optional; it keeps your homes in step on every phone and computer and lets you switch things from anywhere.
 
-**[Download for Android](https://github.com/SW1TF0/HomeOS/releases/latest/download/SmartMenuKJ-android.apk)** · [Windows, macOS and Linux](https://github.com/SW1TF0/HomeOS/releases/latest)
+**[Download for Android](https://github.com/SW1TF0/HomeOS/releases/latest/download/SmartMenuKJ-android.apk)** · **[Download for iPhone](https://github.com/SW1TF0/HomeOS/releases/latest/download/SmartMenuKJ-ios.ipa)** (install with [AltStore](https://altstore.io) or [Sideloadly](https://sideloadly.io)) · [Windows, macOS and Linux](https://github.com/SW1TF0/HomeOS/releases/latest)
 
 | Home | Automate | More | Diagnostics |
 | --- | --- | --- | --- |

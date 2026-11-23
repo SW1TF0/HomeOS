@@ -129,6 +129,7 @@ class UpdateCheck extends ChangeNotifier {
 /// Which download fits the device the app runs on.
 enum UpdatePlatform {
   android('SmartMenuKJ-android.apk'),
+  ios('SmartMenuKJ-ios.ipa'),
   windows('SmartMenuKJ-windows.zip'),
   macos('SmartMenuKJ-macos.zip'),
   linux('SmartMenuKJ-linux.tar.gz'),

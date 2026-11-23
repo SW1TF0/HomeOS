@@ -167,13 +167,14 @@ void main() {
     test('each computer downloads its own update', () {
       for (final (os, update) in [
         (AppOS.android, UpdatePlatform.android),
+        (AppOS.ios, UpdatePlatform.ios),
         (AppOS.windows, UpdatePlatform.windows),
         (AppOS.macos, UpdatePlatform.macos),
         (AppOS.linux, UpdatePlatform.linux),
       ]) {
         expect(AppPlatform.of(os).downloadAsset, update.asset, reason: os.name);
       }
-      expect(AppPlatform.of(AppOS.ios).downloadAsset, isNull);
+      expect(AppPlatform.of(AppOS.web).downloadAsset, isNull);
     });
 
     test('desktops are desktops', () {

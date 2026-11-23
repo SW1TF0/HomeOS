@@ -8,4 +8,6 @@ class IosProfile extends PlatformProfile {
   AppOS get os => AppOS.ios;
   @override
   String get label => 'iOS';
+  @override
+  String? get downloadAsset => 'SmartMenuKJ-ios.ipa';
 }
