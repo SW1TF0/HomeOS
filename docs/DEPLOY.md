@@ -5,7 +5,7 @@ their package from there (or, for Apple, from your Mac).
 
 | Where | Package | Built by | Updates |
 | --- | --- | --- | --- |
-| GitHub Releases | `.apk`, Windows `.zip`, macOS `.zip`, Linux `.tar.gz` | Build apps, on a `v*` tag | The app checks GitHub |
+| GitHub Releases | `.apk`, iPhone `.ipa` (unsigned), Windows `.zip`, macOS `.zip`, Linux `.tar.gz` | Build apps, on a `v*` tag | The app checks GitHub |
 | Google Play | `SmartMenuKJ-play.aab` | Build apps (artifact) | Google Play |
 | Microsoft Store | `SmartMenuKJ-msstore.msix` | Build apps (artifact) | Microsoft Store |
 | Apple App Store (iPhone, iPad) | `.ipa` | Your Mac: `./tool/release_apple.sh` | App Store |
@@ -89,6 +89,11 @@ Apple apps are signed with your own Apple certificates, so they are built and up
 5. App Review notes: "The app controls smart devices on the user's home network. To try it without devices, it
    opens with a sample home of virtual devices. An account is optional (More → Account) and can be deleted in the
    app (More → Account → Delete account)."
+
+**The iPhone `.ipa` on GitHub Releases** is built by Build apps without signing, since that needs your Apple
+certificate. People install it with a sideloading app (AltStore or Sideloadly), which signs it with their own Apple
+ID. A free Apple ID's signature lasts 7 days, and the sideloading app renews it. The App Store version below is
+separate and signed by you.
 
 **Each release:** `./tool/release_apple.sh`, then upload the `.ipa` it names with the **Transporter** app (free, Mac
 App Store), or `xcrun altool --upload-app`. Submit it for review in App Store Connect.
