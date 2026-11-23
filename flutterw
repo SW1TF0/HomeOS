@@ -5,4 +5,10 @@ ROOT="$(cd "$(dirname "$0")" && pwd)"
 [[ -x "$ROOT/.sdk/flutter/bin/flutter" ]] || "$ROOT/tool/setup.sh" || exit 1
 [[ -d "$ROOT/.sdk/jdk/Contents/Home" ]] && export JAVA_HOME="$ROOT/.sdk/jdk/Contents/Home"
 [[ -x "$ROOT/.sdk/jdk/bin/java" ]] && export JAVA_HOME="$ROOT/.sdk/jdk"
+# The Firebase API key is not in the code: run and build take it from firebase.local.json when it is there.
+if [[ -f "$ROOT/firebase.local.json" && ( "${1:-}" == "run" || "${1:-}" == "build" ) ]]; then
+  cmd="$1"; shift
+  [[ "$cmd" == "build" && -n "${1:-}" ]] && { cmd="build $1"; shift; }
+  exec "$ROOT/.sdk/flutter/bin/flutter" $cmd --dart-define-from-file="$ROOT/firebase.local.json" "$@"
+fi
 exec "$ROOT/.sdk/flutter/bin/flutter" "$@"

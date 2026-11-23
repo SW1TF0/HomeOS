@@ -48,7 +48,7 @@ jobs:
           ANDROID_SIGNING_SECRET="$ANDROID_SIGNING_SECRET" python tool/android_key.py android/app/release-key.p12 >> "$GITHUB_ENV"
       # Obfuscated: names in the compiled code are scrambled. The symbols to read crash stacks again are kept as an
       # artifact (flutter symbolize -i <stack> -d <symbols file>).
-      - run: flutter build apk --release --obfuscate --split-debug-info=build/symbols/android
+      - run: flutter build apk --release --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --obfuscate --split-debug-info=build/symbols/android
       - run: mv build/app/outputs/flutter-apk/app-release.apk SmartMenuKJ-android.apk
       - name: Check which key signed the APK
         run: |
@@ -65,7 +65,7 @@ jobs:
           name: SmartMenuKJ-android
           path: SmartMenuKJ-android.apk
       # Google Play takes an app bundle, signed with the same key (the upload key). STORE=play: Play updates it.
-      - run: flutter build appbundle --release --dart-define=STORE=play --obfuscate --split-debug-info=build/symbols/play
+      - run: flutter build appbundle --release --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --dart-define=STORE=play --obfuscate --split-debug-info=build/symbols/play
       - run: mv build/app/outputs/bundle/release/app-release.aab SmartMenuKJ-play.aab
       - uses: actions/upload-artifact@v4
         with:
@@ -84,7 +84,7 @@ jobs:
         with:
           flutter-version-file: pubspec.yaml
           cache: true
-      - run: flutter build windows --release --obfuscate --split-debug-info=build/symbols/windows
+      - run: flutter build windows --release --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --obfuscate --split-debug-info=build/symbols/windows
       - run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath SmartMenuKJ-windows.zip
       - uses: actions/upload-artifact@v4
         with:
@@ -92,7 +92,7 @@ jobs:
           path: SmartMenuKJ-windows.zip
       # The Microsoft Store package. Built again with STORE=msstore so it leaves updates to the Store. Its identity
       # comes from Partner Center (Product identity) through two secrets; without them it still builds, to check.
-      - run: flutter build windows --release --dart-define=STORE=msstore --obfuscate --split-debug-info=build/symbols/msstore
+      - run: flutter build windows --release --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --dart-define=STORE=msstore --obfuscate --split-debug-info=build/symbols/msstore
       # Never holds up the GitHub release: without the Partner Center identity it makes a test package only.
       - name: Make the Store package
         continue-on-error: true
@@ -129,7 +129,7 @@ jobs:
         with:
           flutter-version-file: pubspec.yaml
           cache: true
-      - run: flutter build linux --release --obfuscate --split-debug-info=build/symbols/linux
+      - run: flutter build linux --release --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --obfuscate --split-debug-info=build/symbols/linux
       - run: tar -czf SmartMenuKJ-linux.tar.gz -C build/linux/x64/release/bundle .
       - uses: actions/upload-artifact@v4
         with:
@@ -144,7 +144,7 @@ jobs:
         with:
           flutter-version-file: pubspec.yaml
           cache: true
-      - run: flutter build macos --release --obfuscate --split-debug-info=build/symbols/macos
+      - run: flutter build macos --release --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --obfuscate --split-debug-info=build/symbols/macos
       - run: cd build/macos/Build/Products/Release && ditto -c -k --keepParent SmartHomeKJ.app ../../../../../SmartMenuKJ-macos.zip
       - uses: actions/upload-artifact@v4
         with:
@@ -162,7 +162,7 @@ jobs:
         with:
           flutter-version-file: pubspec.yaml
           cache: true
-      - run: flutter build ios --release --no-codesign --obfuscate --split-debug-info=build/symbols/ios
+      - run: flutter build ios --release --dart-define=FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }} --no-codesign --obfuscate --split-debug-info=build/symbols/ios
       - name: Package the .ipa
         run: |
           mkdir -p ipa/Payload

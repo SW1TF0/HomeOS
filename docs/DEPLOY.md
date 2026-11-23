@@ -24,6 +24,16 @@ their crash stacks are kept as the private `symbols-*` artifacts of each run
    store packages as artifacts of that run (Actions → Build apps → the run → Artifacts).
 4. Upload each store package as below.
 
+## Once: the Firebase API key
+
+The key is not in the code. Add it as the repository secret **FIREBASE_API_KEY** (GitHub → Settings → Secrets and
+variables → Actions), and on each computer that builds the app copy `firebase.local.example.json` to
+`firebase.local.json` (git ignores it) and paste the key in. `./flutterw run` and `./flutterw build` read it. Without
+it the app builds and works, with no account or cloud.
+
+In Google Cloud Console → APIs & Services → Credentials, restrict the key to the Identity Toolkit and Firebase
+Realtime Database APIs, so a copy of it is no use for anything else.
+
 ## Once: the Firebase database rules
 
 Account deletion adds rules that stop a deleted account's other devices from saving again. Paste
